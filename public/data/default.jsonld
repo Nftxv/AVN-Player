@@ -69,8 +69,7 @@
       "source": "node-2",
       "target": "node-3a",
       "label": "Choose the light",
-      "color": "#f1c40f",
-      "isDefault": true
+      "color": "#f1c40f"
     },
     {
       "@type": "Path",

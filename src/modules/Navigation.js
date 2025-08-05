@@ -85,26 +85,8 @@ export default class Navigation {
       const modal = document.getElementById('choiceModal');
       const optionsContainer = document.getElementById('choiceOptions');
       const closeModalBtn = document.getElementById('closeModalBtn');
-      const countdownElem = document.getElementById('countdown');
+      optionsContainer.innerHTML = ''; // Clear previous options
 
-      optionsContainer.innerHTML = '';
-      
-      let countdownInterval = null;
-      let autoChoiceTimeout = null;
-      let countdown = 5; // 5 seconds timer
-
-      const cleanup = () => {
-        // Stop both timers!
-        clearInterval(countdownInterval);
-        clearTimeout(autoChoiceTimeout);
-
-        modal.classList.add('hidden');
-        closeModalBtn.removeEventListener('click', closeHandler);
-        while (optionsContainer.firstChild) {
-          optionsContainer.removeChild(optionsContainer.firstChild);
-        }
-      };
-      
       const onChoose = (edge) => {
         cleanup();
         resolve(edge);
@@ -112,26 +94,17 @@ export default class Navigation {
       
       const closeHandler = () => {
         cleanup();
-        resolve(null);
+        resolve(null); // Resolve with null if closed/canceled
       };
 
-      // 1. Find the default path, or fall back to the first option
-      const defaultEdge = options.find(opt => opt.isDefault) || options[0];
-
-      // 2. Set a timeout to automatically choose the default path
-      autoChoiceTimeout = setTimeout(() => {
-        onChoose(defaultEdge);
-      }, countdown * 1000);
-
-      // 3. Set an interval to update the visual countdown every second
-      countdownElem.textContent = countdown;
-      countdownInterval = setInterval(() => {
-        countdown--;
-        countdownElem.textContent = countdown;
-        if (countdown <= 0) {
-          clearInterval(countdownInterval);
-        }
-      }, 1000);
+      const cleanup = () => {
+          modal.classList.add('hidden');
+          closeModalBtn.removeEventListener('click', closeHandler);
+          // Remove all created buttons and their listeners
+          while (optionsContainer.firstChild) {
+              optionsContainer.removeChild(optionsContainer.firstChild);
+          }
+      }
       
       options.forEach(edge => {
         const button = document.createElement('button');
