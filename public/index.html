@@ -1,30 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src https:; connect-src https: https://cloudflare-ipfs.com;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AVN Player</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Canvas for graph rendering -->
   <canvas id="graphCanvas"></canvas>
 
-  <!-- Toolbar for import/export actions -->
-  <div id="editorToolbar">
-    <div class="tool-section">
-
-      <!-- The 'Import' button is hidden in the public version for security. -->
-      <label for="importFile" class="button-like" style="display: none;">Import</label>
-      <input type="file" id="importFile" accept=".json,.jsonld" style="display: none;">
-
-      <button id="exportBtn">Export</button>
-      <button id="resetBtn">Reset</button>
-    </div>
+  <!-- Player Mode Toolbar -->
+  <div id="playerToolbar">
+    <button id="exportBtn">Export Graph</button>
+    <button id="resetBtn">Reset</button>
   </div>
-  
-  <!-- Main player interface -->
+
+  <!-- Editor Mode Panel -->
+  <div id="editorPanel" class="hidden">
+    <label class="switch" title="Toggle Editor Mode">
+      <input type="checkbox" id="editorModeToggle">
+      <span class="slider"></span>
+    </label>
+    <span class="editor-mode-label">Editor Mode</span>
+    <div class="divider"></div>
+    <button id="addNodeBtn" title="Add New Node">Add Node</button>
+    <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
+    <button id="settingsBtn" title="Global Settings">⚙️</button>
+  </div>
+
+  <!-- Properties Inspector Panel (hidden) -->
+  <div id="inspectorPanel" class="hidden">
+      <h4>Node Properties</h4>
+      <div id="inspectorContent"></div>
+      <button id="saveNodeBtn">Save Changes</button>
+      <button id="closeInspectorBtn">Close</button>
+  </div>
+
+  <!-- Global Settings Modal (hidden) -->
+  <div id="settingsModal" class="hidden">
+      <div class="modal-content">
+          <h3>Global Settings</h3>
+          <label for="ipfsGatewayInput">Default IPFS Gateway:</label>
+          <input type="text" id="ipfsGatewayInput" placeholder="https://gateway.pinata.cloud/ipfs/">
+          <div class="modal-buttons">
+            <button id="saveSettingsBtn">Save</button>
+            <button id="closeSettingsBtn">Cancel</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- Main Player Interface -->
   <div id="player">
     <img id="currentCover" src="placeholder.svg" alt="Album cover">
     <div id="playerContent">
@@ -40,26 +65,28 @@
     </div>
   </div>
 
-  <!-- Container for lyrics, hidden by default -->
+  <!-- Lyrics Container (hidden) -->
   <div id="lyricsContainer" class="hidden">
     <pre id="lyricsText">Loading lyrics...</pre>
     <button id="closeLyricsBtn" title="Close">×</button>
   </div>
 
-  <!-- Modal window for story branching -->
+  <!-- Branching Choice Modal (hidden) -->
   <div id="choiceModal" class="hidden">
-    <div id="modalContent">
+    <div class="modal-content">
       <h3>Choose the next step:</h3>
       <div id="choiceOptions"></div>
+      <div id="choiceTimer" class="hidden">(Autoselecting in <span id="countdown">5</span>s)</div>
       <button id="closeModalBtn">Cancel</button>
     </div>
   </div>
   
+  <!-- ИСПРАВЛЕННЫЙ ПУТЬ -->
   <script src="js/app.js" type="module"></script>
 
   <!-- Copyright Footer -->
-    <footer id="copyright">
-        AVN Player 1.4 © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank">AbyssVoid.com</a>
-    </footer>
+  <footer id="copyright">
+    AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank">AbyssVoid.com</a>
+  </footer>
 </body>
 </html>

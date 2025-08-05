@@ -219,3 +219,61 @@ button:hover, .button-like:hover {
 #copyright a:hover {
   text-decoration: underline;
 }
+
+/* Editor panel */
+#editorPanel {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(230, 230, 230, 0.95);
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Styles for the switch */
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--primary-color); }
+input:checked + .slider:before { transform: translateX(20px); }
+
+/* Properties panel (inspector) */
+#inspectorPanel {
+  position: fixed;
+  top: 60px;
+  right: 10px;
+  width: 300px;
+  max-height: 80vh;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  z-index: 250;
+  padding: 15px;
+  overflow-y: auto;
+}
+#inspectorPanel h4 { margin-top: 0; }
+#inspectorContent label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.9em; }
+#inspectorContent input { width: 95%; padding: 5px; }
+
+/* Modal settings window */
+#settingsModal {
+  /* Styles like choiceModal */
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5); z-index: 400; display: flex;
+  justify-content: center; align-items: center;
+}
+#settingsContent {
+  /* Styles like modalContent */
+  background: white; padding: 25px; border-radius: 10px;
+  width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+}
+
+/* Class for activating editor mode */
+body.editor-mode #editorToolbar { display: none; }
+body:not(.editor-mode) #editorPanel { display: none; }

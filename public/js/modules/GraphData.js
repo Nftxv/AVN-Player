@@ -82,6 +82,15 @@ export default class GraphData {
     };
   }
 
+    getSourceUrl(source) {
+    if (!source) return null;
+    if (source.type === 'ipfs') {
+      const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
+      return `${gateway}${source.value}`;
+    }
+    return source.value;
+  }
+
   /**
    * Finds a node by its unique ID.
    * @param {string} id - The ID of the node to find.
