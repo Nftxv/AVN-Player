@@ -26,6 +26,7 @@ class GraphApp {
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
+      this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -35,19 +36,21 @@ class GraphApp {
 
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
+  
     document.body.classList.toggle('editor-mode', isEditor);
+    document.getElementById('editorPanel').classList.toggle('hidden', !isEditor);
+
     this.player.stop();
     this.navigation.reset();
     
-    if (!isEditor) {
+      if (!isEditor) {
       this.editorTools.selectEntity(null);
       this.editorTools.closeInspector();
     }
   }
 
   setupEventListeners() {
-    // ДОБАВЛЕНА НЕДОСТАЮЩАЯ ФУНКЦИЯ
-    this.renderer.setupCanvasInteraction(
+        this.renderer.setupCanvasInteraction(
         (e) => this.handleCanvasClick(e),
         (e) => this.handleCanvasDblClick(e),
         (source, target) => {

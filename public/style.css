@@ -19,7 +19,7 @@ canvas:active {
   cursor: grabbing;
 }
 
-#editorToolbar {
+#playerToolbar {
   position: fixed;
   top: 10px;
   left: 10px;
@@ -275,5 +275,5 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 
 /* Class for activating editor mode */
-body.editor-mode #editorToolbar { display: none; }
+body.editor-mode #playerToolbar { display: none; }
 body:not(.editor-mode) #editorPanel { display: none; }
