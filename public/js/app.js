@@ -92,12 +92,28 @@ class GraphApp {
   handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-
+    
     if (this.isEditorMode) {
-      this.editorTools.selectEntity(clickedNode);
-    } else if (clickedNode) {
-      this.navigation.startFromNode(clickedNode.id);
+      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
+      if (clickedNode) {
+        this.editorTools.selectEntity(clickedNode);
+        return; // Found a node, no need to check for edges
+      }
+
+      const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
+      if (clickedEdge) {
+        this.editorTools.selectEntity(clickedEdge);
+        return; // Found an edge
+      }
+      
+      // If nothing was clicked, deselect everything
+      this.editorTools.selectEntity(null);
+
+    } else {
+      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
+      if (clickedNode) {
+        this.navigation.startFromNode(clickedNode.id);
+      }
     }
   }
   

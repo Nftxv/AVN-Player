@@ -99,6 +99,27 @@ export default class Renderer {
     return null;
   }
 
+  getEdgeAt(x, y) {
+    const tolerance = 5; // Click tolerance in pixels
+    for (const edge of this.edges) {
+      const src = this.nodes.find(n => n.id === edge.source);
+      const trg = this.nodes.find(n => n.id === edge.target);
+      if (!src || !trg) continue;
+
+      const startX = src.x + 80, startY = src.y + 45;
+      const endX = trg.x + 80, endY = trg.y + 45;
+      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
+      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
+
+      // A simple distance check to the curve's midpoint
+      const dist = Math.sqrt(Math.pow(x - cpX, 2) + Math.pow(y - cpY, 2));
+      if (dist < tolerance * 5) { // A wider tolerance for the midpoint
+        return edge;
+      }
+    }
+    return null;
+  }
+
   renderLoop() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();

@@ -69,18 +69,29 @@ export default class EditorTools {
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
     
+    // A helper function to get the full URL from a source object
+    const getSourceValue = (source) => {
+        if (!source) return '';
+        // A simple check to see if it's an IPFS hash that needs a gateway
+        if (source.type === 'ipfs' && (source.value.startsWith('Qm') || source.value.startsWith('bafy'))) {
+          const gateway = this.graphData.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
+          return `${gateway}${source.value}`;
+        }
+        return source.value || '';
+    };
+
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
       <input type="text" id="nodeTitle" value="${node.title}">
       
       <label for="audioSource">Audio (URL or IPFS hash):</label>
-      <input type="text" id="audioSource" value="${this.graphData.getSourceValue(node.audioSources?.[0])}">
+      <input type="text" id="audioSource" value="${node.audioSources?.[0]?.value || ''}">
 
       <label for="coverSource">Cover (URL or IPFS hash):</label>
-      <input type="text" id="coverSource" value="${this.graphData.getSourceValue(node.coverSources?.[0])}">
+      <input type="text" id="coverSource" value="${node.coverSources?.[0]?.value || ''}">
 
       <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
-      <input type="text" id="lyricsSource" value="${this.graphData.getSourceValue(node.lyricsSource)}">
+      <input type="text" id="lyricsSource" value="${node.lyricsSource?.value || ''}">
     `;
     panel.classList.remove('hidden');
   }
