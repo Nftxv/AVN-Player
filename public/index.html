@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src https:; connect-src https: https://cloudflare-ipfs.com;">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVN Player</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Canvas for graph rendering -->
+  <canvas id="graphCanvas"></canvas>
+
+  <!-- Toolbar for import/export actions -->
+  <div id="editorToolbar">
+    <div class="tool-section">
+
+      <!-- The 'Import' button is hidden in the public version for security. -->
+      <label for="importFile" class="button-like" style="display: none;">Import</label>
+      <input type="file" id="importFile" accept=".json,.jsonld" style="display: none;">
+
+      <button id="exportBtn">Export</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+  
+  <!-- Main player interface -->
+  <div id="player">
+    <img id="currentCover" src="placeholder.svg" alt="Album cover">
+    <div id="playerContent">
+      <div id="songTitle">Select a node to begin...</div>
+      <div id="playerControls">
+        <button id="backBtn" title="Go Back">⏮</button>
+        <button id="playBtn" title="Play/Pause">▶</button>
+        <button id="nextBtn" title="Next">⏭</button>
+        <input type="range" id="progress" value="0">
+        <span id="currentTime">0:00</span>
+        <button id="lyricsBtn" title="Show Lyrics">📜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container for lyrics, hidden by default -->
+  <div id="lyricsContainer" class="hidden">
+    <pre id="lyricsText">Loading lyrics...</pre>
+    <button id="closeLyricsBtn" title="Close">×</button>
+  </div>
+
+  <!-- Modal window for story branching -->
+  <div id="choiceModal" class="hidden">
+    <div id="modalContent">
+      <h3>Choose the next step:</h3>
+      <div id="choiceOptions"></div>
+      <div id="choiceTimer">
+        (Autoselecting in <span id="countdown">5</span>s)
+      </div>
+      <button id="closeModalBtn">Cancel</button>
+    </div>
+  </div>
+  
+  <script src="app.js" type="module"></script>
+
+  <!-- Copyright Footer -->
+    <footer id="copyright">
+        AVN Player 1.4 © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank">AbyssVoid.com</a>
+    </footer>
+</body>
+</html>

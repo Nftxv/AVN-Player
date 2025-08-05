@@ -1,0 +1,83 @@
+{
+  "@context": "https://schema.org/",
+  "meta": {
+    "gateways": [
+      "https://cloudflare-ipfs.com/ipfs/"
+    ]
+  },
+  "@graph": [
+    {
+      "@id": "node-1",
+      "@type": "MusicRecording",
+      "name": "Chapter 1: The Beginning",
+      "position": { "x": 100, "y": 250 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": { "type": "ipfs", "value": "bafkreifzjut3a2u7gy2g2l2ctrqkfdv3u4b2qkjk22p32d2c3k32y2y2yq" }
+    },
+    {
+      "@id": "node-2",
+      "@type": "MusicRecording",
+      "name": "Chapter 2: The Choice",
+      "position": { "x": 400, "y": 250 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": null
+    },
+    {
+      "@id": "node-3a",
+      "@type": "MusicRecording",
+      "name": "Ending A: The Bright Path",
+      "position": { "x": 700, "y": 150 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": null
+    },
+    {
+      "@id": "node-3b",
+      "@type": "MusicRecording",
+      "name": "Ending B: The Dark Path",
+      "position": { "x": 700, "y": 350 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": null
+    },
+    {
+      "@type": "Path",
+      "source": "node-1",
+      "target": "node-2",
+      "label": "Continue the story"
+    },
+    {
+      "@type": "Path",
+      "source": "node-2",
+      "target": "node-3a",
+      "label": "Choose the light",
+      "color": "#f1c40f",
+      "isDefault": true
+    },
+    {
+      "@type": "Path",
+      "source": "node-2",
+      "target": "node-3b",
+      "label": "Embrace the shadow",
+      "color": "#9b59b6"
+    }
+  ]
+}
