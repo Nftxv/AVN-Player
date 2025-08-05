@@ -1,7 +1,6 @@
 /**
  * AVN Player v2.1 - Main Application
  * by Nftxv
- * (Your license header here)
  */
 import GraphData from './modules/GraphData.js';
 import Renderer from './modules/Renderer.js';
@@ -27,7 +26,7 @@ class GraphApp {
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
-      this.toggleEditorMode(false); // Ensure player mode is active on start
+      this.toggleEditorMode(false); // Ensure we start in player mode
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -39,6 +38,7 @@ class GraphApp {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
     
+    // Reset states when switching modes
     this.player.stop();
     this.navigation.reset();
     
@@ -59,6 +59,7 @@ class GraphApp {
         }
     );
 
+    // --- Toolbar Listeners ---
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
     
     // Player mode controls
@@ -76,13 +77,13 @@ class GraphApp {
     });
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     
-    // Inspector and modal listeners
+    // --- Inspector and Modal Listeners ---
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
     document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
     document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
     
-    // Player listeners
+    // --- Player Listeners ---
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
