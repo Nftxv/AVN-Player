@@ -27,6 +27,9 @@ export default class Renderer {
 
     this.resizeCanvas(); // This method must exist
     this.renderLoop = this.renderLoop.bind(this);
+
+    this.supportsRoundRect = typeof CanvasRenderingContext2D.prototype.roundRect === 'function';
+}
   }
 
   setData(nodes, edges, meta) {
@@ -150,7 +153,17 @@ export default class Renderer {
 
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    (ctx.roundRect || ((x, y, w, h, r) => { ctx.rect(x, y, w, h); }))(node.x, node.y, width, height, 8);
+    if (ctx.roundRect) {
+        ctx.roundRect(node.x, node.y, width, height, 8);
+    } else {
+        const r = 8;
+        ctx.moveTo(node.x + r, node.y);
+        ctx.arcTo(node.x + width, node.y, node.x + width, node.y + height, r);
+        ctx.arcTo(node.x + width, node.y + height, node.x, node.y + height, r);
+        ctx.arcTo(node.x, node.y + height, node.x, node.y, r);
+        ctx.arcTo(node.x, node.y, node.x + width, node.y, r);
+        ctx.closePath();
+          }
     ctx.fill();
     ctx.stroke();
 

@@ -416,7 +416,7 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; }
 ## ./public/js/app.js
 
 /**
- * AVN Player v2.2 - Main Application
+ * AVN Player v1.5.0 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -428,7 +428,7 @@ import Navigation from './modules/Navigation.js';
 class GraphApp {
   constructor() {
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas');
+    this.renderer = new Renderer('graphCanvas', this.graphData); // Pass graphData to Renderer
     this.player = new Player(this.graphData);
     this.navigation = new Navigation(this.graphData, this.player, this.renderer);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
@@ -443,7 +443,7 @@ class GraphApp {
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
-      this.toggleEditorMode(false); // Убедимся, что начинаем в режиме плеера
+      this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -458,11 +458,8 @@ class GraphApp {
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
-    
-    // Сбрасываем состояния при переключении
     this.player.stop();
     this.navigation.reset();
-    
     if (!isEditor) {
       this.editorTools.selectEntity(null);
       this.editorTools.closeInspector();
@@ -474,40 +471,30 @@ class GraphApp {
         (e) => this.handleCanvasClick(e),
         (e) => this.handleCanvasDblClick(e),
         (source, target) => {
-            if (this.isEditorMode) {
-                this.editorTools.createEdge(source, target);
-            }
+            if (this.isEditorMode) this.editorTools.createEdge(source, target);
         }
     );
 
-    // --- СЛУШАТЕЛИ ДЛЯ ЕДИНОЙ ПАНЕЛИ ---
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
     
-    // Кнопки режима плеера
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
-
-    // Кнопки режима редактора
+    
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
         this.editorTools.openInspector(newNode);
     });
-    document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
-        this.editorTools.deleteEntity(this.editorTools.selectedEntity);
-    });
+    document.getElementById('deleteSelectionBtn').addEventListener('click', () => this.editorTools.deleteEntity(this.editorTools.selectedEntity));
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
-
     document.getElementById('expandAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(false));
     document.getElementById('collapseAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(true));
     
-    // --- СЛУШАТЕЛИ ИНСПЕКТОРА И МОДАЛЬНЫХ ОКОН ---
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
     document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
     document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
     
-    // --- СЛУШАТЕЛИ ПЛЕЕРА ---
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
@@ -517,44 +504,32 @@ class GraphApp {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
     
-    if (this.isEditorMode) {
-      // Сначала проверяем, не кликнули ли мы по иконке сворачивания
-      const toggledNode = this.renderer.getNodeToggleAt(coords.x, coords.y);
-      if (toggledNode) {
-        toggledNode.isCollapsed = !toggledNode.isCollapsed;
-        return; // Действие выполнено, выходим
-      }
+    const toggledNode = this.renderer.getNodeToggleAt(coords.x, coords.y);
+    if (toggledNode) {
+      toggledNode.isCollapsed = !toggledNode.isCollapsed;
+      return;
+    }
 
-      // Если нет, продолжаем логику выделения
+    if (this.isEditorMode) {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.editorTools.selectEntity(clickedNode);
         return;
       }
-
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-      if (clickedEdge) {
-        this.editorTools.selectEntity(clickedEdge);
-        return;
-      }
-      
-      this.editorTools.selectEntity(null);
-
-    } else { // Режим плеера
+      this.editorTools.selectEntity(clickedEdge); // Can be null to deselect
+    } else {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      if (clickedNode) {
-        this.navigation.startFromNode(clickedNode.id);
-      }
+      if (clickedNode) this.navigation.startFromNode(clickedNode.id);
     }
   }
   
   handleCanvasDblClick(event) {
+    if (this.renderer.wasDragged()) return;
     if (!this.isEditorMode) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-    if (clickedNode) {
-        this.editorTools.openInspector(clickedNode);
-    }
+    if (clickedNode) this.editorTools.openInspector(clickedNode);
   }
 }
 
@@ -567,7 +542,7 @@ window.addEventListener('load', () => {
 ## ./public/js/modules/EditorTools.js
 
 /**
- * AVN Player v2.2 - Editor Tools Module
+ * AVN Player v1.5.0 - Editor Tools Module
  * by Nftxv
  */
 export default class EditorTools {
@@ -578,48 +553,34 @@ export default class EditorTools {
     this.selectedEntity = null;
   }
 
-  // --- Core Editor Functions ---
-
   createNode() {
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      x: 100, y: 100, // Default position
+      x: 100, y: 100,
       audioSources: [], coverSources: [], lyricsSource: null,
+      isCollapsed: false, customLinks: []
     };
-      this.graphData.nodes.push(newNode);
+    this.graphData.nodes.push(newNode);
     return newNode;
   }
 
   createEdge(sourceNode, targetNode) {
-    // ...
-    const newEdge = {
-      source: sourceNode.id,
-      target: targetNode.id,
-      // color: '#4a86e8', // УДАЛЯЕМ ЭТУ СТРОКУ
-      label: ''
-    };
+    const edgeExists = this.graphData.edges.some(e => e.source === sourceNode.id && e.target === targetNode.id);
+    if (edgeExists || sourceNode.id === targetNode.id) return;
+    const newEdge = { source: sourceNode.id, target: targetNode.id, label: '' };
     this.graphData.edges.push(newEdge);
   }
-  
+
   deleteEntity(entity) {
     if (!entity || !confirm('Are you sure you want to delete this item?')) return;
-
-    if (entity.source && entity.target) { // It's an edge
-      const index = this.graphData.edges.findIndex(
-        e => e.source === entity.source && e.target === entity.target
-      );
-      if (index > -1) {
-        this.graphData.edges.splice(index, 1);
-      }
-    } else { // It's a node
-      this.graphData.edges = this.graphData.edges.filter(
-        e => e.source !== entity.id && e.target !== entity.id
-      );
+    if (entity.source) {
+      const index = this.graphData.edges.findIndex(e => e === entity);
+      if (index > -1) this.graphData.edges.splice(index, 1);
+    } else {
+      this.graphData.edges = this.graphData.edges.filter(e => e.source !== entity.id && e.target !== entity.id);
       const index = this.graphData.nodes.findIndex(n => n.id === entity.id);
-      if (index > -1) {
-        this.graphData.nodes.splice(index, 1);
-      }
+      if (index > -1) this.graphData.nodes.splice(index, 1);
     }
     this.selectEntity(null);
   }
@@ -631,58 +592,33 @@ export default class EditorTools {
     document.getElementById('deleteSelectionBtn').disabled = !entity;
   }
 
-  // --- Inspector Panel Logic ---
-
   openInspector(node) {
     this.editingNode = node;
-    const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
-
     const linksAsText = (node.customLinks || []).join('\n');
-
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
       <input type="text" id="nodeTitle" value="${node.title}">
-      
-      <label for="audioSource">Audio (URL or IPFS hash):</label>
+      <label for="audioSource">Audio (URL/IPFS):</label>
       <input type="text" id="audioSource" value="${node.audioSources?.[0]?.value || ''}">
-
-      <label for="coverSource">Cover (URL or IPFS hash):</label>
+      <label for="coverSource">Cover (URL/IPFS):</label>
       <input type="text" id="coverSource" value="${node.coverSources?.[0]?.value || ''}">
-
-      <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
+      <label for="lyricsSource">Lyrics (URL/IPFS):</label>
       <input type="text" id="lyricsSource" value="${node.lyricsSource?.value || ''}">
-
-      <label for="customLinks">Custom Links (one URL per line):</label>
+      <label for="customLinks">Custom Links (one per line):</label>
       <textarea id="customLinks" rows="4">${linksAsText}</textarea>
     `;
-    panel.classList.remove('hidden');
+    document.getElementById('inspectorPanel').classList.remove('hidden');
   }
 
   saveInspectorChanges() {
     if (!this.editingNode) return;
-    
     this.editingNode.title = document.getElementById('nodeTitle').value;
-
-    const parseSource = (url) => {
-      if (!url || url.trim() === '') return null;
-      if (url.startsWith('Qm') || url.startsWith('bafy')) {
-        return { type: 'ipfs', value: url };
-      }
-      return { type: 'url', value: url };
-    };
-
-    const audioSource = parseSource(document.getElementById('audioSource').value);
-    this.editingNode.audioSources = audioSource ? [audioSource] : [];
-    
-    const coverSource = parseSource(document.getElementById('coverSource').value);
-    this.editingNode.coverSources = coverSource ? [coverSource] : [];
-
-    this.editingNode.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
-
-    const linksText = document.getElementById('customLinks').value;
-    this.editingNode.customLinks = linksText.split('\n').map(link => link.trim()).filter(link => link);
-
+    const parse = (url) => url ? (url.startsWith('Qm') || url.startsWith('bafy') ? { type: 'ipfs', value: url } : { type: 'url', value: url }) : null;
+    this.editingNode.audioSources = [parse(document.getElementById('audioSource').value)].filter(Boolean);
+    this.editingNode.coverSources = [parse(document.getElementById('coverSource').value)].filter(Boolean);
+    this.editingNode.lyricsSource = parse(document.getElementById('lyricsSource').value);
+    this.editingNode.customLinks = document.getElementById('customLinks').value.split('\n').map(l => l.trim()).filter(Boolean);
     this.closeInspector();
   }
 
@@ -691,17 +627,13 @@ export default class EditorTools {
     this.editingNode = null;
   }
   
-  // --- Settings Modal Logic ---
-  
   openSettings() {
-    const gateway = this.graphData.meta.gateways?.[0] || '';
-    document.getElementById('ipfsGatewayInput').value = gateway;
+    document.getElementById('ipfsGatewayInput').value = this.graphData.meta.gateways?.[0] || '';
     document.getElementById('settingsModal').classList.remove('hidden');
   }
   
   saveSettings() {
-    const gateway = document.getElementById('ipfsGatewayInput').value;
-    this.graphData.meta.gateways = gateway ? [gateway] : [];
+    this.graphData.meta.gateways = [document.getElementById('ipfsGatewayInput').value];
     this.closeSettings();
   }
   
@@ -709,23 +641,18 @@ export default class EditorTools {
     document.getElementById('settingsModal').classList.add('hidden');
   }
 
-  // --- Graph Management ---
-
   exportGraph() {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = 'music-graph.jsonld';
     a.click();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(a.href);
   }
 
   resetGraph() {
-    if (confirm('Are you sure you want to reset the graph to its default state? All local changes will be lost.')) {
-      window.location.reload();
-    }
+    if (confirm('Are you sure you want to reset?')) window.location.reload();
   }
 }
 
@@ -733,7 +660,8 @@ export default class EditorTools {
 ## ./public/js/modules/GraphData.js
 
 /**
- * Manages the graph's data, including loading, parsing, and providing access to nodes and edges.
+ * AVN Player v1.5.0 - Graph Data Module
+ * by Nftxv
  */
 export default class GraphData {
   constructor() {
@@ -742,10 +670,6 @@ export default class GraphData {
     this.meta = {};
   }
 
-  /**
-   * Loads graph data from a given URL.
-   * @param {string} url - The URL of the JSON/JSON-LD file.
-   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -753,16 +677,10 @@ export default class GraphData {
     this.parseData(data);
   }
 
-  /**
-   * Parses the raw JSON-LD data and populates nodes, edges, and metadata.
-   * @param {object} data - The raw data object from the JSON file.
-   */
   parseData(data) {
-    // Store metadata, providing a default IPFS gateway if none is specified
     this.meta = data.meta || { gateways: ['https://cloudflare-ipfs.com/ipfs/'] };
     const graph = data['@graph'] || [];
 
-    // Filter and map nodes of type 'MusicRecording'
     this.nodes = graph
       .filter(item => item['@type'] === 'MusicRecording')
       .map(node => ({
@@ -773,25 +691,20 @@ export default class GraphData {
         lyricsSource: node.lyricsSource,
         x: node.position?.x || Math.random() * 800,
         y: node.position?.y || Math.random() * 600,
-        isCollapsed: node.isCollapsed === undefined ? true : node.isCollapsed, // По умолчанию свернута
-        customLinks: node.customLinks || [], // Массив для кастомных ссылок
+        isCollapsed: node.isCollapsed === undefined ? true : node.isCollapsed,
+        customLinks: node.customLinks || [],
       }));
 
-    // Filter and map edges of type 'Path'
     this.edges = graph
       .filter(item => item['@type'] === 'Path')
       .map(edge => ({
         source: edge.source,
         target: edge.target,
-        color: edge.color || '#4a86e8', // Default edge color
+        color: edge.color, // Allow undefined color for default
         label: edge.label || '',
       }));
   }
 
-  /**
-   * Serializes the current graph data back into a JSON-LD format for export.
-   * @returns {object} - The complete graph object.
-   */
   getGraph() {
     const graph = [
       ...this.nodes.map(n => ({
@@ -820,7 +733,7 @@ export default class GraphData {
     };
   }
 
-    getSourceUrl(source) {
+  getSourceUrl(source) {
     if (!source) return null;
     if (source.type === 'ipfs') {
       const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
@@ -829,20 +742,10 @@ export default class GraphData {
     return source.value;
   }
 
-  /**
-   * Finds a node by its unique ID.
-   * @param {string} id - The ID of the node to find.
-   * @returns {object|undefined}
-   */
   getNodeById(id) {
     return this.nodes.find(node => node.id === id);
   }
   
-  /**
-   * Finds all edges originating from a specific node.
-   * @param {string} nodeId - The ID of the source node.
-   * @returns {Array<object>}
-   */
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }
@@ -1152,162 +1055,367 @@ export default class Player {
  * by Nftxv
  */
 export default class Renderer {
-  constructor(canvasId) {
-    // ... (конструктор без изменений) ...
+  constructor(canvasId, graphData) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext('2d');
+    this.graphData = graphData; // Needed for getSourceUrl
+    
+    this.nodes = [];
+    this.edges = [];
+    this.meta = {};
+    this.images = {};
+
+    this.offset = { x: 0, y: 0 };
+    this.scale = 1.0;
+    
+    this.dragStart = { x: 0, y: 0 };
+    this.dragging = false; // For canvas panning
+    this.dragged = false;
+    this.draggingNode = null;
+    this.dragNodeOffset = { x: 0, y: 0 };
+    this.isCreatingEdge = false;
+    this.edgeCreationSource = null;
+    this.mousePos = { x: 0, y: 0 };
+
+    this.resizeCanvas(); // This method must exist
+    this.renderLoop = this.renderLoop.bind(this);
   }
-  
-  // ... (setData, loadAndRenderAll, loadImages, getSourceUrl без изменений) ...
 
-  getNodeAt(x, y) { /* ... без изменений ... */ }
-  getEdgeAt(x, y) { /* ... без изменений ... */ }
+  setData(nodes, edges, meta) {
+    this.nodes = nodes;
+    this.edges = edges;
+    this.meta = meta;
+  }
 
-  // НОВЫЙ МЕТОД для определения клика по иконке +/-
+  async loadAndRenderAll() {
+    await this.loadImages();
+    this.renderLoop();
+  }
+
+  async loadImages() {
+    const promises = this.nodes.flatMap(node =>
+      (node.coverSources || []).map(async source => {
+        const url = this.getSourceUrl(source);
+        if (url && !this.images[url]) {
+          try {
+            const img = new Image();
+            img.src = url;
+            await img.decode();
+            this.images[url] = img;
+          } catch (e) {
+            console.warn(`Failed to load cover image: ${url}`, e);
+          }
+        }
+      })
+    );
+    await Promise.all(promises);
+  }
+
+  getSourceUrl(source) {
+    return this.graphData.getSourceUrl(source);
+  }
+
+  getNodeAt(x, y) {
+    for (let i = this.nodes.length - 1; i >= 0; i--) {
+        const node = this.nodes[i];
+        const height = node.isCollapsed ? 40 : 90;
+        if (x > node.x && x < node.x + 160 && y > node.y && y < node.y + height) {
+            return node;
+        }
+    }
+    return null;
+  }
+
+  getEdgeAt(x, y) {
+    const tolerance = 8;
+    for (const edge of this.edges) {
+      const src = this.nodes.find(n => n.id === edge.source);
+      const trg = this.nodes.find(n => n.id === edge.target);
+      if (!src || !trg) continue;
+
+      const srcHeight = src.isCollapsed ? 40 : 90;
+      const trgHeight = trg.isCollapsed ? 40 : 90;
+      const x1 = src.x + 80, y1 = src.y + srcHeight / 2;
+      const x2 = trg.x + 80, y2 = trg.y + trgHeight / 2;
+      
+      const dist = Math.abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) / Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
+      const onSegment = (x >= Math.min(x1, x2) - tolerance) && (x <= Math.max(x1, x2) + tolerance) && (y >= Math.min(y1, y2) - tolerance) && (y <= Math.max(y1, y2) + tolerance);
+      
+      if (dist < tolerance && onSegment) return edge;
+    }
+    return null;
+  }
+
   getNodeToggleAt(x, y) {
     const toggleSize = 16;
     for (let i = this.nodes.length - 1; i >= 0; i--) {
         const node = this.nodes[i];
-        const toggleX = node.x + 160 - toggleSize / 2 - 5;
-        const toggleY = node.y + (node.isCollapsed ? 40 : 90) - toggleSize / 2 - 5;
-        const dist = Math.sqrt(Math.pow(x - toggleX, 2) + Math.pow(y - toggleY, 2));
-        if (dist < toggleSize / 2) {
+        const height = node.isCollapsed ? 40 : 90;
+        const toggleX = node.x + 160 - toggleSize / 2 - 8;
+        const toggleY = node.y + height - toggleSize / 2 - 8;
+        if (Math.sqrt(Math.pow(x - toggleX, 2) + Math.pow(y - toggleY, 2)) < toggleSize / 2 + 2) {
             return node;
         }
     }
     return null;
   }
   
-  // ... (renderLoop, drawEdge, drawTemporaryEdge без изменений) ...
-  
-  // НОВЫЙ ВСПОМОГАТЕЛЬНЫЙ МЕТОД для переноса текста
+  renderLoop() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.save();
+    this.ctx.translate(this.offset.x, this.offset.y);
+    this.ctx.scale(this.scale, this.scale);
+    this.edges.forEach(edge => this.drawEdge(edge));
+    this.nodes.forEach(node => this.drawNode(node));
+    if (this.isCreatingEdge && this.edgeCreationSource) {
+      this.drawTemporaryEdge();
+    }
+    this.ctx.restore();
+    requestAnimationFrame(this.renderLoop);
+  }
+
   wrapText(context, text, x, y, maxWidth, lineHeight) {
     const words = text.split(' ');
     let line = '';
-    let testLine = '';
-    let lineCount = 0;
-    
     for (let n = 0; n < words.length; n++) {
-      testLine = line + words[n] + ' ';
-      const metrics = context.measureText(testLine);
-      const testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        context.fillText(line, x, y);
+      const testLine = line + words[n] + ' ';
+      if (context.measureText(testLine).width > maxWidth && n > 0) {
+        context.fillText(line.trim(), x, y);
         line = words[n] + ' ';
         y += lineHeight;
-        lineCount++;
       } else {
         line = testLine;
       }
     }
-    context.fillText(line, x, y);
-    return lineCount + 1; // Возвращаем общее количество строк
+    context.fillText(line.trim(), x, y);
   }
 
-  // ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ МЕТОД отрисовки ноды
   drawNode(node) {
     const ctx = this.ctx;
-    const width = 160;
-    const collapsedHeight = 40;
-    const expandedHeight = 90;
-    const iconBarY = 45;
-    const iconSize = 16;
-    const iconGap = 20;
-
+    const width = 160, collapsedHeight = 40, expandedHeight = 90;
     const height = node.isCollapsed ? collapsedHeight : expandedHeight;
-
     ctx.save();
     
-    // Стили обводки
-    if (node.selected) { /* ... без изменений ... */ }
-    // ...
+    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
+    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
+    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
 
-    ctx.fillStyle = '#2d2d2d'; // Фон ноды
+    ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(node.x, node.y, width, height, 8) : ctx.rect(node.x, node.y, width, height);
+    (ctx.roundRect || ((x, y, w, h, r) => { ctx.rect(x, y, w, h); }))(node.x, node.y, width, height, 8);
     ctx.fill();
     ctx.stroke();
 
-    // --- ОТРИСОВКА КОНТЕНТА ВНУТРИ НОДЫ ---
     ctx.fillStyle = '#e0e0e0';
     ctx.font = 'bold 14px Segoe UI';
 
     if (node.isCollapsed) {
-      // В свернутом состоянии - только заголовок по центру
       ctx.textAlign = 'center';
-      this.wrapText(ctx, node.title, node.x + width / 2, node.y + 16, width - 10, 16);
-      ctx.textAlign = 'left'; // Сброс
+      this.wrapText(ctx, node.title, node.x + width / 2, node.y + 16, width - 20, 16);
     } else {
-      // В развернутом состоянии
-      // Обложка
-      const coverSource = node.coverSources?.[0];
-      const coverUrl = this.graphData.getSourceUrl(coverSource);
+      const coverUrl = this.getSourceUrl(node.coverSources?.[0]);
       if (coverUrl && this.images[coverUrl]) {
-        ctx.drawImage(this.images[coverUrl], node.x + 5, node.y + 5, 35, 35);
+        ctx.drawImage(this.images[coverUrl], node.x + 8, node.y + 8, 34, 34);
       } else {
         ctx.fillStyle = '#444';
-        ctx.fillRect(node.x + 5, node.y + 5, 35, 35);
+        ctx.fillRect(node.x + 8, node.y + 8, 34, 34);
       }
-
-      // Заголовок
       ctx.fillStyle = '#e0e0e0';
-      this.wrapText(ctx, node.title, node.x + 45, node.y + 18, width - 50, 16);
-
-      // Иконки
-      let currentIconX = node.x + 10;
-      
-      // Иконка Play
-      ctx.font = `${iconSize}px Segoe UI Symbol`;
+      this.wrapText(ctx, node.title, node.x + 50, node.y + 20, width - 55, 16);
+      let currentIconX = node.x + 12;
+      ctx.font = `18px Segoe UI Symbol`;
       ctx.fillStyle = '#a0a0a0';
-      ctx.fillText('▶', currentIconX, node.y + iconBarY + iconSize);
-      currentIconX += iconGap;
-
-      // Кастомные иконки
+      ctx.fillText('▶', currentIconX, node.y + 55 + 9);
+      currentIconX += 22;
       (node.customLinks || []).forEach(link => {
-        const icon = this.getIconForUrl(link);
-        ctx.fillText(icon, currentIconX, node.y + iconBarY + iconSize);
-        currentIconX += iconGap;
+        ctx.fillText(this.getIconForUrl(link), currentIconX, node.y + 55 + 9);
+        currentIconX += 22;
       });
     }
 
-    // Отрисовка иконки +/-
     this.drawToggleIcon(ctx, node, width, height);
-
     ctx.restore();
   }
 
-  // НОВЫЙ МЕТОД для отрисовки иконки +/-
   drawToggleIcon(ctx, node, width, height) {
-    const toggleSize = 16;
-    const x = node.x + width - toggleSize / 2 - 5;
-    const y = node.y + height - toggleSize / 2 - 5;
-    
+    const s = 16, x = node.x + width - s / 2 - 8, y = node.y + height - s / 2 - 8;
     ctx.save();
-    ctx.fillStyle = '#4f4f4f';
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 1;
-
-    ctx.beginPath();
-    ctx.arc(x, y, toggleSize / 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#e0e0e0';
-    ctx.font = 'bold 14px Segoe UI';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#4f4f4f'; ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, y, s / 2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#e0e0e0'; ctx.font = 'bold 14px Segoe UI';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(node.isCollapsed ? '+' : '−', x, y + 1);
-    
     ctx.restore();
   }
 
-  // НОВЫЙ МЕТОД для получения иконки по URL
   getIconForUrl(url) {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return '▶️'; // YouTube (эмодзи)
-    if (url.includes('spotify.com')) return '🎵'; // Spotify (эмодзи)
-    if (url.includes('soundcloud.com')) return '☁️'; // SoundCloud (эмодзи)
-    if (url.includes('twitter.com') || url.includes('x.com')) return '𝕏'; // X/Twitter
-    return '🔗'; // Generic link
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return '▶️';
+    if (url.includes('spotify.com')) return '🎵';
+    if (url.includes('soundcloud.com')) return '☁️';
+    if (url.includes('twitter.com') || url.includes('x.com')) return '𝕏';
+    return '🔗';
   }
 
-  // ... (остальные методы без изменений)
+  drawEdge(edge) {
+      const src = this.nodes.find(n => n.id === edge.source);
+      const trg = this.nodes.find(n => n.id === edge.target);
+      if (!src || !trg) return;
+      
+      const ctx = this.ctx;
+      const cornerRadius = 8;
+      const srcHeight = src.isCollapsed ? 40 : 90;
+      const trgHeight = trg.isCollapsed ? 40 : 90;
+      const startX = src.x + 80, startY = src.y + srcHeight / 2;
+      const endX = trg.x + 80, endY = trg.y + trgHeight / 2;
+
+      const dx = endX - startX, dy = endY - startY;
+      if (dx === 0 && dy === 0) return;
+      const angle = Math.atan2(dy, dx);
+      
+      const h_x = 80, h_y = trgHeight / 2;
+      let finalX = endX, finalY = endY;
+      
+      if (Math.abs(dy) * h_x < Math.abs(dx) * h_y) {
+          finalX = endX - Math.sign(dx) * h_x;
+          finalY = endY - Math.sign(dx) * h_x * Math.tan(angle);
+      } else {
+          finalY = endY - Math.sign(dy) * h_y;
+          finalX = endY - Math.sign(dy) * h_y / Math.tan(angle);
+      }
+
+      finalX -= Math.cos(angle) * cornerRadius;
+      finalY -= Math.sin(angle) * cornerRadius;
+      
+      let color = edge.color || '#888888';
+      if (edge.selected) color = '#e74c3c'; if (edge.highlighted) color = '#FFD700';
+      const lineWidth = edge.selected || edge.highlighted ? 2 : 1;
+      
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(finalX, finalY);
+      ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
+      const arrowSize = 8;
+      ctx.translate(finalX, finalY); ctx.rotate(angle);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-arrowSize, -arrowSize / 2);
+      ctx.lineTo(-arrowSize, arrowSize / 2); ctx.closePath();
+      ctx.fillStyle = color; ctx.fill();
+      ctx.restore();
+  }
+      
+  drawTemporaryEdge() {
+      const ctx = this.ctx;
+      const startX = this.edgeCreationSource.x + 80;
+      const startY = this.edgeCreationSource.y + (this.edgeCreationSource.isCollapsed ? 20 : 45);
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
+      ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke();
+      ctx.restore();
+  }
+  
+  highlight(currentId, prevId = null, edge = null) {
+      this.nodes.forEach(n => n.highlighted = false);
+      this.edges.forEach(e => e.highlighted = false);
+      if(currentId) {
+          const node = this.nodes.find(n => n.id === currentId);
+          if (node) node.highlighted = true;
+      }
+      if(edge) {
+          const e = this.edges.find(e => e.source === edge.source && e.target === edge.target);
+          if (e) e.highlighted = true;
+      }
+  }
+  
+  getCanvasCoords({ clientX, clientY }) {
+      const rect = this.canvas.getBoundingClientRect();
+      return { x: (clientX - rect.left - this.offset.x) / this.scale, y: (clientY - rect.top - this.offset.y) / this.scale };
+  }
+  
+  resizeCanvas() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  }
+  
+  wasDragged() { return this.dragged; }
+
+  setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
+      window.addEventListener('resize', () => this.resizeCanvas());
+
+      this.canvas.addEventListener('mousedown', (e) => {
+          this.dragged = false;
+          const mousePos = this.getCanvasCoords(e);
+          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+
+          if (e.button === 0) { // Left Mouse
+              if (clickedNode) {
+                  this.draggingNode = clickedNode;
+                  this.dragNodeOffset.x = mousePos.x - clickedNode.x;
+                  this.dragNodeOffset.y = mousePos.y - clickedNode.y;
+              }
+          } else if (e.button === 1) { // Middle Mouse
+              e.preventDefault();
+              this.dragging = true;
+              this.dragStart.x = e.clientX - this.offset.x;
+              this.dragStart.y = e.clientY - this.offset.y;
+          }
+      });
+      
+      this.canvas.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          const mousePos = this.getCanvasCoords(e);
+          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+          if (clickedNode && this.isEditorMode) {
+              this.isCreatingEdge = true;
+              this.edgeCreationSource = clickedNode;
+          }
+      });
+      
+      this.canvas.addEventListener('mousemove', (e) => {
+          this.mousePos = this.getCanvasCoords(e);
+          if (this.dragging || this.draggingNode || this.isCreatingEdge) {
+              this.dragged = true;
+          }
+          if (this.draggingNode) {
+              this.draggingNode.x = this.mousePos.x - this.dragNodeOffset.x;
+              this.draggingNode.y = this.mousePos.y - this.dragNodeOffset.y;
+          } else if (this.dragging) {
+              this.offset.x = e.clientX - this.dragStart.x;
+              this.offset.y = e.clientY - this.dragStart.y;
+          }
+      });
+
+      this.canvas.addEventListener('mouseup', (e) => {
+          if (this.isCreatingEdge) {
+              const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
+              if (targetNode && this.edgeCreationSource) {
+                  onEdgeCreated(this.edgeCreationSource, targetNode);
+              }
+          }
+          this.dragging = false;
+          this.draggingNode = null;
+          this.isCreatingEdge = false;
+          setTimeout(() => { this.dragged = false; }, 0);
+      });
+
+      this.canvas.addEventListener('mouseleave', () => {
+          this.dragging = false;
+          this.draggingNode = null;
+          this.isCreatingEdge = false;
+      });
+      
+      this.canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const zoomIntensity = 0.1;
+          const wheel = e.deltaY < 0 ? 1 : -1;
+          const zoom = Math.exp(wheel * zoomIntensity);
+          const rect = this.canvas.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
+          this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
+          this.scale = Math.max(0.1, Math.min(5, this.scale));
+      });
+
+      this.canvas.addEventListener('click', onClick);
+      this.canvas.addEventListener('dblclick', onDblClick);
+  }
 }
 
