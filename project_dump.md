@@ -1,48 +1,4 @@
 
-## ./README.md
-
-## 🛡️ License and Usage
-
-This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)**.
-
----
-
-### Important Clarification for Artists and Creators:
-
-The CC BY-NC-SA license applies **only to the player's source code** (the HTML, CSS, and JavaScript files that make it run).
-
-It **does not apply to the content you create**, such as your music, cover art, lyrics, or the `.jsonld` graph file that structures your narrative. You retain full ownership of your art and are free to license or sell it however you wish.
-
-You can freely use this player as a non-commercial tool to display and distribute your commercial or non-commercial artwork.
-
-### A Note on Attribution (How to give credit)
-
-To comply with the license, you must provide a visible credit. We've made this as painless as possible.
-
-**1. Required Attribution Text:**
-You must include the following text somewhere visible (e.g., in the footer of your page or on an "About" page):
-
-> **AVN Player by Nftxv**
-
-**2. Required License Notice:**
-You must also include a reference to the license, so others know the terms under which the player is shared.
-
-**The Easiest Way to Do Both:**
-You can fulfill both requirements with a single, simple line. Here is a perfect example:
-
-*   `My Interactive Album (powered by AVN Player by Nftxv, used under CC BY-NC-SA 4.0)`
-
-*Or, with a link (even better):*
-
-*   `My Interactive Album (powered by AVN Player by Nftxv, used under`
-    `[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/))`
-
-This simple credit line is all that's needed.
-
----
-For the full license text, please see the [LICENSE.md](LICENSE.md) file.
-
-
 ## ./public/index.html
 
 <!DOCTYPE html>
@@ -504,149 +460,11 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; }
 }
 
 
-## ./public/js/app.js
-
-/**
- * AVN Player v2.1 - Main Application
- * by Nftxv
- */
-import GraphData from './modules/GraphData.js';
-import Renderer from './modules/Renderer.js';
-import Player from './modules/Player.js';
-import EditorTools from './modules/EditorTools.js';
-import Navigation from './modules/Navigation.js';
-
-class GraphApp {
-  constructor() {
-    this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas');
-    this.player = new Player(this.graphData);
-    this.navigation = new Navigation(this.graphData, this.player, this.renderer);
-    this.editorTools = new EditorTools(this.graphData, this.renderer);
-    
-    this.player.setNavigation(this.navigation);
-    this.isEditorMode = false;
-  }
-
-  async init() {
-    try {
-      await this.graphData.load('data/default.jsonld');
-      this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
-      await this.renderer.loadAndRenderAll();
-      this.setupEventListeners();
-      this.toggleEditorMode(false); // Ensure we start in player mode
-      console.log('Application initialized successfully.');
-    } catch (error) {
-      console.error('Initialization failed:', error);
-      alert('Could not load the application.');
-    }
-  }
-
-  toggleEditorMode(isEditor) {
-    this.isEditorMode = isEditor;
-    document.body.classList.toggle('editor-mode', isEditor);
-    
-    // Reset states when switching modes
-    this.player.stop();
-    this.navigation.reset();
-    
-    if (!isEditor) {
-      this.editorTools.selectEntity(null);
-      this.editorTools.closeInspector();
-    }
-  }
-
-  setupEventListeners() {
-    this.renderer.setupCanvasInteraction(
-        (e) => this.handleCanvasClick(e),
-        (e) => this.handleCanvasDblClick(e),
-        (source, target) => {
-            if (this.isEditorMode) {
-                this.editorTools.createEdge(source, target);
-            }
-        }
-    );
-
-    // --- Toolbar Listeners ---
-    document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
-    
-    // Player mode controls
-    document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
-    document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
-
-    // Editor mode controls
-    document.getElementById('addNodeBtn').addEventListener('click', () => {
-        const newNode = this.editorTools.createNode();
-        this.editorTools.selectEntity(newNode);
-        this.editorTools.openInspector(newNode);
-    });
-    document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
-        this.editorTools.deleteEntity(this.editorTools.selectedEntity);
-    });
-    document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
-    
-    // --- Inspector and Modal Listeners ---
-    document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
-    document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
-    document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
-    document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
-    
-    // --- Player Listeners ---
-    document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
-    document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
-    document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
-  }
-
-  handleCanvasClick(event) {
-    if (this.renderer.wasDragged()) return;
-    const coords = this.renderer.getCanvasCoords(event);
-    
-    if (this.isEditorMode) {
-      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      if (clickedNode) {
-        this.editorTools.selectEntity(clickedNode);
-        return; // Found a node, no need to check for edges
-      }
-
-      const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-      if (clickedEdge) {
-        this.editorTools.selectEntity(clickedEdge);
-        return; // Found an edge
-      }
-      
-      // If nothing was clicked, deselect everything
-      this.editorTools.selectEntity(null);
-
-    } else {
-      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      if (clickedNode) {
-        this.navigation.startFromNode(clickedNode.id);
-      }
-    }
-  }
-  
-  handleCanvasDblClick(event) {
-    if (!this.isEditorMode) return;
-    const coords = this.renderer.getCanvasCoords(event);
-    const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-    if (clickedNode) {
-        this.editorTools.openInspector(clickedNode);
-    }
-  }
-}
-
-window.addEventListener('load', () => {
-  const app = new GraphApp();
-  app.init();
-});
-
-
 ## ./public/js/modules/EditorTools.js
 
 /**
- * AVN Player v2.1 - Editor Tools Module
+ * AVN Player v2.2 - Editor Tools Module
  * by Nftxv
- * (Your license header here)
  */
 export default class EditorTools {
   constructor(graphData, renderer) {
@@ -656,17 +474,16 @@ export default class EditorTools {
     this.selectedEntity = null;
   }
 
+  // --- Core Editor Functions ---
+
   createNode() {
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      x: 100,
-      y: 100,
-      audioSources: [],
-      coverSources: [],
-      lyricsSource: null,
+      x: 100, y: 100, // Default position
+      audioSources: [], coverSources: [], lyricsSource: null,
     };
-    this.graphData.nodes.push(newNode);
+      this.graphData.nodes.push(newNode);
     return newNode;
   }
 
@@ -676,54 +493,45 @@ export default class EditorTools {
     );
     if (edgeExists || sourceNode.id === targetNode.id) return;
 
-    const newEdge = {
-      source: sourceNode.id,
-      target: targetNode.id,
-      color: '#4a86e8',
-      label: ''
-    };
+    const newEdge = { source: sourceNode.id, target: targetNode.id, color: '#4a86e8', label: '' };
     this.graphData.edges.push(newEdge);
   }
 
   deleteEntity(entity) {
-    if (!entity) return;
-    if (!confirm('Are you sure you want to delete this item?')) return;
+    if (!entity || !confirm('Are you sure you want to delete this item?')) return;
 
     if (entity.source && entity.target) { // It's an edge
-      this.graphData.edges = this.graphData.edges.filter(
-        e => !(e.source === entity.source && e.target === entity.target)
+      const index = this.graphData.edges.findIndex(
+        e => e.source === entity.source && e.target === entity.target
       );
+      if (index > -1) {
+        this.graphData.edges.splice(index, 1);
+      }
     } else { // It's a node
-      this.graphData.nodes = this.graphData.nodes.filter(n => n.id !== entity.id);
       this.graphData.edges = this.graphData.edges.filter(
         e => e.source !== entity.id && e.target !== entity.id
       );
+      const index = this.graphData.nodes.findIndex(n => n.id === entity.id);
+      if (index > -1) {
+        this.graphData.nodes.splice(index, 1);
+      }
     }
     this.selectEntity(null);
   }
 
   selectEntity(entity) {
-      if (this.selectedEntity) this.selectedEntity.selected = false;
-      this.selectedEntity = entity;
-      if (this.selectedEntity) this.selectedEntity.selected = true;
-      document.getElementById('deleteSelectionBtn').disabled = !entity;
+    if (this.selectedEntity) this.selectedEntity.selected = false;
+    this.selectedEntity = entity;
+    if (this.selectedEntity) this.selectedEntity.selected = true;
+    document.getElementById('deleteSelectionBtn').disabled = !entity;
   }
+
+  // --- Inspector Panel Logic ---
 
   openInspector(node) {
     this.editingNode = node;
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
-    
-    // A helper function to get the full URL from a source object
-    const getSourceValue = (source) => {
-        if (!source) return '';
-        // A simple check to see if it's an IPFS hash that needs a gateway
-        if (source.type === 'ipfs' && (source.value.startsWith('Qm') || source.value.startsWith('bafy'))) {
-          const gateway = this.graphData.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-          return `${gateway}${source.value}`;
-        }
-        return source.value || '';
-    };
 
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
@@ -747,11 +555,11 @@ export default class EditorTools {
     this.editingNode.title = document.getElementById('nodeTitle').value;
 
     const parseSource = (url) => {
-        if (!url || url.trim() === '') return null;
-        if (url.startsWith('Qm') || url.startsWith('bafy')) {
-            return { type: 'ipfs', value: url };
-        }
-        return { type: 'url', value: url };
+      if (!url || url.trim() === '') return null;
+      if (url.startsWith('Qm') || url.startsWith('bafy')) {
+        return { type: 'ipfs', value: url };
+      }
+      return { type: 'url', value: url };
     };
 
     const audioSource = parseSource(document.getElementById('audioSource').value);
@@ -770,6 +578,8 @@ export default class EditorTools {
     this.editingNode = null;
   }
   
+  // --- Settings Modal Logic ---
+  
   openSettings() {
     const gateway = this.graphData.meta.gateways?.[0] || '';
     document.getElementById('ipfsGatewayInput').value = gateway;
@@ -785,6 +595,8 @@ export default class EditorTools {
   closeSettings() {
     document.getElementById('settingsModal').classList.add('hidden');
   }
+
+  // --- Graph Management ---
 
   exportGraph() {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
