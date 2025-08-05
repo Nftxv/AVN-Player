@@ -1,14 +1,22 @@
 :root {
   --player-height: 80px;
   --primary-color: #4285f4;
-  --primary-hover: #3367d6;
+  --primary-hover: #5a95f5;
+  
+  /* Цвета для темной темы */
+  --dark-bg: #1e1e1e;
+  --dark-surface: #2d2d2d;
+  --dark-text: #e0e0e0;
+  --dark-subtle-text: #9e9e9e;
+  --dark-border: #424242;
 }
 
 body {
   margin: 0;
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #171717;
+  background-color: var(--dark-bg); /* ИСПОЛЬЗУЕМ НОВЫЙ ФОН */
+  color: var(--dark-text); /* Ставим светлый текст по умолчанию */
 }
 
 canvas {
@@ -42,11 +50,11 @@ button:hover, .button-like:hover {
   left: 0;
   right: 0;
   height: var(--player-height);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(45, 45, 45, 0.9); /* Темный фон для плеера */
+  border-top: 1px solid var(--dark-border);
   padding: 10px 20px;
   display: flex;
   align-items: center;
-  box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.1);
   z-index: 100;
   gap: 15px;
 }
@@ -56,8 +64,7 @@ button:hover, .button-like:hover {
   height: 60px;
   border-radius: 5px;
   object-fit: cover;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  background-color: #e0e0e0;
+  background-color: #333;
   flex-shrink: 0;
 }
 
@@ -76,6 +83,7 @@ button:hover, .button-like:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--dark-text); /* Светлый текст */
 }
 
 #playerControls {
@@ -85,9 +93,7 @@ button:hover, .button-like:hover {
   width: 100%;
 }
 
-#progress {
-  flex-grow: 1;
-}
+#progress { flex-grow: 1; }
 
 #lyricsContainer {
   position: fixed;
@@ -95,98 +101,44 @@ button:hover, .button-like:hover {
   left: 10px;
   right: 10px;
   max-height: 40vh;
-  background: white;
+  background: var(--dark-surface); /* Темный фон */
+  border: 1px solid var(--dark-border);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   z-index: 300;
   overflow-y: auto;
   padding: 20px;
+  color: var(--dark-text); /* Светлый текст */
 }
+#closeLyricsBtn { color: var(--dark-text); }
+#closeLyricsBtn:hover { color: #e74c3c; }
 
-#lyricsContainer pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-size: 1em;
-  font-family: 'Consolas', 'Menlo', monospace;
-}
 
-#closeLyricsBtn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  background: transparent;
-  color: #333;
-  border: none;
-  font-size: 20px;
-  line-height: 1;
-  padding: 5px;
-}
-#closeLyricsBtn:hover {
-  color: red;
-  background: transparent;
-  transform: none;
-}
+.hidden { display: none !important; }
 
-.hidden {
-  display: none !important;
-}
-
-#choiceModal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 400;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 15px;
-}
-
-#modalContent {
-  background: white;
+/* Modal windows styling */
+.modal-content {
+  background: var(--dark-surface);
   padding: 25px;
-  border-radius: 3px;
+  border-radius: 8px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--dark-border);
 }
-
-#choiceOptions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 20px 0;
-}
-
 #choiceOptions button {
-  width: 100%;
-  text-align: left;
-  padding: 12px;
-  background-color: #f1f3f4;
-  color: #202124;
+  background-color: #3c3c3c;
+  color: var(--dark-text);
 }
 #choiceOptions button:hover {
-  background-color: #e8eaed;
+  background-color: #4f4f4f;
 }
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-  #player {
-    height: auto;
-    flex-direction: column;
-    padding: 10px;
-    gap: 10px;
-  }
-  #playerContent {
-    width: 100%;
-  }
-  #songTitle {
-    text-align: center;
-  }
+  #player { height: auto; flex-direction: column; padding: 10px; gap: 10px; }
+  #playerContent { width: 100%; }
+  #songTitle { text-align: center; }
 }
 
 #copyright {
@@ -194,76 +146,75 @@ button:hover, .button-like:hover {
   bottom: 5px;
   right: 15px;
   font-size: 12px;
-  color: #777;
+  color: var(--dark-subtle-text);
   z-index: 99;
 }
-
-#copyright a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-#copyright a:hover {
-  text-decoration: underline;
-}
+#copyright a { color: var(--primary-color); text-decoration: none; }
+#copyright a:hover { text-decoration: underline; }
 
 /* Editor UI & Toolbar */
 #topToolbar {
   position: fixed;
   top: 10px;
   left: 10px;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(45, 45, 45, 0.9); /* Темный фон */
+  border: 1px solid var(--dark-border);
   padding: 8px;
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
   z-index: 200;
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
-#playerModeControls, #editorModeControls {
-  display: flex;
-  gap: 10px;
-}
-
-.editor-mode-label { user-select: none; font-size: 0.9em; color: #555; }
-.divider { width: 1px; height: 24px; background-color: #ccc; margin: 0 5px; }
+#playerModeControls, #editorModeControls { display: flex; gap: 10px; }
+.editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
+.divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
 /* Switch Toggle */
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
-.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #e0e0e0; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--primary-color); }
 input:checked + .slider:before { transform: translateX(20px); }
 
 /* Properties Inspector Panel */
 #inspectorPanel {
   position: fixed; top: 60px; right: 10px; width: 300px;
-  max-height: calc(100vh - 80px); background: white; border-radius: 8px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 250; padding: 15px;
-  overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  max-height: calc(100vh - 80px); background: var(--dark-surface);
+  border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  border: 1px solid var(--dark-border);
+  z-index: 250; padding: 15px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
 }
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input { width: 95%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+#inspectorContent input {
+  width: 95%; padding: 8px; border-radius: 4px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: var(--dark-text);
+}
 
 /* Settings & Choice Modals */
 #settingsModal, #choiceModal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5); z-index: 400; display: flex;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
   justify-content: center; align-items: center; padding: 15px;
 }
 .modal-content {
-  background: white; padding: 25px; border-radius: 10px;
-  width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+  background: var(--dark-surface); padding: 25px; border-radius: 8px;
+  border: 1px solid var(--dark-border);
+  width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.3);
 }
 .modal-content label { display: block; margin-bottom: 5px; }
-.modal-content input { width: 95%; padding: 8px; margin-bottom: 15px; }
+.modal-content input {
+  width: 95%; padding: 8px; margin-bottom: 15px;
+  background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text);
+}
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
-
 
 /* Editor Mode Visibility Toggle LOGIC */
 body:not(.editor-mode) #editorModeControls { display: none; }
