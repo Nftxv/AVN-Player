@@ -1,5 +1,8 @@
-// src/modules/EditorTools.js
-
+/**
+ * AVN Player v2.1 - Editor Tools Module
+ * by Nftxv
+ * (Your license header here)
+ */
 export default class EditorTools {
   constructor(graphData, renderer) {
     this.graphData = graphData;
@@ -39,13 +42,13 @@ export default class EditorTools {
 
   deleteEntity(entity) {
     if (!entity) return;
-    if (!confirm('Are you sure you want to delete this?')) return;
+    if (!confirm('Are you sure you want to delete this item?')) return;
 
-    if (entity.source && entity.target) {
+    if (entity.source && entity.target) { // It's an edge
       this.graphData.edges = this.graphData.edges.filter(
         e => !(e.source === entity.source && e.target === entity.target)
       );
-    } else {
+    } else { // It's a node
       this.graphData.nodes = this.graphData.nodes.filter(n => n.id !== entity.id);
       this.graphData.edges = this.graphData.edges.filter(
         e => e.source !== entity.id && e.target !== entity.id
@@ -66,27 +69,18 @@ export default class EditorTools {
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
     
-    // A simplified helper to get the URL for the inspector
-    const getSourceValue = (source) => {
-        if (!source) return '';
-        if (source.type === 'ipfs' && this.graphData.meta.gateways[0]) {
-            return `${this.graphData.meta.gateways[0]}${source.value}`;
-        }
-        return source.value || '';
-    };
-
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
       <input type="text" id="nodeTitle" value="${node.title}">
       
       <label for="audioSource">Audio (URL or IPFS hash):</label>
-      <input type="text" id="audioSource" value="${getSourceValue(node.audioSources?.[0])}">
+      <input type="text" id="audioSource" value="${this.graphData.getSourceValue(node.audioSources?.[0])}">
 
       <label for="coverSource">Cover (URL or IPFS hash):</label>
-      <input type="text" id="coverSource" value="${getSourceValue(node.coverSources?.[0])}">
+      <input type="text" id="coverSource" value="${this.graphData.getSourceValue(node.coverSources?.[0])}">
 
       <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
-      <input type="text" id="lyricsSource" value="${getSourceValue(node.lyricsSource)}">
+      <input type="text" id="lyricsSource" value="${this.graphData.getSourceValue(node.lyricsSource)}">
     `;
     panel.classList.remove('hidden');
   }
@@ -97,8 +91,7 @@ export default class EditorTools {
     this.editingNode.title = document.getElementById('nodeTitle').value;
 
     const parseSource = (url) => {
-        if (!url) return null;
-        // Super simple check for IPFS hash
+        if (!url || url.trim() === '') return null;
         if (url.startsWith('Qm') || url.startsWith('bafy')) {
             return { type: 'ipfs', value: url };
         }
@@ -129,7 +122,7 @@ export default class EditorTools {
   
   saveSettings() {
     const gateway = document.getElementById('ipfsGatewayInput').value;
-    this.graphData.meta.gateways = [gateway];
+    this.graphData.meta.gateways = gateway ? [gateway] : [];
     this.closeSettings();
   }
   
@@ -138,7 +131,14 @@ export default class EditorTools {
   }
 
   exportGraph() {
-    // ... (код экспорта без изменений)
+    const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
+    const blob = new Blob([graphJSON], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'music-graph.jsonld';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   resetGraph() {

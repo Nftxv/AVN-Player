@@ -1,6 +1,7 @@
 /**
- * AVN Player v2.0 - Main Application
+ * AVN Player v2.1 - Main Application
  * by Nftxv
+ * (Your license header here)
  */
 import GraphData from './modules/GraphData.js';
 import Renderer from './modules/Renderer.js';
@@ -22,11 +23,11 @@ class GraphApp {
 
   async init() {
     try {
-      await this.graphData.load('./data/default.jsonld'); 
+      await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
-      this.toggleEditorMode(false);
+      this.toggleEditorMode(false); // Ensure player mode is active on start
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -36,21 +37,19 @@ class GraphApp {
 
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
-  
     document.body.classList.toggle('editor-mode', isEditor);
-    document.getElementById('editorPanel').classList.toggle('hidden', !isEditor);
-
+    
     this.player.stop();
     this.navigation.reset();
     
-      if (!isEditor) {
+    if (!isEditor) {
       this.editorTools.selectEntity(null);
       this.editorTools.closeInspector();
     }
   }
 
   setupEventListeners() {
-        this.renderer.setupCanvasInteraction(
+    this.renderer.setupCanvasInteraction(
         (e) => this.handleCanvasClick(e),
         (e) => this.handleCanvasDblClick(e),
         (source, target) => {
@@ -60,29 +59,30 @@ class GraphApp {
         }
     );
 
-    const toggle = document.getElementById('editorModeToggle');
-    toggle.addEventListener('change', () => this.toggleEditorMode(toggle.checked));
+    document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
+    
+    // Player mode controls
+    document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
+    document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
 
+    // Editor mode controls
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
         this.editorTools.openInspector(newNode);
     });
-
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         this.editorTools.deleteEntity(this.editorTools.selectedEntity);
     });
+    document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     
+    // Inspector and modal listeners
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
-    
-    document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
     document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
-
-    document.getElementById('playerToolbar').querySelector('#exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
-    document.getElementById('playerToolbar').querySelector('#resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
-
+    
+    // Player listeners
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());

@@ -162,7 +162,7 @@ canvas:active {
   cursor: grabbing;
 }
 
-#editorToolbar {
+#playerToolbar {
   position: fixed;
   top: 10px;
   left: 10px;
@@ -418,7 +418,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 
 /* Class for activating editor mode */
-body.editor-mode #editorToolbar { display: none; }
+body.editor-mode #playerToolbar { display: none; }
 body:not(.editor-mode) #editorPanel { display: none; }
 
 
@@ -534,11 +534,11 @@ class GraphApp {
 
   async init() {
     try {
-      // ИСПРАВЛЕННЫЙ ПУТЬ: из /js/ выходим в /public/ (..), затем заходим в /data/
-      await this.graphData.load('../data/default.jsonld'); 
+      await this.graphData.load('./data/default.jsonld'); 
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
+      this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -548,19 +548,21 @@ class GraphApp {
 
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
+  
     document.body.classList.toggle('editor-mode', isEditor);
+    document.getElementById('editorPanel').classList.toggle('hidden', !isEditor);
+
     this.player.stop();
     this.navigation.reset();
     
-    if (!isEditor) {
+      if (!isEditor) {
       this.editorTools.selectEntity(null);
       this.editorTools.closeInspector();
     }
   }
 
   setupEventListeners() {
-    // ДОБАВЛЕНА НЕДОСТАЮЩАЯ ФУНКЦИЯ
-    this.renderer.setupCanvasInteraction(
+        this.renderer.setupCanvasInteraction(
         (e) => this.handleCanvasClick(e),
         (e) => this.handleCanvasDblClick(e),
         (source, target) => {
