@@ -22,8 +22,7 @@ class GraphApp {
 
   async init() {
     try {
-      // ИСПРАВЛЕННЫЙ ПУТЬ: из /js/ выходим в /public/ (..), затем заходим в /data/
-      await this.graphData.load('../data/default.jsonld'); 
+      await this.graphData.load('data/default.jsonld'); 
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
