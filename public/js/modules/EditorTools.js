@@ -19,7 +19,7 @@ export default class EditorTools {
       x: 100, y: 100, // Default position
       audioSources: [], coverSources: [], lyricsSource: null,
     };
-    this.graphData.nodes.push(newNode); // Modifies the array in place, renderer will see it
+      this.graphData.nodes.push(newNode);
     return newNode;
   }
 
@@ -30,7 +30,7 @@ export default class EditorTools {
     if (edgeExists || sourceNode.id === targetNode.id) return;
 
     const newEdge = { source: sourceNode.id, target: targetNode.id, color: '#4a86e8', label: '' };
-    this.graphData.edges.push(newEdge); // Modifies the array in place
+    this.graphData.edges.push(newEdge);
   }
 
   deleteEntity(entity) {
@@ -41,17 +41,15 @@ export default class EditorTools {
         e => e.source === entity.source && e.target === entity.target
       );
       if (index > -1) {
-        this.graphData.edges.splice(index, 1); // Modifies the array in place
+        this.graphData.edges.splice(index, 1);
       }
     } else { // It's a node
-      // First, remove all edges connected to this node
       this.graphData.edges = this.graphData.edges.filter(
         e => e.source !== entity.id && e.target !== entity.id
       );
-      // Then, remove the node itself
       const index = this.graphData.nodes.findIndex(n => n.id === entity.id);
       if (index > -1) {
-        this.graphData.nodes.splice(index, 1); // Modifies the array in place
+        this.graphData.nodes.splice(index, 1);
       }
     }
     this.selectEntity(null);
@@ -94,7 +92,6 @@ export default class EditorTools {
 
     const parseSource = (url) => {
       if (!url || url.trim() === '') return null;
-      // Simple check for IPFS hash
       if (url.startsWith('Qm') || url.startsWith('bafy')) {
         return { type: 'ipfs', value: url };
       }
