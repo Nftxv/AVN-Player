@@ -41,12 +41,12 @@ export default class Renderer {
     this.meta = meta;
   }
 
-  async loadAndRenderAll() {
+  async loadAndRenderAll(); {
     await this.loadImages();
     this.renderLoop();
   }
 
-  async loadImages() {
+  async loadImages(); {
     const promises = this.nodes.flatMap(node =>
       (node.coverSources || []).map(async source => {
         const url = this.getSourceUrl(source);
@@ -65,11 +65,11 @@ export default class Renderer {
     await Promise.all(promises);
   }
 
-  getSourceUrl(source) {
+  getSourceUrl(source) ;{
     return this.graphData.getSourceUrl(source);
   }
 
-  getNodeAt(x, y) {
+  getNodeAt(x, y) ;{
     for (let i = this.nodes.length - 1; i >= 0; i--) {
         const node = this.nodes[i];
         const height = node.isCollapsed ? 40 : 90;
@@ -80,7 +80,7 @@ export default class Renderer {
     return null;
   }
 
-  getEdgeAt(x, y) {
+  getEdgeAt(x, y) ;{
     const tolerance = 8;
     for (const edge of this.edges) {
       const src = this.nodes.find(n => n.id === edge.source);
@@ -100,7 +100,7 @@ export default class Renderer {
     return null;
   }
 
-  getNodeToggleAt(x, y) {
+  getNodeToggleAt(x, y) ;{
     const toggleSize = 16;
     for (let i = this.nodes.length - 1; i >= 0; i--) {
         const node = this.nodes[i];
@@ -114,7 +114,7 @@ export default class Renderer {
     return null;
   }
   
-  renderLoop() {
+  renderLoop() ;{
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
     this.ctx.translate(this.offset.x, this.offset.y);
@@ -128,7 +128,7 @@ export default class Renderer {
     requestAnimationFrame(this.renderLoop);
   }
 
-  wrapText(context, text, x, y, maxWidth, lineHeight) {
+  wrapText(context, text, x, y, maxWidth, lineHeight) ;{
     const words = text.split(' ');
     let line = '';
     for (let n = 0; n < words.length; n++) {
@@ -144,7 +144,7 @@ export default class Renderer {
     context.fillText(line.trim(), x, y);
   }
 
-drawNode(node) {
+drawNode(node) ;{
     const ctx = this.ctx;
     const width = 160, collapsedHeight = 40, expandedHeight = 90;
     const height = node.isCollapsed ? collapsedHeight : expandedHeight;
@@ -213,7 +213,7 @@ drawNode(node) {
     ctx.restore();
   }
 
-  drawToggleIcon(ctx, node, width, height) {
+  drawToggleIcon(ctx, node, width, height) ;{
     const s = 16, x = node.x + width - s / 2 - 8, y = node.y + height - s / 2 - 8;
     ctx.save();
     ctx.fillStyle = '#4f4f4f'; ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
@@ -224,7 +224,7 @@ drawNode(node) {
     ctx.restore();
   }
 
-  getIconForUrl(url) {
+  getIconForUrl(url) ;{
     if (url.includes('youtube.com') || url.includes('youtu.be')) return '▶️';
     if (url.includes('spotify.com')) return '🎵';
     if (url.includes('soundcloud.com')) return '☁️';
@@ -232,7 +232,7 @@ drawNode(node) {
     return '🔗';
   }
 
-  drawEdge(edge) {
+  drawEdge(edge) ;{
       const src = this.nodes.find(n => n.id === edge.source);
       const trg = this.nodes.find(n => n.id === edge.target);
       if (!src || !trg) return;
@@ -277,7 +277,7 @@ drawNode(node) {
       ctx.restore();
   }
       
-  drawTemporaryEdge() {
+  drawTemporaryEdge() ;{
       const ctx = this.ctx;
       const startX = this.edgeCreationSource.x + 80;
       const startY = this.edgeCreationSource.y + (this.edgeCreationSource.isCollapsed ? 20 : 45);
@@ -287,7 +287,7 @@ drawNode(node) {
       ctx.restore();
   }
   
-  highlight(currentId, prevId = null, edge = null) {
+  highlight(currentId, prevId = null, edge = null) ;;{
       this.nodes.forEach(n => n.highlighted = false);
       this.edges.forEach(e => e.highlighted = false);
       if(currentId) {
@@ -300,19 +300,19 @@ drawNode(node) {
       }
   }
   
-  getCanvasCoords({ clientX, clientY }) {
+  getCanvasCoords({ clientX, clientY }) ;{
       const rect = this.canvas.getBoundingClientRect();
       return { x: (clientX - rect.left - this.offset.x) / this.scale, y: (clientY - rect.top - this.offset.y) / this.scale };
   }
   
-  resizeCanvas() {
+  resizeCanvas() ;{
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
   }
   
-  wasDragged() { return this.dragged; }
+  wasDragged() ;{ return this.dragged; }
 
-  setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
+  setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) ;{
       window.addEventListener('resize', () => this.resizeCanvas());
 
       this.canvas.addEventListener('mousedown', (e) => {
@@ -393,4 +393,3 @@ drawNode(node) {
       this.canvas.addEventListener('click', onClick);
       this.canvas.addEventListener('dblclick', onDblClick);
   }
-}
