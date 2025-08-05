@@ -44,7 +44,8 @@ export default class Renderer {
   async loadImages() {
     const promises = this.nodes.flatMap(node =>
       (node.coverSources || []).map(async source => {
-        const url = this.graphData.getSourceUrl(source);
+        // ИСПРАВЛЕНИЕ: Вызываем метод getSourceUrl этого же класса
+        const url = this.getSourceUrl(source); 
         if (url && !this.images[url]) {
           try {
             const img = new Image();
@@ -59,7 +60,7 @@ export default class Renderer {
     );
     await Promise.all(promises);
   }
-  
+    
   getNodeAt(x, y) {
     for (let i = this.nodes.length - 1; i >= 0; i--) {
         const node = this.nodes[i];
