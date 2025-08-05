@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.1 - Main Application
+ * AVN Player v2.2 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -26,7 +26,7 @@ class GraphApp {
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
-      this.toggleEditorMode(false); // Ensure we start in player mode
+      this.toggleEditorMode(false); // Убедимся, что начинаем в режиме плеера
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -38,7 +38,7 @@ class GraphApp {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
     
-    // Reset states when switching modes
+    // Сбрасываем состояния при переключении
     this.player.stop();
     this.navigation.reset();
     
@@ -59,14 +59,14 @@ class GraphApp {
         }
     );
 
-    // --- Toolbar Listeners ---
+    // --- СЛУШАТЕЛИ ДЛЯ ЕДИНОЙ ПАНЕЛИ ---
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
     
-    // Player mode controls
+    // Кнопки режима плеера
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
 
-    // Editor mode controls
+    // Кнопки режима редактора
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
@@ -77,13 +77,13 @@ class GraphApp {
     });
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     
-    // --- Inspector and Modal Listeners ---
+    // --- СЛУШАТЕЛИ ИНСПЕКТОРА И МОДАЛЬНЫХ ОКОН ---
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
     document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
     document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
     
-    // --- Player Listeners ---
+    // --- СЛУШАТЕЛИ ПЛЕЕРА ---
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
@@ -97,19 +97,19 @@ class GraphApp {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.editorTools.selectEntity(clickedNode);
-        return; // Found a node, no need to check for edges
+        return; // Нашли ноду, выходим
       }
 
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
       if (clickedEdge) {
         this.editorTools.selectEntity(clickedEdge);
-        return; // Found an edge
+        return; // Нашли связь, выходим
       }
       
-      // If nothing was clicked, deselect everything
+      // Если кликнули в пустоту, снимаем выделение
       this.editorTools.selectEntity(null);
 
-    } else {
+    } else { // Режим плеера
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.navigation.startFromNode(clickedNode.id);
