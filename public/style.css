@@ -19,19 +19,6 @@ canvas:active {
   cursor: grabbing;
 }
 
-#playerToolbar {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 8px;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  z-index: 200;
-  display: flex;
-  gap: 10px;
-}
-
 button, .button-like {
   padding: 8px 12px;
   background: var(--primary-color);
@@ -220,6 +207,7 @@ button:hover, .button-like:hover {
   text-decoration: underline;
 }
 
+/* Editor UI & Toolbar */
 #topToolbar {
   position: fixed;
   top: 10px;
@@ -252,20 +240,10 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 /* Properties Inspector Panel */
 #inspectorPanel {
-  position: fixed;
-  top: 60px;
-  right: 10px;
-  width: 300px;
-  max-height: calc(100vh - 80px);
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-  z-index: 250;
-  padding: 15px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  position: fixed; top: 60px; right: 10px; width: 300px;
+  max-height: calc(100vh - 80px); background: white; border-radius: 8px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 250; padding: 15px;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
 }
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
@@ -287,7 +265,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 
 
-/* Editor Mode Visibility Toggle */
+/* Editor Mode Visibility Toggle LOGIC */
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; }
