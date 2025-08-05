@@ -178,9 +178,9 @@ export default class Renderer {
     ctx.restore();
   }
 
-// В файле public/js/modules/Renderer.js
+// Файл: public/js/modules/Renderer.js
 
-  // ЗАМЕНИТЕ ВАШ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
+  // ЗАМЕНИТЕ ВЕСЬ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
   drawEdge(edge) {
       const src = this.nodes.find(n => n.id === edge.source);
       const trg = this.nodes.find(n => n.id === edge.target);
@@ -188,51 +188,69 @@ export default class Renderer {
       
       const ctx = this.ctx;
       
-      const startX = src.x + 80;
-      const startY = src.y + 45;
-      const endX = trg.x + 80;
-      const endY = trg.y + 45;
+      const nodeWidth = 160;
+      const nodeHeight = 90;
 
-      // ИСПРАВЛЕНИЕ №1: Цвет
-      // Используем светло-серый (#6c757d) как базовый.
-      // Свойство edge.color будет его переопределять, если оно задано.
-      let color = edge.color || '#6c757d'; 
+      const startX = src.x + nodeWidth / 2;
+      const startY = src.y + nodeHeight / 2;
+      let endX = trg.x + nodeWidth / 2;
+      let endY = trg.y + nodeHeight / 2;
+
+      // --- МАТЕМАТИКА ДЛЯ ОПРЕДЕЛЕНИЯ ТОЧКИ НА ГРАНИЦЕ НОДЫ ---
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const angle = Math.atan2(dy, dx);
+
+      // Рассчитываем точку пересечения с прямоугольником целевой ноды
+      const h_x = nodeWidth / 2;
+      const h_y = nodeHeight / 2;
+      const tan_angle = Math.tan(angle);
+      
+      let finalX = endX;
+      let finalY = endY;
+
+      if (Math.abs(dy) < Math.abs(dx)) {
+          finalX = endX - Math.sign(dx) * h_x;
+          finalY = endY - Math.sign(dx) * h_x * tan_angle;
+      } else {
+          finalY = endY - Math.sign(dy) * h_y;
+          finalX = endX - Math.sign(dy) * h_y / tan_angle;
+      }
+
+      // --- СТИЛИЗАЦИЯ ---
+      let color = edge.color || '#888888'; // Более светлый серый по умолчанию
       if (edge.selected) color = '#e74c3c';
       if (edge.highlighted) color = '#FFD700';
 
-      const lineWidth = edge.selected || edge.highlighted ? 2 : 1; // Делаем линии еще тоньше
-
+      const lineWidth = edge.selected || edge.highlighted ? 2 : 1;
+      
       ctx.save();
       
-      // --- Рисуем линию ---
+      // --- РИСУЕМ ЛИНИЮ ---
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
+      ctx.lineTo(finalX, finalY); // Линия доходит ТОЛЬКО до границы
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.stroke();
 
-      // --- Рисуем стрелку на конце ---
-      const angle = Math.atan2(endY - startY, endX - startX);
+      // --- РИСУЕМ СТРЕЛКУ ---
       const arrowSize = 8;
-      
-      ctx.translate(endX, endY);
+      ctx.translate(finalX, finalY); // Перемещаемся в точку на границе
       ctx.rotate(angle);
       
-      // ИСПРАВЛЕНИЕ №2: Логика рисования стрелки
-      // Теперь стрелка рисуется как залитый треугольник, что более надежно
       ctx.beginPath();
-      ctx.moveTo(0, 0); // Кончик стрелки находится точно в конечной точке
+      ctx.moveTo(0, 0); // Кончик стрелки теперь точно на границе
       ctx.lineTo(-arrowSize, -arrowSize / 2);
       ctx.lineTo(-arrowSize, arrowSize / 2);
-      ctx.closePath(); // Замыкаем контур, чтобы получился треугольник
-
-      ctx.fillStyle = color; // Используем fillStyle, чтобы залить стрелку цветом
-      ctx.fill(); // Заливаем
+      ctx.closePath();
+      
+      ctx.fillStyle = color;
+      ctx.fill();
 
       ctx.restore();
   }
-  
+    
   drawTemporaryEdge() {
       const ctx = this.ctx;
       const startX = this.edgeCreationSource.x + 80;

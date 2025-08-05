@@ -24,15 +24,16 @@ export default class EditorTools {
   }
 
   createEdge(sourceNode, targetNode) {
-    const edgeExists = this.graphData.edges.some(
-      e => e.source === sourceNode.id && e.target === targetNode.id
-    );
-    if (edgeExists || sourceNode.id === targetNode.id) return;
-
-    const newEdge = { source: sourceNode.id, target: targetNode.id, color: '#4a86e8', label: '' };
+    // ...
+    const newEdge = {
+      source: sourceNode.id,
+      target: targetNode.id,
+      // color: '#4a86e8', // УДАЛЯЕМ ЭТУ СТРОКУ
+      label: ''
+    };
     this.graphData.edges.push(newEdge);
   }
-
+  
   deleteEntity(entity) {
     if (!entity || !confirm('Are you sure you want to delete this item?')) return;
 
