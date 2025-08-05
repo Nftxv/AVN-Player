@@ -56,23 +56,28 @@ For the full license text, please see the [LICENSE.md](LICENSE.md) file.
 <body>
   <canvas id="graphCanvas"></canvas>
 
-  <!-- Player Mode Toolbar -->
-  <div id="playerToolbar">
-    <button id="exportBtn">Export Graph</button>
-    <button id="resetBtn">Reset</button>
-  </div>
-
-  <!-- Editor Mode Panel -->
-  <div id="editorPanel" class="hidden">
+  <!-- UNIFIED TOP TOOLBAR -->
+  <div id="topToolbar">
+    <!-- Mode Switcher (Always Visible) -->
     <label class="switch" title="Toggle Editor Mode">
       <input type="checkbox" id="editorModeToggle">
       <span class="slider"></span>
     </label>
     <span class="editor-mode-label">Editor Mode</span>
     <div class="divider"></div>
-    <button id="addNodeBtn" title="Add New Node">Add Node</button>
-    <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
-    <button id="settingsBtn" title="Global Settings">⚙️</button>
+
+    <!-- Player Mode Controls -->
+    <div id="playerModeControls">
+      <button id="exportBtn">Export Graph</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+
+    <!-- Editor Mode Controls (hidden by default) -->
+    <div id="editorModeControls">
+      <button id="addNodeBtn" title="Add New Node">Add Node</button>
+      <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
+      <button id="settingsBtn" title="Global Settings">⚙️</button>
+    </div>
   </div>
 
   <!-- Properties Inspector Panel (hidden) -->
@@ -128,7 +133,6 @@ For the full license text, please see the [LICENSE.md](LICENSE.md) file.
     </div>
   </div>
   
-  <!-- ИСПРАВЛЕННЫЙ ПУТЬ -->
   <script src="js/app.js" type="module"></script>
 
   <!-- Copyright Footer -->
@@ -160,19 +164,6 @@ canvas {
 }
 canvas:active {
   cursor: grabbing;
-}
-
-#playerToolbar {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 8px;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  z-index: 200;
-  display: flex;
-  gap: 10px;
 }
 
 button, .button-like {
@@ -363,22 +354,30 @@ button:hover, .button-like:hover {
   text-decoration: underline;
 }
 
-/* Editor panel */
-#editorPanel {
+/* Editor UI & Toolbar */
+#topToolbar {
   position: fixed;
   top: 10px;
-  right: 10px;
-  background: rgba(230, 230, 230, 0.95);
+  left: 10px;
+  background: rgba(255, 255, 255, 0.95);
   padding: 8px;
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
   z-index: 200;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-/* Styles for the switch */
+#playerModeControls, #editorModeControls {
+  display: flex;
+  gap: 10px;
+}
+
+.editor-mode-label { user-select: none; font-size: 0.9em; color: #555; }
+.divider { width: 1px; height: 24px; background-color: #ccc; margin: 0 5px; }
+
+/* Switch Toggle */
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
@@ -386,40 +385,37 @@ button:hover, .button-like:hover {
 input:checked + .slider { background-color: var(--primary-color); }
 input:checked + .slider:before { transform: translateX(20px); }
 
-/* Properties panel (inspector) */
+/* Properties Inspector Panel */
 #inspectorPanel {
-  position: fixed;
-  top: 60px;
-  right: 10px;
-  width: 300px;
-  max-height: 80vh;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-  z-index: 250;
-  padding: 15px;
-  overflow-y: auto;
+  position: fixed; top: 60px; right: 10px; width: 300px;
+  max-height: calc(100vh - 80px); background: white; border-radius: 8px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 250; padding: 15px;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
 }
 #inspectorPanel h4 { margin-top: 0; }
-#inspectorContent label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.9em; }
-#inspectorContent input { width: 95%; padding: 5px; }
+#inspectorContent { display: flex; flex-direction: column; gap: 10px; }
+#inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
+#inspectorContent input { width: 95%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
 
-/* Modal settings window */
-#settingsModal {
-  /* Styles like choiceModal */
+/* Settings & Choice Modals */
+#settingsModal, #choiceModal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.5); z-index: 400; display: flex;
-  justify-content: center; align-items: center;
+  justify-content: center; align-items: center; padding: 15px;
 }
-#settingsContent {
-  /* Styles like modalContent */
+.modal-content {
   background: white; padding: 25px; border-radius: 10px;
   width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.2);
 }
+.modal-content label { display: block; margin-bottom: 5px; }
+.modal-content input { width: 95%; padding: 8px; margin-bottom: 15px; }
+.modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 
-/* Class for activating editor mode */
-body.editor-mode #playerToolbar { display: none; }
-body:not(.editor-mode) #editorPanel { display: none; }
+
+/* Editor Mode Visibility Toggle LOGIC */
+body:not(.editor-mode) #editorModeControls { display: none; }
+body.editor-mode #playerModeControls { display: none; }
+body.editor-mode #player { opacity: 0.5; pointer-events: none; }
 
 
 ## ./public/data/default.jsonld
@@ -511,7 +507,7 @@ body:not(.editor-mode) #editorPanel { display: none; }
 ## ./public/js/app.js
 
 /**
- * AVN Player v2.0 - Main Application
+ * AVN Player v2.1 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -534,11 +530,11 @@ class GraphApp {
 
   async init() {
     try {
-      await this.graphData.load('./data/default.jsonld'); 
+      await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
-      this.toggleEditorMode(false);
+      this.toggleEditorMode(false); // Ensure we start in player mode
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -548,21 +544,20 @@ class GraphApp {
 
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
-  
     document.body.classList.toggle('editor-mode', isEditor);
-    document.getElementById('editorPanel').classList.toggle('hidden', !isEditor);
-
+    
+    // Reset states when switching modes
     this.player.stop();
     this.navigation.reset();
     
-      if (!isEditor) {
+    if (!isEditor) {
       this.editorTools.selectEntity(null);
       this.editorTools.closeInspector();
     }
   }
 
   setupEventListeners() {
-        this.renderer.setupCanvasInteraction(
+    this.renderer.setupCanvasInteraction(
         (e) => this.handleCanvasClick(e),
         (e) => this.handleCanvasDblClick(e),
         (source, target) => {
@@ -572,29 +567,31 @@ class GraphApp {
         }
     );
 
-    const toggle = document.getElementById('editorModeToggle');
-    toggle.addEventListener('change', () => this.toggleEditorMode(toggle.checked));
+    // --- Toolbar Listeners ---
+    document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
+    
+    // Player mode controls
+    document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
+    document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
 
+    // Editor mode controls
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
         this.editorTools.openInspector(newNode);
     });
-
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         this.editorTools.deleteEntity(this.editorTools.selectedEntity);
     });
+    document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     
+    // --- Inspector and Modal Listeners ---
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
-    
-    document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
     document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
-
-    document.getElementById('playerToolbar').querySelector('#exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
-    document.getElementById('playerToolbar').querySelector('#resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
-
+    
+    // --- Player Listeners ---
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
@@ -603,12 +600,28 @@ class GraphApp {
   handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-
+    
     if (this.isEditorMode) {
-      this.editorTools.selectEntity(clickedNode);
-    } else if (clickedNode) {
-      this.navigation.startFromNode(clickedNode.id);
+      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
+      if (clickedNode) {
+        this.editorTools.selectEntity(clickedNode);
+        return; // Found a node, no need to check for edges
+      }
+
+      const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
+      if (clickedEdge) {
+        this.editorTools.selectEntity(clickedEdge);
+        return; // Found an edge
+      }
+      
+      // If nothing was clicked, deselect everything
+      this.editorTools.selectEntity(null);
+
+    } else {
+      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
+      if (clickedNode) {
+        this.navigation.startFromNode(clickedNode.id);
+      }
     }
   }
   
@@ -630,8 +643,11 @@ window.addEventListener('load', () => {
 
 ## ./public/js/modules/EditorTools.js
 
-// src/modules/EditorTools.js
-
+/**
+ * AVN Player v2.1 - Editor Tools Module
+ * by Nftxv
+ * (Your license header here)
+ */
 export default class EditorTools {
   constructor(graphData, renderer) {
     this.graphData = graphData;
@@ -671,13 +687,13 @@ export default class EditorTools {
 
   deleteEntity(entity) {
     if (!entity) return;
-    if (!confirm('Are you sure you want to delete this?')) return;
+    if (!confirm('Are you sure you want to delete this item?')) return;
 
-    if (entity.source && entity.target) {
+    if (entity.source && entity.target) { // It's an edge
       this.graphData.edges = this.graphData.edges.filter(
         e => !(e.source === entity.source && e.target === entity.target)
       );
-    } else {
+    } else { // It's a node
       this.graphData.nodes = this.graphData.nodes.filter(n => n.id !== entity.id);
       this.graphData.edges = this.graphData.edges.filter(
         e => e.source !== entity.id && e.target !== entity.id
@@ -698,11 +714,13 @@ export default class EditorTools {
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
     
-    // A simplified helper to get the URL for the inspector
+    // A helper function to get the full URL from a source object
     const getSourceValue = (source) => {
         if (!source) return '';
-        if (source.type === 'ipfs' && this.graphData.meta.gateways[0]) {
-            return `${this.graphData.meta.gateways[0]}${source.value}`;
+        // A simple check to see if it's an IPFS hash that needs a gateway
+        if (source.type === 'ipfs' && (source.value.startsWith('Qm') || source.value.startsWith('bafy'))) {
+          const gateway = this.graphData.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
+          return `${gateway}${source.value}`;
         }
         return source.value || '';
     };
@@ -712,13 +730,13 @@ export default class EditorTools {
       <input type="text" id="nodeTitle" value="${node.title}">
       
       <label for="audioSource">Audio (URL or IPFS hash):</label>
-      <input type="text" id="audioSource" value="${getSourceValue(node.audioSources?.[0])}">
+      <input type="text" id="audioSource" value="${node.audioSources?.[0]?.value || ''}">
 
       <label for="coverSource">Cover (URL or IPFS hash):</label>
-      <input type="text" id="coverSource" value="${getSourceValue(node.coverSources?.[0])}">
+      <input type="text" id="coverSource" value="${node.coverSources?.[0]?.value || ''}">
 
       <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
-      <input type="text" id="lyricsSource" value="${getSourceValue(node.lyricsSource)}">
+      <input type="text" id="lyricsSource" value="${node.lyricsSource?.value || ''}">
     `;
     panel.classList.remove('hidden');
   }
@@ -729,8 +747,7 @@ export default class EditorTools {
     this.editingNode.title = document.getElementById('nodeTitle').value;
 
     const parseSource = (url) => {
-        if (!url) return null;
-        // Super simple check for IPFS hash
+        if (!url || url.trim() === '') return null;
         if (url.startsWith('Qm') || url.startsWith('bafy')) {
             return { type: 'ipfs', value: url };
         }
@@ -761,7 +778,7 @@ export default class EditorTools {
   
   saveSettings() {
     const gateway = document.getElementById('ipfsGatewayInput').value;
-    this.graphData.meta.gateways = [gateway];
+    this.graphData.meta.gateways = gateway ? [gateway] : [];
     this.closeSettings();
   }
   
@@ -770,7 +787,14 @@ export default class EditorTools {
   }
 
   exportGraph() {
-    // ... (код экспорта без изменений)
+    const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
+    const blob = new Blob([graphJSON], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'music-graph.jsonld';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   resetGraph() {
@@ -1291,6 +1315,27 @@ export default class Renderer {
         if (x > node.x && x < node.x + width && y > node.y && y < node.y + height) {
             return node;
         }
+    }
+    return null;
+  }
+
+  getEdgeAt(x, y) {
+    const tolerance = 5; // Click tolerance in pixels
+    for (const edge of this.edges) {
+      const src = this.nodes.find(n => n.id === edge.source);
+      const trg = this.nodes.find(n => n.id === edge.target);
+      if (!src || !trg) continue;
+
+      const startX = src.x + 80, startY = src.y + 45;
+      const endX = trg.x + 80, endY = trg.y + 45;
+      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
+      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
+
+      // A simple distance check to the curve's midpoint
+      const dist = Math.sqrt(Math.pow(x - cpX, 2) + Math.pow(y - cpY, 2));
+      if (dist < tolerance * 5) { // A wider tolerance for the midpoint
+        return edge;
+      }
     }
     return null;
   }

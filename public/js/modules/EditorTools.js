@@ -1,7 +1,6 @@
 /**
- * AVN Player v2.1 - Editor Tools Module
+ * AVN Player v2.2 - Editor Tools Module
  * by Nftxv
- * (Your license header here)
  */
 export default class EditorTools {
   constructor(graphData, renderer) {
@@ -11,17 +10,16 @@ export default class EditorTools {
     this.selectedEntity = null;
   }
 
+  // --- Core Editor Functions ---
+
   createNode() {
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      x: 100,
-      y: 100,
-      audioSources: [],
-      coverSources: [],
-      lyricsSource: null,
+      x: 100, y: 100, // Default position
+      audioSources: [], coverSources: [], lyricsSource: null,
     };
-    this.graphData.nodes.push(newNode);
+    this.graphData.nodes.push(newNode); // Modifies the array in place, renderer will see it
     return newNode;
   }
 
@@ -31,54 +29,47 @@ export default class EditorTools {
     );
     if (edgeExists || sourceNode.id === targetNode.id) return;
 
-    const newEdge = {
-      source: sourceNode.id,
-      target: targetNode.id,
-      color: '#4a86e8',
-      label: ''
-    };
-    this.graphData.edges.push(newEdge);
+    const newEdge = { source: sourceNode.id, target: targetNode.id, color: '#4a86e8', label: '' };
+    this.graphData.edges.push(newEdge); // Modifies the array in place
   }
 
   deleteEntity(entity) {
-    if (!entity) return;
-    if (!confirm('Are you sure you want to delete this item?')) return;
+    if (!entity || !confirm('Are you sure you want to delete this item?')) return;
 
     if (entity.source && entity.target) { // It's an edge
-      this.graphData.edges = this.graphData.edges.filter(
-        e => !(e.source === entity.source && e.target === entity.target)
+      const index = this.graphData.edges.findIndex(
+        e => e.source === entity.source && e.target === entity.target
       );
+      if (index > -1) {
+        this.graphData.edges.splice(index, 1); // Modifies the array in place
+      }
     } else { // It's a node
-      this.graphData.nodes = this.graphData.nodes.filter(n => n.id !== entity.id);
+      // First, remove all edges connected to this node
       this.graphData.edges = this.graphData.edges.filter(
         e => e.source !== entity.id && e.target !== entity.id
       );
+      // Then, remove the node itself
+      const index = this.graphData.nodes.findIndex(n => n.id === entity.id);
+      if (index > -1) {
+        this.graphData.nodes.splice(index, 1); // Modifies the array in place
+      }
     }
     this.selectEntity(null);
   }
 
   selectEntity(entity) {
-      if (this.selectedEntity) this.selectedEntity.selected = false;
-      this.selectedEntity = entity;
-      if (this.selectedEntity) this.selectedEntity.selected = true;
-      document.getElementById('deleteSelectionBtn').disabled = !entity;
+    if (this.selectedEntity) this.selectedEntity.selected = false;
+    this.selectedEntity = entity;
+    if (this.selectedEntity) this.selectedEntity.selected = true;
+    document.getElementById('deleteSelectionBtn').disabled = !entity;
   }
+
+  // --- Inspector Panel Logic ---
 
   openInspector(node) {
     this.editingNode = node;
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
-    
-    // A helper function to get the full URL from a source object
-    const getSourceValue = (source) => {
-        if (!source) return '';
-        // A simple check to see if it's an IPFS hash that needs a gateway
-        if (source.type === 'ipfs' && (source.value.startsWith('Qm') || source.value.startsWith('bafy'))) {
-          const gateway = this.graphData.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-          return `${gateway}${source.value}`;
-        }
-        return source.value || '';
-    };
 
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
@@ -102,11 +93,12 @@ export default class EditorTools {
     this.editingNode.title = document.getElementById('nodeTitle').value;
 
     const parseSource = (url) => {
-        if (!url || url.trim() === '') return null;
-        if (url.startsWith('Qm') || url.startsWith('bafy')) {
-            return { type: 'ipfs', value: url };
-        }
-        return { type: 'url', value: url };
+      if (!url || url.trim() === '') return null;
+      // Simple check for IPFS hash
+      if (url.startsWith('Qm') || url.startsWith('bafy')) {
+        return { type: 'ipfs', value: url };
+      }
+      return { type: 'url', value: url };
     };
 
     const audioSource = parseSource(document.getElementById('audioSource').value);
@@ -125,6 +117,8 @@ export default class EditorTools {
     this.editingNode = null;
   }
   
+  // --- Settings Modal Logic ---
+  
   openSettings() {
     const gateway = this.graphData.meta.gateways?.[0] || '';
     document.getElementById('ipfsGatewayInput').value = gateway;
@@ -140,6 +134,8 @@ export default class EditorTools {
   closeSettings() {
     document.getElementById('settingsModal').classList.add('hidden');
   }
+
+  // --- Graph Management ---
 
   exportGraph() {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
