@@ -178,44 +178,55 @@ export default class Renderer {
     ctx.restore();
   }
 
+// В файле public/js/modules/Renderer.js
+
+  // ЗАМЕНИТЕ ВАШ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
   drawEdge(edge) {
       const src = this.nodes.find(n => n.id === edge.source);
       const trg = this.nodes.find(n => n.id === edge.target);
       if (!src || !trg) return;
       
       const ctx = this.ctx;
-      const startX = src.x + 80, startY = src.y + 45;
-      const endX = trg.x + 80, endY = trg.y + 45;
+      
+      // Находим центры нод
+      const startX = src.x + 80; // (width / 2)
+      const startY = src.y + 45; // (height / 2)
+      const endX = trg.x + 80;
+      const endY = trg.y + 45;
 
-      // Determine style based on state
-      const color = edge.selected ? '#e74c3c' : (edge.highlighted ? '#FFD700' : (edge.color || '#4a86e8'));
-      const lineWidth = edge.selected || edge.highlighted ? 5 : 3;
+      // Определяем цвет и толщину
+      const color = edge.selected ? '#e74c3c' : (edge.highlighted ? '#FFD700' : (edge.color || '#6c757d')); // Светло-серый по умолчанию
+      const lineWidth = edge.selected || edge.highlighted ? 3 : 1; // Делаем линии тоньше
 
       ctx.save();
-      // Draw curve
+      
+      // --- Рисуем прямую линию ---
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
-      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
-      ctx.quadraticCurveTo(cpX, cpY, endX, endY);
+      ctx.lineTo(endX, endY);
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.stroke();
 
-      // Draw arrowhead
-      const angle = Math.atan2(endY - cpY, endX - cpX);
+      // --- Рисуем стрелку на конце ---
+      const angle = Math.atan2(endY - startY, endX - startX);
+      const arrowSize = 10;
+      
       ctx.translate(endX, endY);
       ctx.rotate(angle);
+      
       ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-12, 7);
-      ctx.lineTo(-12, -7);
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
+      // Смещаем стрелку чуть назад, чтобы ее кончик касался центра, а не заходил за него
+      ctx.moveTo(-arrowSize, -arrowSize / 2);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(-arrowSize, arrowSize / 2);
+      
+      ctx.strokeStyle = color; // Используем strokeStyle для контура стрелки
+      ctx.lineWidth = lineWidth; // Та же толщина, что и у линии
+      ctx.stroke(); // Рисуем контур, а не заливаем
+
       ctx.restore();
-  }
-  
+  }  
   drawTemporaryEdge() {
       const ctx = this.ctx;
       const startX = this.edgeCreationSource.x + 80;
