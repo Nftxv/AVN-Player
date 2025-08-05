@@ -32,6 +32,8 @@
     <div id="editorModeControls">
       <button id="addNodeBtn" title="Add New Node">Add Node</button>
       <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
+      <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
+      <button id="collapseAllBtn" title="Collapse All Nodes">Collapse All</button>
       <button id="settingsBtn" title="Global Settings">⚙️</button>
     </div>
   </div>
@@ -449,6 +451,10 @@ class GraphApp {
     }
   }
 
+  setAllNodesCollapsed(isCollapsed) {
+    this.graphData.nodes.forEach(node => node.isCollapsed = isCollapsed);
+  }
+
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
@@ -491,6 +497,9 @@ class GraphApp {
         this.editorTools.deleteEntity(this.editorTools.selectedEntity);
     });
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
+
+    document.getElementById('expandAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(false));
+    document.getElementById('collapseAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(true));
     
     // --- СЛУШАТЕЛИ ИНСПЕКТОРА И МОДАЛЬНЫХ ОКОН ---
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
@@ -509,19 +518,26 @@ class GraphApp {
     const coords = this.renderer.getCanvasCoords(event);
     
     if (this.isEditorMode) {
+      // Сначала проверяем, не кликнули ли мы по иконке сворачивания
+      const toggledNode = this.renderer.getNodeToggleAt(coords.x, coords.y);
+      if (toggledNode) {
+        toggledNode.isCollapsed = !toggledNode.isCollapsed;
+        return; // Действие выполнено, выходим
+      }
+
+      // Если нет, продолжаем логику выделения
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.editorTools.selectEntity(clickedNode);
-        return; // Нашли ноду, выходим
+        return;
       }
 
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
       if (clickedEdge) {
         this.editorTools.selectEntity(clickedEdge);
-        return; // Нашли связь, выходим
+        return;
       }
       
-      // Если кликнули в пустоту, снимаем выделение
       this.editorTools.selectEntity(null);
 
     } else { // Режим плеера
@@ -622,6 +638,8 @@ export default class EditorTools {
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
 
+    const linksAsText = (node.customLinks || []).join('\n');
+
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
       <input type="text" id="nodeTitle" value="${node.title}">
@@ -634,6 +652,9 @@ export default class EditorTools {
 
       <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
       <input type="text" id="lyricsSource" value="${node.lyricsSource?.value || ''}">
+
+      <label for="customLinks">Custom Links (one URL per line):</label>
+      <textarea id="customLinks" rows="4">${linksAsText}</textarea>
     `;
     panel.classList.remove('hidden');
   }
@@ -658,6 +679,9 @@ export default class EditorTools {
     this.editingNode.coverSources = coverSource ? [coverSource] : [];
 
     this.editingNode.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
+
+    const linksText = document.getElementById('customLinks').value;
+    this.editingNode.customLinks = linksText.split('\n').map(link => link.trim()).filter(link => link);
 
     this.closeInspector();
   }
@@ -749,6 +773,8 @@ export default class GraphData {
         lyricsSource: node.lyricsSource,
         x: node.position?.x || Math.random() * 800,
         y: node.position?.y || Math.random() * 600,
+        isCollapsed: node.isCollapsed === undefined ? true : node.isCollapsed, // По умолчанию свернута
+        customLinks: node.customLinks || [], // Массив для кастомных ссылок
       }));
 
     // Filter and map edges of type 'Path'
@@ -776,6 +802,8 @@ export default class GraphData {
         audioSources: n.audioSources,
         coverSources: n.coverSources,
         lyricsSource: n.lyricsSource,
+        isCollapsed: n.isCollapsed,
+        customLinks: n.customLinks,
       })),
       ...this.edges.map(e => ({
         '@type': 'Path',
@@ -1120,407 +1148,166 @@ export default class Player {
 ## ./public/js/modules/Renderer.js
 
 /**
- * AVN Player v1.4 - Renderer Module
+ * AVN Player v1.5.0 - Renderer Module
  * by Nftxv
- *
- * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
- *
- * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
- * International License (CC BY-NC-SA 4.0).
- *
- * You can find the full license text at:
- * https://creativecommons.org/licenses/by-nc-sa/4.0/
- */
-
-/**
- * Handles all rendering on the canvas, including nodes, edges, and user interactions
- * like panning, zooming, and visual editing.
  */
 export default class Renderer {
   constructor(canvasId) {
-    this.canvas = document.getElementById(canvasId);
-    this.ctx = this.canvas.getContext('2d');
-    
-    // Data
-    this.nodes = [];
-    this.edges = [];
-    this.meta = {};
-    this.images = {}; // Cache for loaded cover images
-
-    // View camera state
-    this.offset = { x: 0, y: 0 };
-    this.scale = 1.0;
-    
-    // General dragging state
-    this.dragStart = { x: 0, y: 0 };
-    this.dragging = false; // For canvas panning
-    this.dragged = false;  // To distinguish a drag from a click
-
-    // Node dragging state
-    this.draggingNode = null;
-    this.dragNodeOffset = { x: 0, y: 0 };
-
-    // Edge creation state
-    this.isCreatingEdge = false;
-    this.edgeCreationSource = null;
-    this.mousePos = { x: 0, y: 0 };
-
-    this.resizeCanvas();
-    this.renderLoop = this.renderLoop.bind(this);
-  }
-
-  setData(nodes, edges, meta) {
-    this.nodes = nodes;
-    this.edges = edges;
-    this.meta = meta;
-  }
-
-  async loadAndRenderAll() {
-    await this.loadImages();
-    this.renderLoop();
-  }
-
-  async loadImages() {
-    const promises = this.nodes.flatMap(node =>
-      (node.coverSources || []).map(async source => {
-        const url = this.getSourceUrl(source);
-        if (url && !this.images[url]) {
-          try {
-            const img = new Image();
-            img.src = url;
-            await img.decode();
-            this.images[url] = img;
-          } catch (e) {
-            console.warn(`Failed to load cover image: ${url}`, e);
-          }
-        }
-      })
-    );
-    await Promise.all(promises);
-  }
-
-  getSourceUrl(source) {
-    if (!source) return null;
-    if (source.type === 'ipfs') {
-      const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-      return `${gateway}${source.value}`;
-    }
-    return source.value;
+    // ... (конструктор без изменений) ...
   }
   
-  getNodeAt(x, y) {
-    // Iterate backwards to select the top-most node
+  // ... (setData, loadAndRenderAll, loadImages, getSourceUrl без изменений) ...
+
+  getNodeAt(x, y) { /* ... без изменений ... */ }
+  getEdgeAt(x, y) { /* ... без изменений ... */ }
+
+  // НОВЫЙ МЕТОД для определения клика по иконке +/-
+  getNodeToggleAt(x, y) {
+    const toggleSize = 16;
     for (let i = this.nodes.length - 1; i >= 0; i--) {
         const node = this.nodes[i];
-        const width = 160, height = 90;
-        if (x > node.x && x < node.x + width && y > node.y && y < node.y + height) {
+        const toggleX = node.x + 160 - toggleSize / 2 - 5;
+        const toggleY = node.y + (node.isCollapsed ? 40 : 90) - toggleSize / 2 - 5;
+        const dist = Math.sqrt(Math.pow(x - toggleX, 2) + Math.pow(y - toggleY, 2));
+        if (dist < toggleSize / 2) {
             return node;
         }
     }
     return null;
   }
-
-  getEdgeAt(x, y) {
-    const tolerance = 5; // Click tolerance in pixels
-    for (const edge of this.edges) {
-      const src = this.nodes.find(n => n.id === edge.source);
-      const trg = this.nodes.find(n => n.id === edge.target);
-      if (!src || !trg) continue;
-
-      const startX = src.x + 80, startY = src.y + 45;
-      const endX = trg.x + 80, endY = trg.y + 45;
-      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
-      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
-
-      // A simple distance check to the curve's midpoint
-      const dist = Math.sqrt(Math.pow(x - cpX, 2) + Math.pow(y - cpY, 2));
-      if (dist < tolerance * 5) { // A wider tolerance for the midpoint
-        return edge;
+  
+  // ... (renderLoop, drawEdge, drawTemporaryEdge без изменений) ...
+  
+  // НОВЫЙ ВСПОМОГАТЕЛЬНЫЙ МЕТОД для переноса текста
+  wrapText(context, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let testLine = '';
+    let lineCount = 0;
+    
+    for (let n = 0; n < words.length; n++) {
+      testLine = line + words[n] + ' ';
+      const metrics = context.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        context.fillText(line, x, y);
+        line = words[n] + ' ';
+        y += lineHeight;
+        lineCount++;
+      } else {
+        line = testLine;
       }
     }
-    return null;
+    context.fillText(line, x, y);
+    return lineCount + 1; // Возвращаем общее количество строк
   }
 
-  renderLoop() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.save();
-    this.ctx.translate(this.offset.x, this.offset.y);
-    this.ctx.scale(this.scale, this.scale);
-
-    this.edges.forEach(edge => this.drawEdge(edge));
-    this.nodes.forEach(node => this.drawNode(node));
-    
-    // Draw the temporary line for edge creation
-    if (this.isCreatingEdge && this.edgeCreationSource) {
-      this.drawTemporaryEdge();
-    }
-
-    this.ctx.restore();
-    requestAnimationFrame(this.renderLoop);
-  }
-
+  // ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ МЕТОД отрисовки ноды
   drawNode(node) {
     const ctx = this.ctx;
-    const width = 160, height = 90;
+    const width = 160;
+    const collapsedHeight = 40;
+    const expandedHeight = 90;
+    const iconBarY = 45;
+    const iconSize = 16;
+    const iconGap = 20;
+
+    const height = node.isCollapsed ? collapsedHeight : expandedHeight;
+
     ctx.save();
     
-    // Determine style based on state: selected (editor) > highlighted (player) > default
-    if (node.selected) {
-        ctx.strokeStyle = '#e74c3c'; // Red for selected
-        ctx.lineWidth = 4;
-    } else if (node.highlighted) {
-        ctx.strokeStyle = '#FFD700'; // Gold for highlighted
-        ctx.lineWidth = 4;
-    } else {
-        ctx.strokeStyle = '#4a86e8'; // Blue for default
-        ctx.lineWidth = 2;
-    }
+    // Стили обводки
+    if (node.selected) { /* ... без изменений ... */ }
+    // ...
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#2d2d2d'; // Фон ноды
     ctx.beginPath();
     ctx.roundRect ? ctx.roundRect(node.x, node.y, width, height, 8) : ctx.rect(node.x, node.y, width, height);
     ctx.fill();
     ctx.stroke();
 
-    // Draw cover image
-    const coverSource = node.coverSources?.[0];
-    const coverUrl = this.getSourceUrl(coverSource);
-    if (coverUrl && this.images[coverUrl]) {
-        ctx.drawImage(this.images[coverUrl], node.x + 5, node.y + 5, height - 10, height - 10);
+    // --- ОТРИСОВКА КОНТЕНТА ВНУТРИ НОДЫ ---
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = 'bold 14px Segoe UI';
+
+    if (node.isCollapsed) {
+      // В свернутом состоянии - только заголовок по центру
+      ctx.textAlign = 'center';
+      this.wrapText(ctx, node.title, node.x + width / 2, node.y + 16, width - 10, 16);
+      ctx.textAlign = 'left'; // Сброс
     } else {
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(node.x + 5, node.y + 5, height - 10, height - 10);
+      // В развернутом состоянии
+      // Обложка
+      const coverSource = node.coverSources?.[0];
+      const coverUrl = this.graphData.getSourceUrl(coverSource);
+      if (coverUrl && this.images[coverUrl]) {
+        ctx.drawImage(this.images[coverUrl], node.x + 5, node.y + 5, 35, 35);
+      } else {
+        ctx.fillStyle = '#444';
+        ctx.fillRect(node.x + 5, node.y + 5, 35, 35);
+      }
+
+      // Заголовок
+      ctx.fillStyle = '#e0e0e0';
+      this.wrapText(ctx, node.title, node.x + 45, node.y + 18, width - 50, 16);
+
+      // Иконки
+      let currentIconX = node.x + 10;
+      
+      // Иконка Play
+      ctx.font = `${iconSize}px Segoe UI Symbol`;
+      ctx.fillStyle = '#a0a0a0';
+      ctx.fillText('▶', currentIconX, node.y + iconBarY + iconSize);
+      currentIconX += iconGap;
+
+      // Кастомные иконки
+      (node.customLinks || []).forEach(link => {
+        const icon = this.getIconForUrl(link);
+        ctx.fillText(icon, currentIconX, node.y + iconBarY + iconSize);
+        currentIconX += iconGap;
+      });
     }
 
-    // Draw title
-    ctx.fillStyle = '#000000';
-    ctx.font = '14px Segoe UI';
-    ctx.fillText(node.title, node.x + height, node.y + 25, width - height - 10);
+    // Отрисовка иконки +/-
+    this.drawToggleIcon(ctx, node, width, height);
+
     ctx.restore();
   }
 
-// Файл: public/js/modules/Renderer.js
+  // НОВЫЙ МЕТОД для отрисовки иконки +/-
+  drawToggleIcon(ctx, node, width, height) {
+    const toggleSize = 16;
+    const x = node.x + width - toggleSize / 2 - 5;
+    const y = node.y + height - toggleSize / 2 - 5;
+    
+    ctx.save();
+    ctx.fillStyle = '#4f4f4f';
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
 
-  // ЗАМЕНИТЕ ВЕСЬ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
-  drawEdge(edge) {
-      const src = this.nodes.find(n => n.id === edge.source);
-      const trg = this.nodes.find(n => n.id === edge.target);
-      if (!src || !trg) return;
-      
-      const ctx = this.ctx;
-      
-      const nodeWidth = 160;
-      const nodeHeight = 90;
-      // "Магическая" константа. Это радиус скругления, который вы используете в drawNode.
-      // Мы заставим линию заходить внутрь на это расстояние.
-      const cornerRadius = 8; 
+    ctx.beginPath();
+    ctx.arc(x, y, toggleSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
 
-      const startX = src.x + nodeWidth / 2;
-      const startY = src.y + nodeHeight / 2;
-      let endX = trg.x + nodeWidth / 2;
-      let endY = trg.y + nodeHeight / 2;
-
-      // --- МАТЕМАТИКА ДЛЯ ОПРЕДЕЛЕНИЯ ТОЧКИ НА ГРАНИЦЕ НОДЫ ---
-      const dx = endX - startX;
-      const dy = endY - startY;
-      const angle = Math.atan2(dy, dx);
-
-      // Рассчитываем точку пересечения с прямоугольником целевой ноды
-      const h_x = nodeWidth / 2;
-      const h_y = nodeHeight / 2;
-      const tan_angle = Math.tan(angle);
-      
-      let finalX = endX;
-      let finalY = endY;
-      
-      // Расчет точки на границе острого прямоугольника
-      if (Math.abs(dy) < Math.abs(dx) * (h_y / h_x)) {
-          finalX = endX - Math.sign(dx) * h_x;
-          finalY = endY - Math.sign(dx) * h_x * tan_angle;
-      } else {
-          finalY = endY - Math.sign(dy) * h_y;
-          finalX = endX - Math.sign(dy) * h_y / tan_angle;
-      }
-
-      // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-      // Смещаем конечную точку немного "внутрь" по направлению к центру ноды.
-      // Это компенсирует скругленные углы.
-      finalX -= Math.cos(angle) * cornerRadius;
-      finalY -= Math.sin(angle) * cornerRadius;
-      
-      // --- СТИЛИЗАЦИЯ ---
-      let color = edge.color || '#888888';
-      if (edge.selected) color = '#e74c3c';
-      if (edge.highlighted) color = '#FFD700';
-
-      const lineWidth = edge.selected || edge.highlighted ? 2 : 1;
-      
-      ctx.save();
-      
-      // --- РИСУЕМ ЛИНИЮ ---
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(finalX, finalY);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.stroke();
-
-      // --- РИСУЕМ СТРЕЛКУ ---
-      const arrowSize = 8;
-      ctx.translate(finalX, finalY);
-      ctx.rotate(angle);
-      
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-arrowSize, -arrowSize / 2);
-      ctx.lineTo(-arrowSize, arrowSize / 2);
-      ctx.closePath();
-      
-      ctx.fillStyle = color;
-      ctx.fill();
-
-      ctx.restore();
-  }
-      
-  drawTemporaryEdge() {
-      const ctx = this.ctx;
-      const startX = this.edgeCreationSource.x + 80;
-      const startY = this.edgeCreationSource.y + 45;
-      
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(this.mousePos.x, this.mousePos.y);
-      ctx.strokeStyle = '#e74c3c';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.restore();
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = 'bold 14px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(node.isCollapsed ? '+' : '−', x, y + 1);
+    
+    ctx.restore();
   }
 
-  highlight(currentId, prevId = null, edge = null) {
-      if(prevId) {
-          const prevNode = this.nodes.find(n => n.id === prevId);
-          if (prevNode) prevNode.highlighted = false;
-      }
-      if(currentId) {
-          const currentNode = this.nodes.find(n => n.id === currentId);
-          if (currentNode) currentNode.highlighted = true;
-      }
-      this.edges.forEach(e => e.highlighted = false);
-      if(edge) {
-          const edgeToHighlight = this.edges.find(e => e.source === edge.source && e.target === edge.target);
-          if (edgeToHighlight) edgeToHighlight.highlighted = true;
-      }
+  // НОВЫЙ МЕТОД для получения иконки по URL
+  getIconForUrl(url) {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return '▶️'; // YouTube (эмодзи)
+    if (url.includes('spotify.com')) return '🎵'; // Spotify (эмодзи)
+    if (url.includes('soundcloud.com')) return '☁️'; // SoundCloud (эмодзи)
+    if (url.includes('twitter.com') || url.includes('x.com')) return '𝕏'; // X/Twitter
+    return '🔗'; // Generic link
   }
-  
-  getCanvasCoords({ clientX, clientY }) {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = (clientX - rect.left - this.offset.x) / this.scale;
-      const y = (clientY - rect.top - this.offset.y) / this.scale;
-      return { x, y };
-  }
-  
-  resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-  }
-  
-  wasDragged() { return this.dragged; }
 
-  setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
-      window.addEventListener('resize', () => this.resizeCanvas());
-
-      // --- Left Click Down: Pan or start dragging a node ---
-      this.canvas.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return; // Only handle left clicks
-          const mousePos = this.getCanvasCoords(e);
-          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-
-          if (clickedNode) {
-              this.draggingNode = clickedNode;
-              this.dragNodeOffset.x = mousePos.x - clickedNode.x;
-              this.dragNodeOffset.y = mousePos.y - clickedNode.y;
-          } else {
-              this.dragging = true;
-              this.dragStart.x = e.clientX - this.offset.x;
-              this.dragStart.y = e.clientY - this.offset.y;
-          }
-          this.dragged = false;
-      });
-
-      // --- Right Click Down: Start creating an edge ---
-      this.canvas.addEventListener('contextmenu', (e) => {
-          e.preventDefault(); // Prevent browser context menu
-          const mousePos = this.getCanvasCoords(e);
-          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-          if (clickedNode) {
-              this.isCreatingEdge = true;
-              this.edgeCreationSource = clickedNode;
-          }
-      });
-      
-      // --- Mouse Move: Handle all dragging types ---
-      this.canvas.addEventListener('mousemove', (e) => {
-          this.mousePos = this.getCanvasCoords(e);
-          
-          // Only set dragged flag if a button is held down
-          if (this.dragging || this.draggingNode || this.isCreatingEdge) {
-              this.dragged = true;
-          }
-
-          if (this.draggingNode) {
-              this.draggingNode.x = this.mousePos.x - this.dragNodeOffset.x;
-              this.draggingNode.y = this.mousePos.y - this.dragNodeOffset.y;
-          } else if (this.dragging) {
-              this.offset.x = e.clientX - this.dragStart.x;
-              this.offset.y = e.clientY - this.dragStart.y;
-          }
-      });
-
-      // --- Mouse Up: Finalize actions ---
-      this.canvas.addEventListener('mouseup', (e) => {
-          if (this.isCreatingEdge) {
-              const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
-              if (targetNode && this.edgeCreationSource) {
-                  onEdgeCreated(this.edgeCreationSource, targetNode);
-              }
-          }
-          
-          // Reset all dragging states
-          this.dragging = false;
-          this.draggingNode = null;
-          this.isCreatingEdge = false;
-          this.edgeCreationSource = null;
-
-          // Use a timeout to reset the 'dragged' flag after the 'click' event has fired
-          setTimeout(() => { this.dragged = false; }, 0);
-      });
-
-      this.canvas.addEventListener('mouseleave', () => {
-          this.dragging = false;
-          this.draggingNode = null;
-          this.isCreatingEdge = false;
-      });
-      
-      // --- Wheel: Zoom ---
-      this.canvas.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          const zoomIntensity = 0.1;
-          const wheel = e.deltaY < 0 ? 1 : -1;
-          const zoom = Math.exp(wheel * zoomIntensity);
-          const rect = this.canvas.getBoundingClientRect();
-          const mouseX = e.clientX - rect.left;
-          const mouseY = e.clientY - rect.top;
-          this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
-          this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
-          this.scale *= zoom;
-          this.scale = Math.max(0.1, Math.min(5, this.scale));
-      });
-
-      // --- Pass control for clicks back to the main app ---
-      this.canvas.addEventListener('click', onClick);
-      this.canvas.addEventListener('dblclick', onDblClick);
-  }
+  // ... (остальные методы без изменений)
 }
 
