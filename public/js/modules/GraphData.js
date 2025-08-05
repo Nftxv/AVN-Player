@@ -1,5 +1,6 @@
 /**
- * Manages the graph's data, including loading, parsing, and providing access to nodes and edges.
+ * AVN Player v1.5.0 - Graph Data Module
+ * by Nftxv
  */
 export default class GraphData {
   constructor() {
@@ -8,10 +9,6 @@ export default class GraphData {
     this.meta = {};
   }
 
-  /**
-   * Loads graph data from a given URL.
-   * @param {string} url - The URL of the JSON/JSON-LD file.
-   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -19,16 +16,10 @@ export default class GraphData {
     this.parseData(data);
   }
 
-  /**
-   * Parses the raw JSON-LD data and populates nodes, edges, and metadata.
-   * @param {object} data - The raw data object from the JSON file.
-   */
   parseData(data) {
-    // Store metadata, providing a default IPFS gateway if none is specified
     this.meta = data.meta || { gateways: ['https://cloudflare-ipfs.com/ipfs/'] };
     const graph = data['@graph'] || [];
 
-    // Filter and map nodes of type 'MusicRecording'
     this.nodes = graph
       .filter(item => item['@type'] === 'MusicRecording')
       .map(node => ({
@@ -39,25 +30,20 @@ export default class GraphData {
         lyricsSource: node.lyricsSource,
         x: node.position?.x || Math.random() * 800,
         y: node.position?.y || Math.random() * 600,
-        isCollapsed: node.isCollapsed === undefined ? true : node.isCollapsed, // По умолчанию свернута
-        customLinks: node.customLinks || [], // Массив для кастомных ссылок
+        isCollapsed: node.isCollapsed === undefined ? true : node.isCollapsed,
+        customLinks: node.customLinks || [],
       }));
 
-    // Filter and map edges of type 'Path'
     this.edges = graph
       .filter(item => item['@type'] === 'Path')
       .map(edge => ({
         source: edge.source,
         target: edge.target,
-        color: edge.color || '#4a86e8', // Default edge color
+        color: edge.color, // Allow undefined color for default
         label: edge.label || '',
       }));
   }
 
-  /**
-   * Serializes the current graph data back into a JSON-LD format for export.
-   * @returns {object} - The complete graph object.
-   */
   getGraph() {
     const graph = [
       ...this.nodes.map(n => ({
@@ -86,7 +72,7 @@ export default class GraphData {
     };
   }
 
-    getSourceUrl(source) {
+  getSourceUrl(source) {
     if (!source) return null;
     if (source.type === 'ipfs') {
       const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
@@ -95,20 +81,10 @@ export default class GraphData {
     return source.value;
   }
 
-  /**
-   * Finds a node by its unique ID.
-   * @param {string} id - The ID of the node to find.
-   * @returns {object|undefined}
-   */
   getNodeById(id) {
     return this.nodes.find(node => node.id === id);
   }
   
-  /**
-   * Finds all edges originating from a specific node.
-   * @param {string} nodeId - The ID of the source node.
-   * @returns {Array<object>}
-   */
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }
