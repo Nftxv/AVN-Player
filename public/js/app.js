@@ -11,7 +11,7 @@ import Navigation from './modules/Navigation.js';
 class GraphApp {
   constructor() {
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas', this.graphData); // Pass graphData
+    this.renderer = new Renderer('graphCanvas', this.graphData); // Pass graphData to Renderer
     this.player = new Player(this.graphData);
     this.navigation = new Navigation(this.graphData, this.player, this.renderer);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
@@ -100,7 +100,7 @@ class GraphApp {
         return;
       }
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-      this.editorTools.selectEntity(clickedEdge);
+      this.editorTools.selectEntity(clickedEdge); // Can be null to deselect
     } else {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) this.navigation.startFromNode(clickedNode.id);
@@ -108,6 +108,7 @@ class GraphApp {
   }
   
   handleCanvasDblClick(event) {
+    if (this.renderer.wasDragged()) return;
     if (!this.isEditorMode) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);

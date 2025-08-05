@@ -17,7 +17,7 @@ export default class Renderer {
     this.scale = 1.0;
     
     this.dragStart = { x: 0, y: 0 };
-    this.dragging = false;
+    this.dragging = false; // For canvas panning
     this.dragged = false;
     this.draggingNode = null;
     this.dragNodeOffset = { x: 0, y: 0 };
@@ -25,7 +25,7 @@ export default class Renderer {
     this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
 
-    this.resizeCanvas();
+    this.resizeCanvas(); // This method must exist
     this.renderLoop = this.renderLoop.bind(this);
   }
 
@@ -80,10 +80,15 @@ export default class Renderer {
       const src = this.nodes.find(n => n.id === edge.source);
       const trg = this.nodes.find(n => n.id === edge.target);
       if (!src || !trg) continue;
-      const x1 = src.x + 80, y1 = src.y + (src.isCollapsed ? 20 : 45);
-      const x2 = trg.x + 80, y2 = trg.y + (trg.isCollapsed ? 20 : 45);
+
+      const srcHeight = src.isCollapsed ? 40 : 90;
+      const trgHeight = trg.isCollapsed ? 40 : 90;
+      const x1 = src.x + 80, y1 = src.y + srcHeight / 2;
+      const x2 = trg.x + 80, y2 = trg.y + trgHeight / 2;
+      
       const dist = Math.abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) / Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
       const onSegment = (x >= Math.min(x1, x2) - tolerance) && (x <= Math.max(x1, x2) + tolerance) && (y >= Math.min(y1, y2) - tolerance) && (y <= Math.max(y1, y2) + tolerance);
+      
       if (dist < tolerance && onSegment) return edge;
     }
     return null;
@@ -122,8 +127,7 @@ export default class Renderer {
     let line = '';
     for (let n = 0; n < words.length; n++) {
       const testLine = line + words[n] + ' ';
-      const metrics = context.measureText(testLine);
-      if (metrics.width > maxWidth && n > 0) {
+      if (context.measureText(testLine).width > maxWidth && n > 0) {
         context.fillText(line.trim(), x, y);
         line = words[n] + ' ';
         y += lineHeight;
@@ -146,7 +150,7 @@ export default class Renderer {
 
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(node.x, node.y, width, height, 8) : ctx.rect(node.x, node.y, width, height);
+    (ctx.roundRect || ((x, y, w, h, r) => { ctx.rect(x, y, w, h); }))(node.x, node.y, width, height, 8);
     ctx.fill();
     ctx.stroke();
 
@@ -156,7 +160,6 @@ export default class Renderer {
     if (node.isCollapsed) {
       ctx.textAlign = 'center';
       this.wrapText(ctx, node.title, node.x + width / 2, node.y + 16, width - 20, 16);
-      ctx.textAlign = 'left';
     } else {
       const coverUrl = this.getSourceUrl(node.coverSources?.[0]);
       if (coverUrl && this.images[coverUrl]) {
@@ -173,8 +176,7 @@ export default class Renderer {
       ctx.fillText('▶', currentIconX, node.y + 55 + 9);
       currentIconX += 22;
       (node.customLinks || []).forEach(link => {
-        const icon = this.getIconForUrl(link);
-        ctx.fillText(icon, currentIconX, node.y + 55 + 9);
+        ctx.fillText(this.getIconForUrl(link), currentIconX, node.y + 55 + 9);
         currentIconX += 22;
       });
     }
@@ -211,14 +213,14 @@ export default class Renderer {
       const cornerRadius = 8;
       const srcHeight = src.isCollapsed ? 40 : 90;
       const trgHeight = trg.isCollapsed ? 40 : 90;
-
-      const startX = src.x + 160 / 2, startY = src.y + srcHeight / 2;
-      let endX = trg.x + 160 / 2, endY = trg.y + trgHeight / 2;
+      const startX = src.x + 80, startY = src.y + srcHeight / 2;
+      const endX = trg.x + 80, endY = trg.y + trgHeight / 2;
 
       const dx = endX - startX, dy = endY - startY;
+      if (dx === 0 && dy === 0) return;
       const angle = Math.atan2(dy, dx);
       
-      const h_x = 160 / 2, h_y = trgHeight / 2;
+      const h_x = 80, h_y = trgHeight / 2;
       let finalX = endX, finalY = endY;
       
       if (Math.abs(dy) * h_x < Math.abs(dx) * h_y) {
@@ -226,7 +228,7 @@ export default class Renderer {
           finalY = endY - Math.sign(dx) * h_x * Math.tan(angle);
       } else {
           finalY = endY - Math.sign(dy) * h_y;
-          finalX = endX - Math.sign(dy) * h_y / Math.tan(angle);
+          finalX = endY - Math.sign(dy) * h_y / Math.tan(angle);
       }
 
       finalX -= Math.cos(angle) * cornerRadius;
@@ -239,7 +241,6 @@ export default class Renderer {
       ctx.save();
       ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(finalX, finalY);
       ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
-
       const arrowSize = 8;
       ctx.translate(finalX, finalY); ctx.rotate(angle);
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-arrowSize, -arrowSize / 2);
@@ -258,10 +259,110 @@ export default class Renderer {
       ctx.restore();
   }
   
+  highlight(currentId, prevId = null, edge = null) {
+      this.nodes.forEach(n => n.highlighted = false);
+      this.edges.forEach(e => e.highlighted = false);
+      if(currentId) {
+          const node = this.nodes.find(n => n.id === currentId);
+          if (node) node.highlighted = true;
+      }
+      if(edge) {
+          const e = this.edges.find(e => e.source === edge.source && e.target === edge.target);
+          if (e) e.highlighted = true;
+      }
+  }
+  
+  getCanvasCoords({ clientX, clientY }) {
+      const rect = this.canvas.getBoundingClientRect();
+      return { x: (clientX - rect.left - this.offset.x) / this.scale, y: (clientY - rect.top - this.offset.y) / this.scale };
+  }
+  
+  resizeCanvas() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  }
+  
   wasDragged() { return this.dragged; }
 
   setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
-    // This entire method should be copied from the previous correct version, it is complex and correct.
-    // ...
+      window.addEventListener('resize', () => this.resizeCanvas());
+
+      this.canvas.addEventListener('mousedown', (e) => {
+          this.dragged = false;
+          const mousePos = this.getCanvasCoords(e);
+          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+
+          if (e.button === 0) { // Left Mouse
+              if (clickedNode) {
+                  this.draggingNode = clickedNode;
+                  this.dragNodeOffset.x = mousePos.x - clickedNode.x;
+                  this.dragNodeOffset.y = mousePos.y - clickedNode.y;
+              }
+          } else if (e.button === 1) { // Middle Mouse
+              e.preventDefault();
+              this.dragging = true;
+              this.dragStart.x = e.clientX - this.offset.x;
+              this.dragStart.y = e.clientY - this.offset.y;
+          }
+      });
+      
+      this.canvas.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          const mousePos = this.getCanvasCoords(e);
+          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+          if (clickedNode && this.isEditorMode) {
+              this.isCreatingEdge = true;
+              this.edgeCreationSource = clickedNode;
+          }
+      });
+      
+      this.canvas.addEventListener('mousemove', (e) => {
+          this.mousePos = this.getCanvasCoords(e);
+          if (this.dragging || this.draggingNode || this.isCreatingEdge) {
+              this.dragged = true;
+          }
+          if (this.draggingNode) {
+              this.draggingNode.x = this.mousePos.x - this.dragNodeOffset.x;
+              this.draggingNode.y = this.mousePos.y - this.dragNodeOffset.y;
+          } else if (this.dragging) {
+              this.offset.x = e.clientX - this.dragStart.x;
+              this.offset.y = e.clientY - this.dragStart.y;
+          }
+      });
+
+      this.canvas.addEventListener('mouseup', (e) => {
+          if (this.isCreatingEdge) {
+              const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
+              if (targetNode && this.edgeCreationSource) {
+                  onEdgeCreated(this.edgeCreationSource, targetNode);
+              }
+          }
+          this.dragging = false;
+          this.draggingNode = null;
+          this.isCreatingEdge = false;
+          setTimeout(() => { this.dragged = false; }, 0);
+      });
+
+      this.canvas.addEventListener('mouseleave', () => {
+          this.dragging = false;
+          this.draggingNode = null;
+          this.isCreatingEdge = false;
+      });
+      
+      this.canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const zoomIntensity = 0.1;
+          const wheel = e.deltaY < 0 ? 1 : -1;
+          const zoom = Math.exp(wheel * zoomIntensity);
+          const rect = this.canvas.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
+          this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
+          this.scale = Math.max(0.1, Math.min(5, this.scale));
+      });
+
+      this.canvas.addEventListener('click', onClick);
+      this.canvas.addEventListener('dblclick', onDblClick);
   }
 }
