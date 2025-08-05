@@ -70,6 +70,8 @@ export default class EditorTools {
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
 
+    const linksAsText = (node.customLinks || []).join('\n');
+
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
       <input type="text" id="nodeTitle" value="${node.title}">
@@ -82,6 +84,9 @@ export default class EditorTools {
 
       <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
       <input type="text" id="lyricsSource" value="${node.lyricsSource?.value || ''}">
+
+      <label for="customLinks">Custom Links (one URL per line):</label>
+      <textarea id="customLinks" rows="4">${linksAsText}</textarea>
     `;
     panel.classList.remove('hidden');
   }
@@ -106,6 +111,9 @@ export default class EditorTools {
     this.editingNode.coverSources = coverSource ? [coverSource] : [];
 
     this.editingNode.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
+
+    const linksText = document.getElementById('customLinks').value;
+    this.editingNode.customLinks = linksText.split('\n').map(link => link.trim()).filter(link => link);
 
     this.closeInspector();
   }

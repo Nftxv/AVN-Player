@@ -39,6 +39,8 @@ export default class GraphData {
         lyricsSource: node.lyricsSource,
         x: node.position?.x || Math.random() * 800,
         y: node.position?.y || Math.random() * 600,
+        isCollapsed: node.isCollapsed === undefined ? true : node.isCollapsed, // По умолчанию свернута
+        customLinks: node.customLinks || [], // Массив для кастомных ссылок
       }));
 
     // Filter and map edges of type 'Path'
@@ -66,6 +68,8 @@ export default class GraphData {
         audioSources: n.audioSources,
         coverSources: n.coverSources,
         lyricsSource: n.lyricsSource,
+        isCollapsed: n.isCollapsed,
+        customLinks: n.customLinks,
       })),
       ...this.edges.map(e => ({
         '@type': 'Path',

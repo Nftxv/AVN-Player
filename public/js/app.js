@@ -34,6 +34,10 @@ class GraphApp {
     }
   }
 
+  setAllNodesCollapsed(isCollapsed) {
+    this.graphData.nodes.forEach(node => node.isCollapsed = isCollapsed);
+  }
+
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
@@ -76,6 +80,9 @@ class GraphApp {
         this.editorTools.deleteEntity(this.editorTools.selectedEntity);
     });
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
+
+    document.getElementById('expandAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(false));
+    document.getElementById('collapseAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(true));
     
     // --- СЛУШАТЕЛИ ИНСПЕКТОРА И МОДАЛЬНЫХ ОКОН ---
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
@@ -94,19 +101,26 @@ class GraphApp {
     const coords = this.renderer.getCanvasCoords(event);
     
     if (this.isEditorMode) {
+      // Сначала проверяем, не кликнули ли мы по иконке сворачивания
+      const toggledNode = this.renderer.getNodeToggleAt(coords.x, coords.y);
+      if (toggledNode) {
+        toggledNode.isCollapsed = !toggledNode.isCollapsed;
+        return; // Действие выполнено, выходим
+      }
+
+      // Если нет, продолжаем логику выделения
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.editorTools.selectEntity(clickedNode);
-        return; // Нашли ноду, выходим
+        return;
       }
 
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
       if (clickedEdge) {
         this.editorTools.selectEntity(clickedEdge);
-        return; // Нашли связь, выходим
+        return;
       }
       
-      // Если кликнули в пустоту, снимаем выделение
       this.editorTools.selectEntity(null);
 
     } else { // Режим плеера
