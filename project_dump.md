@@ -1,0 +1,1308 @@
+
+## ./README.md
+
+## 🛡️ License and Usage
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)**.
+
+---
+
+### Important Clarification for Artists and Creators:
+
+The CC BY-NC-SA license applies **only to the player's source code** (the HTML, CSS, and JavaScript files that make it run).
+
+It **does not apply to the content you create**, such as your music, cover art, lyrics, or the `.jsonld` graph file that structures your narrative. 
+You retain full ownership of your art and are free to license or sell it however you wish.
+
+You can freely use this player as a non-commercial tool to display and distribute your commercial or non-commercial artwork.
+
+This means you are free to:
+- **Share** — copy and redistribute the material in any medium or format.
+- **Adapt** — remix, transform, and build upon the material.
+
+Under the following terms:
+- **Attribution** — You must give appropriate credit, provide a link to the license, and indicate if changes were made.
+- **NonCommercial** — You may not use the material for commercial purposes.
+- **ShareAlike** — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+
+ℹ️ This restriction exists to protect the narrative format and prevent misuse or exploitation of the idea and system.
+
+### A Note on Attribution (How to give credit)
+
+To comply with the license, you must provide a visible credit. We've made this as painless as possible.
+
+**Required Attribution:**
+You only need to include the following text somewhere visible (e.g., in the footer of your page or on an "About" page):
+
+> **AVN Player by Nftxv, used under CC BY-NC-SA 4.0**
+
+**Optional (but appreciated):**
+If you wish, you can also link to the project's official website or repository. This helps other creators discover the tool, but it is **not required**.
+
+*Example of a simple, perfect credit:*
+`My Album (powered by AVN Player by Nftxv)`
+
+---
+
+For the full license text, please see the LICENSE.md file or https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+---
+
+
+⚠️ A Note on Importing Custom Graphs
+For security reasons, the ability to import local .jsonld files via the user interface has been disabled by default in the public version of this player. This is a deliberate measure to prevent users from inadvertently loading graphs that contain malicious links (e.g., to phishing sites, IP loggers, or unwanted content).
+Recommended Methods for Local Development
+
+If you are a developer and wish to load your own graph, please use one of the following safe methods:
+
+* **1. Direct Replacement (Easiest Method):**
+Replace the contents of the public/data/default.jsonld file with your own graph data.
+
+* **2. Modify the Source Code:**
+Place your graph file (e.g., my-graph.jsonld) inside the public/data/ directory.
+Open src/app.js and change the file path in the init() method:
+
+// In src/app.js
+await this.graphData.load('data/my-graph.jsonld');
+
+
+🚫 Re-enabling the UI Import Feature (Advanced / At Your Own Risk)
+If you understand the security implications and want to re-enable the "Import" button, you can do so. This is only recommended for local development or for a private, non-public version of the application where you trust all users and the files they might load.
+You must perform two steps:
+
+* **1. Make the button visible:**
+In public/index.html, remove style="display: none;" from the <label> and <input> elements for the file import.
+
+<!-- In public/index.html -->
+
+<!-- BEFORE -->
+<label for="importFile" class="button-like" style="display: none;">Import</label>
+<input type="file" id="importFile" accept=".json,.jsonld" style="display: none;">
+
+<!-- AFTER -->
+<label for="importFile" class="button-like">Import</label>
+<input type="file" id="importFile" accept=".json,.jsonld" style="display: none;">
+
+* **2. Activate the functionality:**
+In src/app.js, find the setupEventListeners method and uncomment the line that handles the import logic.
+
+// Uncomment this line:
+document.getElementById('importFile').addEventListener('change', (e) => this.editorTools.importGraph(e));
+
+By re-enabling this feature, you assume all responsibility for the content you and your users load into the application.
+
+
+
+AVN_PLAYER_PROJECT/
+├── public/
+│   ├── index.html
+│   ├── style.css
+│   └── data/
+│       └── default.jsonld
+├── src/
+│   ├── app.js
+│   └── modules/
+│       ├── Player.js
+│       ├── Renderer.js
+│       ├── Navigation.js
+│       └── ...
+├── LICENSE.md
+└── README.md
+
+
+## ./public/index.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src https:; connect-src https: https://cloudflare-ipfs.com;">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVN Player</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Canvas for graph rendering -->
+  <canvas id="graphCanvas"></canvas>
+
+  <!-- Toolbar for import/export actions -->
+  <div id="editorToolbar">
+    <div class="tool-section">
+
+      <!-- The 'Import' button is hidden in the public version for security. -->
+      <label for="importFile" class="button-like" style="display: none;">Import</label>
+      <input type="file" id="importFile" accept=".json,.jsonld" style="display: none;">
+
+      <button id="exportBtn">Export</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+  
+  <!-- Main player interface -->
+  <div id="player">
+    <img id="currentCover" src="placeholder.svg" alt="Album cover">
+    <div id="playerContent">
+      <div id="songTitle">Select a node to begin...</div>
+      <div id="playerControls">
+        <button id="backBtn" title="Go Back">⏮</button>
+        <button id="playBtn" title="Play/Pause">▶</button>
+        <button id="nextBtn" title="Next">⏭</button>
+        <input type="range" id="progress" value="0">
+        <span id="currentTime">0:00</span>
+        <button id="lyricsBtn" title="Show Lyrics">📜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container for lyrics, hidden by default -->
+  <div id="lyricsContainer" class="hidden">
+    <pre id="lyricsText">Loading lyrics...</pre>
+    <button id="closeLyricsBtn" title="Close">×</button>
+  </div>
+
+  <!-- Modal window for story branching -->
+  <div id="choiceModal" class="hidden">
+    <div id="modalContent">
+      <h3>Choose the next step:</h3>
+      <div id="choiceOptions"></div>
+      <button id="closeModalBtn">Cancel</button>
+    </div>
+  </div>
+  
+  <script src="../src/app.js" type="module"></script>
+
+  <!-- Copyright Footer -->
+    <footer id="copyright">
+        AVN Player 1.4 © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank">AbyssVoid.com</a>
+    </footer>
+</body>
+</html>
+
+
+## ./public/style.css
+
+:root {
+  --player-height: 80px;
+  --primary-color: #4285f4;
+  --primary-hover: #3367d6;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8f9fa;
+}
+
+canvas {
+  display: block;
+  cursor: grab;
+}
+canvas:active {
+  cursor: grabbing;
+}
+
+#editorToolbar {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  z-index: 200;
+  display: flex;
+  gap: 10px;
+}
+
+button, .button-like {
+  padding: 8px 12px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+button:hover, .button-like:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+#player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--player-height);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  gap: 15px;
+}
+
+#currentCover {
+  width: 60px;
+  height: 60px;
+  border-radius: 5px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: #e0e0e0;
+  flex-shrink: 0;
+}
+
+#playerContent {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+#songTitle {
+  font-weight: 600;
+  font-size: 1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#playerControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+#progress {
+  flex-grow: 1;
+}
+
+#lyricsContainer {
+  position: fixed;
+  bottom: calc(var(--player-height) + 10px);
+  left: 10px;
+  right: 10px;
+  max-height: 40vh;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 300;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+#lyricsContainer pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 1em;
+  font-family: 'Consolas', 'Menlo', monospace;
+}
+
+#closeLyricsBtn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: transparent;
+  color: #333;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  padding: 5px;
+}
+#closeLyricsBtn:hover {
+  color: red;
+  background: transparent;
+  transform: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#choiceModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 400;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+}
+
+#modalContent {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+}
+
+#choiceOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+#choiceOptions button {
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  background-color: #f1f3f4;
+  color: #202124;
+}
+#choiceOptions button:hover {
+  background-color: #e8eaed;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  #player {
+    height: auto;
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+  }
+  #playerContent {
+    width: 100%;
+  }
+  #songTitle {
+    text-align: center;
+  }
+}
+
+#copyright {
+  position: fixed;
+  bottom: 5px;
+  right: 15px;
+  font-size: 12px;
+  color: #777;
+  z-index: 99;
+}
+
+#copyright a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+#copyright a:hover {
+  text-decoration: underline;
+}
+
+
+## ./public/data/default.jsonld
+
+{
+  "@context": "https://schema.org/",
+  "meta": {
+    "gateways": [
+      "https://cloudflare-ipfs.com/ipfs/"
+    ]
+  },
+  "@graph": [
+    {
+      "@id": "node-1",
+      "@type": "MusicRecording",
+      "name": "Chapter 1: The Beginning",
+      "position": { "x": 100, "y": 250 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": { "type": "ipfs", "value": "bafkreifzjut3a2u7gy2g2l2ctrqkfdv3u4b2qkjk22p32d2c3k32y2y2yq" }
+    },
+    {
+      "@id": "node-2",
+      "@type": "MusicRecording",
+      "name": "Chapter 2: The Choice",
+      "position": { "x": 400, "y": 250 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": null
+    },
+    {
+      "@id": "node-3a",
+      "@type": "MusicRecording",
+      "name": "Ending A: The Bright Path",
+      "position": { "x": 700, "y": 150 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": null
+    },
+    {
+      "@id": "node-3b",
+      "@type": "MusicRecording",
+      "name": "Ending B: The Dark Path",
+      "position": { "x": 700, "y": 350 },
+      "audioSources": [
+        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
+      ],
+      "coverSources": [
+        { "type": "url", "value": "placeholder.svg" }
+      ],
+      "lyricsSource": null
+    },
+    {
+      "@type": "Path",
+      "source": "node-1",
+      "target": "node-2",
+      "label": "Continue the story"
+    },
+    {
+      "@type": "Path",
+      "source": "node-2",
+      "target": "node-3a",
+      "label": "Choose the light",
+      "color": "#f1c40f"
+    },
+    {
+      "@type": "Path",
+      "source": "node-2",
+      "target": "node-3b",
+      "label": "Embrace the shadow",
+      "color": "#9b59b6"
+    }
+  ]
+}
+
+
+## ./src/app.js
+
+/**
+ * AVN Player v1.4
+ * by Nftxv
+ *
+ * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
+ *
+ * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+ * International License (CC BY-NC-SA 4.0).
+ *
+ * You can find the full license text at:
+ * https://creativecommons.org/licenses/by-nc-sa/4.0/
+ */
+
+// Import all necessary modules
+import GraphData from './modules/GraphData.js';
+import Renderer from './modules/Renderer.js';
+import Player from './modules/Player.js';
+import EditorTools from './modules/EditorTools.js';
+import Navigation from './modules/Navigation.js';
+
+/**
+ * Main application class.
+ * Orchestrates all modules and initializes the application.
+ */
+class GraphApp {
+  constructor() {
+    // Initialize core components
+    this.graphData = new GraphData();
+    this.renderer = new Renderer('graphCanvas');
+    this.player = new Player(this.graphData);
+    this.navigation = new Navigation(this.graphData, this.player, this.renderer);
+    // Pass navigation to editor tools for resetting state
+    this.editorTools = new EditorTools(this.graphData, this.renderer, this.player, this.navigation, this);
+    
+    // Establish communication between player and navigation
+    this.player.setNavigation(this.navigation);
+  }
+
+  /**
+   * Initializes or re-initializes the application.
+   */
+  async init() {
+    try {
+      // Load the default graph data
+      await this.graphData.load('data/default.jsonld');
+      
+      this.navigation.reset();
+      this.player.stop();
+
+      // Pass the loaded data to the renderer
+      this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
+      await this.renderer.loadAndRenderAll();
+      
+      console.log('Application initialized successfully.');
+    } catch (error) {
+      console.error('Initialization failed:', error);
+      alert('Could not load the application. Check the console for details.');
+    }
+  }
+
+  /**
+   * Sets up all global event listeners for the application.
+   */
+  setupEventListeners() {
+    // Activate pan and zoom listeners for the renderer
+    this.renderer.setupEventListeners();
+
+    // Handle clicks on the canvas to select nodes
+    this.renderer.canvas.addEventListener('click', (event) => {
+      // Do not trigger node selection if user is dragging the canvas
+      if (this.renderer.wasDragged()) return;
+
+      const clickCoords = this.renderer.getCanvasCoords(event);
+      const clickedNode = this.renderer.getNodeAt(clickCoords.x, clickCoords.y);
+      if (clickedNode) {
+        this.navigation.startFromNode(clickedNode.id);
+      }
+    });
+
+    // Player controls
+    document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
+    document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
+    document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
+
+    // Editor tools
+
+    // 🚫 SECURITY NOTE: User graph import is disabled in the public version.
+    // This feature is a potential vector for loading malicious content (e.g., phishing links
+    // or IP loggers) through audio, cover, or lyrics sources in a user-provided file.
+    // For local development and testing, you can uncomment the line below at your own risk.
+    // document.getElementById('importFile').addEventListener('change', (e) => this.editorTools.importGraph(e));
+
+    document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
+    document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
+  }
+}
+
+// Start the application once the window is loaded
+window.addEventListener('load', () => {
+  const app = new GraphApp();
+  app.init();
+  app.setupEventListeners(); // Setup listeners after first init
+});
+
+
+## ./src/modules/EditorTools.js
+
+/**
+ * Provides tools for the user to interact with the graph data locally,
+ * such as importing, exporting, and resetting the graph.
+ */
+export default class EditorTools {
+  constructor(graphData, renderer, player, navigation, app) {
+    this.graphData = graphData;
+    this.renderer = renderer;
+    this.player = player;
+    this.navigation = navigation;
+    this.app = app; // Reference to the main app for resetting
+  }
+
+  /**
+   * Exports the current state of the graph to a JSON-LD file.
+   */
+  exportGraph() {
+    try {
+      const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
+      const blob = new Blob([graphJSON], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'music-graph.jsonld';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Could not export the graph.');
+    }
+  }
+
+  /**
+   * Imports a graph from a user-selected file.
+   * @param {Event} event - The file input change event.
+   */
+  importGraph(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        this.graphData.parseData(data);
+        this.player.graphData = this.graphData;
+        
+        // Reset player and navigation state
+        this.navigation.reset();
+        this.player.stop();
+
+        // Reload renderer with new data
+        this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
+        await this.renderer.loadAndRenderAll();
+
+      } catch (error) {
+        console.error('Import failed:', error);
+        alert('Could not read the graph file. Please ensure it is a valid JSON.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = null; // Allow re-importing the same file
+  }
+
+  /**
+   * Resets the application to its initial state by reloading the default graph.
+   */
+  resetGraph() {
+    if (confirm('Are you sure you want to reset the graph to its default state? All local changes will be lost.')) {
+      this.app.init(); // Call the main app's init method to reload everything
+    }
+  }
+}
+
+
+## ./src/modules/GraphData.js
+
+/**
+ * Manages the graph's data, including loading, parsing, and providing access to nodes and edges.
+ */
+export default class GraphData {
+  constructor() {
+    this.nodes = [];
+    this.edges = [];
+    this.meta = {};
+  }
+
+  /**
+   * Loads graph data from a given URL.
+   * @param {string} url - The URL of the JSON/JSON-LD file.
+   */
+  async load(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
+    const data = await response.json();
+    this.parseData(data);
+  }
+
+  /**
+   * Parses the raw JSON-LD data and populates nodes, edges, and metadata.
+   * @param {object} data - The raw data object from the JSON file.
+   */
+  parseData(data) {
+    // Store metadata, providing a default IPFS gateway if none is specified
+    this.meta = data.meta || { gateways: ['https://cloudflare-ipfs.com/ipfs/'] };
+    const graph = data['@graph'] || [];
+
+    // Filter and map nodes of type 'MusicRecording'
+    this.nodes = graph
+      .filter(item => item['@type'] === 'MusicRecording')
+      .map(node => ({
+        id: node['@id'],
+        title: node.name || 'Untitled',
+        audioSources: node.audioSources || [],
+        coverSources: node.coverSources || [],
+        lyricsSource: node.lyricsSource,
+        x: node.position?.x || Math.random() * 800,
+        y: node.position?.y || Math.random() * 600,
+      }));
+
+    // Filter and map edges of type 'Path'
+    this.edges = graph
+      .filter(item => item['@type'] === 'Path')
+      .map(edge => ({
+        source: edge.source,
+        target: edge.target,
+        color: edge.color || '#4a86e8', // Default edge color
+        label: edge.label || '',
+      }));
+  }
+
+  /**
+   * Serializes the current graph data back into a JSON-LD format for export.
+   * @returns {object} - The complete graph object.
+   */
+  getGraph() {
+    const graph = [
+      ...this.nodes.map(n => ({
+        '@id': n.id,
+        '@type': 'MusicRecording',
+        name: n.title,
+        position: { x: n.x, y: n.y },
+        audioSources: n.audioSources,
+        coverSources: n.coverSources,
+        lyricsSource: n.lyricsSource,
+      })),
+      ...this.edges.map(e => ({
+        '@type': 'Path',
+        source: e.source,
+        target: e.target,
+        color: e.color,
+        label: e.label,
+      }))
+    ];
+    return {
+      '@context': 'https://schema.org/',
+      meta: this.meta,
+      '@graph': graph,
+    };
+  }
+
+  /**
+   * Finds a node by its unique ID.
+   * @param {string} id - The ID of the node to find.
+   * @returns {object|undefined}
+   */
+  getNodeById(id) {
+    return this.nodes.find(node => node.id === id);
+  }
+  
+  /**
+   * Finds all edges originating from a specific node.
+   * @param {string} nodeId - The ID of the source node.
+   * @returns {Array<object>}
+   */
+  getEdgesFromNode(nodeId) {
+    return this.edges.filter(edge => edge.source === nodeId);
+  }
+}
+
+
+## ./src/modules/Navigation.js
+
+/**
+ * Manages the user's journey through the graph, handling history and branching choices.
+ */
+export default class Navigation {
+  constructor(graphData, player, renderer) {
+    this.graphData = graphData;
+    this.player = player;
+    this.renderer = renderer;
+    this.reset();
+  }
+
+  reset() {
+    this.currentNode = null;
+    this.history = [];
+    // Clear all highlights
+    this.graphData.nodes.forEach(n => n.highlighted = false);
+    this.graphData.edges.forEach(e => e.highlighted = false);
+  }
+
+  startFromNode(nodeId) {
+    if(this.currentNode?.id === nodeId) return; // Don't restart if clicking the same node
+    
+    const node = this.graphData.getNodeById(nodeId);
+    if (!node) return;
+    
+    const prevNodeId = this.currentNode?.id;
+    this.currentNode = node;
+    this.history = [nodeId]; // Start new history path
+    
+    this.renderer.highlight(nodeId, prevNodeId);
+    this.player.play(node);
+  }
+
+  async advance() {
+    if (!this.currentNode) return;
+    
+    const options = this.graphData.getEdgesFromNode(this.currentNode.id);
+    if (options.length === 0) {
+      console.log("End of path.");
+      this.player.stop();
+      this.renderer.highlight(null, this.currentNode.id);
+      this.currentNode = null;
+      return;
+    }
+    
+    let nextEdge;
+    if (options.length === 1) {
+      nextEdge = options[0];
+    } else {
+      nextEdge = await this.promptForChoice(options);
+      if (!nextEdge) return; // User canceled the choice
+    }
+    this.transitionToEdge(nextEdge);
+  }
+  
+  goBack() {
+    if (this.history.length < 2) return; // Can't go back from the first node
+    
+    this.history.pop(); // Remove current node
+    const prevNodeId = this.history[this.history.length - 1]; // Get the new last node
+    const prevNode = this.graphData.getNodeById(prevNodeId);
+
+    if (prevNode) {
+        const oldNodeId = this.currentNode.id;
+        this.currentNode = prevNode;
+        // Find the edge that led to the old node to highlight it
+        const edge = this.graphData.getEdgesFromNode(prevNodeId).find(e => e.target === oldNodeId);
+        this.renderer.highlight(prevNodeId, oldNodeId, edge);
+        this.player.play(prevNode);
+    }
+  }
+
+  transitionToEdge(edge) {
+    const prevNodeId = this.currentNode.id;
+    const nextNode = this.graphData.getNodeById(edge.target);
+    this.currentNode = nextNode;
+    this.history.push(nextNode.id);
+    
+    this.renderer.highlight(nextNode.id, prevNodeId, edge);
+    this.player.play(nextNode);
+  }
+
+  promptForChoice(options) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('choiceModal');
+      const optionsContainer = document.getElementById('choiceOptions');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      optionsContainer.innerHTML = ''; // Clear previous options
+
+      const onChoose = (edge) => {
+        cleanup();
+        resolve(edge);
+      };
+      
+      const closeHandler = () => {
+        cleanup();
+        resolve(null); // Resolve with null if closed/canceled
+      };
+
+      const cleanup = () => {
+          modal.classList.add('hidden');
+          closeModalBtn.removeEventListener('click', closeHandler);
+          // Remove all created buttons and their listeners
+          while (optionsContainer.firstChild) {
+              optionsContainer.removeChild(optionsContainer.firstChild);
+          }
+      }
+      
+      options.forEach(edge => {
+        const button = document.createElement('button');
+        const targetNode = this.graphData.getNodeById(edge.target);
+        button.textContent = edge.label || targetNode?.title || 'Untitled Path';
+        button.onclick = () => onChoose(edge);
+        optionsContainer.appendChild(button);
+      });
+      
+      closeModalBtn.addEventListener('click', closeHandler);
+      modal.classList.remove('hidden');
+    });
+  }
+}
+
+
+## ./src/modules/Player.js
+
+/**
+ * AVN Player v1.4
+ * by Nftxv
+ *
+ * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
+ *
+ * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+ * International License (CC BY-NC-SA 4.0).
+ *
+ * You can find the full license text at:
+ * https://creativecommons.org/licenses/by-nc-sa/4.0/
+ */
+
+/**
+ * Manages audio playback, player UI updates, and lyrics loading.
+ */
+export default class Player {
+  constructor(graphData) {
+    this.graphData = graphData;
+    this.audio = new Audio();
+    this.navigation = null;
+    this.currentNode = null;
+    this.setupEventListeners();
+  }
+
+  setNavigation(navigation) { this.navigation = navigation; }
+
+  /**
+   * Finds the first available URL from a list of sources.
+   * @param {Array<object>} sources - Array of source objects ({type, value}).
+   * @returns {Promise<string|null>} - A playable URL or null.
+   */
+  async findPlayableUrl(sources) {
+    if (!sources || sources.length === 0) return null;
+    for (const source of sources) {
+      let url;
+      if (source.type === 'ipfs') {
+        const gateway = this.graphData.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
+        url = `${gateway}${source.value}`;
+      } else if (source.type === 'url') {
+        url = source.value;
+      } else continue;
+      
+      try {
+        // Use a HEAD request to quickly check if the resource is available
+        const response = await fetch(url, { method: 'HEAD', mode: 'cors' });
+        if (response.ok) {
+          console.log(`Source available: ${url}`);
+          return url;
+        }
+      } catch (e) {
+        console.warn(`Source failed: ${url}`, e.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Plays a given node.
+   * @param {object} node - The graph node to play.
+   */
+  async play(node) {
+    if (!node) return;
+    this.currentNode = node;
+
+    const audioUrl = await this.findPlayableUrl(node.audioSources);
+    const coverUrl = await this.findPlayableUrl(node.coverSources);
+
+    document.getElementById('songTitle').textContent = node.title;
+    document.getElementById('currentCover').src = coverUrl || 'placeholder.svg';
+    
+    if (!audioUrl) {
+      alert(`Could not load audio for "${node.title}".`);
+      document.getElementById('playBtn').textContent = '▶';
+      return;
+    }
+    
+    document.getElementById('playBtn').textContent = '⏸';
+    if (this.audio.src !== audioUrl) this.audio.src = audioUrl;
+    this.audio.play().catch(e => console.error("Playback error:", e));
+    
+    // Asynchronously load lyrics
+    this.loadAndShowLyrics(node.lyricsSource);
+  }
+
+  togglePlay() {
+    if (!this.currentNode) return; // Don't do anything if no track is loaded
+    if (this.audio.paused) {
+      this.audio.play();
+      document.getElementById('playBtn').textContent = '⏸';
+    } else {
+      this.audio.pause();
+      document.getElementById('playBtn').textContent = '▶';
+    }
+  }
+
+  stop() {
+    this.audio.pause();
+    this.audio.currentTime = 0;
+    this.currentNode = null;
+    document.getElementById('playBtn').textContent = '▶';
+    document.getElementById('songTitle').textContent = 'Select a node to begin...';
+    document.getElementById('currentCover').src = 'placeholder.svg';
+    document.getElementById('progress').value = 0;
+    document.getElementById('currentTime').textContent = '0:00';
+  }
+
+  /**
+   * Loads lyrics from a source and populates the lyrics container.
+   * @param {object} source - The source object for the lyrics file.
+   */
+  async loadAndShowLyrics(source) {
+      const lyricsTextElem = document.getElementById('lyricsText');
+      lyricsTextElem.textContent = 'Loading lyrics...'; // Reset text
+      if (!source || !source.value) {
+          lyricsTextElem.textContent = 'No lyrics available for this track.';
+          return;
+      }
+      
+      // We don't need findPlayableUrl here as it's just a text file
+      const url = source.type === 'ipfs' 
+        ? `${this.graphData.meta.gateways[0]}${source.value}` 
+        : source.value;
+
+      try {
+          const response = await fetch(url);
+          if(!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const text = await response.text();
+          lyricsTextElem.textContent = text;
+      } catch (e) {
+          lyricsTextElem.textContent = 'Could not load lyrics.';
+          console.error('Lyrics loading failed:', e);
+      }
+  }
+
+  setupEventListeners() {
+    this.audio.addEventListener('timeupdate', () => this.updateProgress());
+    this.audio.addEventListener('ended', () => {
+      if (this.navigation) this.navigation.advance();
+    });
+    
+    document.getElementById('progress').addEventListener('input', e => {
+        if (this.audio.duration) {
+            this.audio.currentTime = (e.target.value / 100) * this.audio.duration;
+        }
+    });
+
+    const lyricsContainer = document.getElementById('lyricsContainer');
+    document.getElementById('lyricsBtn').addEventListener('click', () => {
+        lyricsContainer.classList.remove('hidden');
+    });
+    document.getElementById('closeLyricsBtn').addEventListener('click', () => {
+        lyricsContainer.classList.add('hidden');
+    });
+  }
+  
+  updateProgress() {
+    const progress = document.getElementById('progress');
+    const currentTimeElem = document.getElementById('currentTime');
+    if (this.audio.duration) {
+      progress.value = (this.audio.currentTime / this.audio.duration) * 100;
+      const mins = Math.floor(this.audio.currentTime / 60);
+      const secs = Math.floor(this.audio.currentTime % 60);
+      currentTimeElem.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+  }
+}
+
+
+## ./src/modules/Renderer.js
+
+/**
+ * AVN Player v1.4
+ * by Nftxv
+ *
+ * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
+ *
+ * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+ * International License (CC BY-NC-SA 4.0).
+ *
+ * You can find the full license text at:
+ * https://creativecommons.org/licenses/by-nc-sa/4.0/
+ */
+
+/**
+ * Handles all rendering on the canvas, including nodes, edges, and user interactions like panning and zooming.
+ */
+export default class Renderer {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext('2d');
+    
+    // Data
+    this.nodes = [];
+    this.edges = [];
+    this.meta = {};
+    this.images = {}; // Cache for loaded cover images
+
+    // Camera/View state
+    this.offset = { x: 0, y: 0 };
+    this.scale = 1.0;
+    
+    // Dragging state
+    this.dragStart = { x: 0, y: 0 };
+    this.dragging = false;
+    this.dragged = false; // To distinguish a drag from a click
+
+    this.resizeCanvas();
+    this.renderLoop = this.renderLoop.bind(this);
+  }
+
+  setData(nodes, edges, meta) {
+    this.nodes = nodes;
+    this.edges = edges;
+    this.meta = meta;
+  }
+
+  async loadAndRenderAll() {
+    await this.loadImages();
+    this.renderLoop();
+  }
+
+  async loadImages() {
+    const promises = this.nodes.flatMap(node =>
+      (node.coverSources || []).map(async source => {
+        const url = this.getSourceUrl(source);
+        if (url && !this.images[url]) {
+          try {
+            const img = new Image();
+            img.src = url;
+            await img.decode();
+            this.images[url] = img;
+          } catch (e) {
+            console.warn(`Failed to load cover: ${url}`, e);
+          }
+        }
+      })
+    );
+    await Promise.all(promises);
+  }
+
+  getSourceUrl(source) {
+    if (!source) return null;
+    if (source.type === 'ipfs') {
+      const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
+      return `${gateway}${source.value}`;
+    }
+    return source.value;
+  }
+  
+  getNodeAt(x, y) {
+      for (let i = this.nodes.length - 1; i >= 0; i--) {
+          const node = this.nodes[i];
+          const width = 160, height = 90;
+          if (x > node.x && x < node.x + width && y > node.y && y < node.y + height) {
+              return node;
+          }
+      }
+      return null;
+  }
+
+  renderLoop() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.save();
+    this.ctx.translate(this.offset.x, this.offset.y);
+    this.ctx.scale(this.scale, this.scale);
+    this.edges.forEach(edge => this.drawEdge(edge));
+    this.nodes.forEach(node => this.drawNode(node));
+    this.ctx.restore();
+    requestAnimationFrame(this.renderLoop);
+  }
+
+  drawNode(node) {
+    const ctx = this.ctx;
+    const width = 160, height = 90;
+    ctx.save();
+    ctx.lineWidth = node.highlighted ? 4 : 2;
+    ctx.strokeStyle = node.highlighted ? '#FFD700' : '#4a86e8';
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    if (ctx.roundRect) { // Check for browser support
+        ctx.roundRect(node.x, node.y, width, height, 8);
+    } else { // Fallback for older browsers
+        ctx.rect(node.x, node.y, width, height);
+    }
+    ctx.fill();
+    ctx.stroke();
+    const coverSource = node.coverSources?.[0];
+    const coverUrl = this.getSourceUrl(coverSource);
+    if (coverUrl && this.images[coverUrl]) {
+        ctx.drawImage(this.images[coverUrl], node.x + 5, node.y + 5, height - 10, height - 10);
+    } else {
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(node.x + 5, node.y + 5, height - 10, height - 10);
+    }
+    ctx.fillStyle = '#000000';
+    ctx.font = '14px Segoe UI';
+    ctx.fillText(node.title, node.x + height, node.y + 25, width - height - 10);
+    ctx.restore();
+  }
+
+  drawEdge(edge) {
+      const src = this.nodes.find(n => n.id === edge.source);
+      const trg = this.nodes.find(n => n.id === edge.target);
+      if (!src || !trg) return;
+      const ctx = this.ctx;
+      const startX = src.x + 80, startY = src.y + 45;
+      const endX = trg.x + 80, endY = trg.y + 45;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
+      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
+      ctx.quadraticCurveTo(cpX, cpY, endX, endY);
+      ctx.strokeStyle = edge.highlighted ? '#FFD700' : (edge.color || '#4a86e8');
+      ctx.lineWidth = edge.highlighted ? 5 : 3;
+      ctx.stroke();
+      const angle = Math.atan2(endY - cpY, endX - cpX);
+      ctx.translate(endX, endY);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-12, 7);
+      ctx.lineTo(-12, -7);
+      ctx.closePath();
+      ctx.fillStyle = edge.highlighted ? '#FFD700' : (edge.color || '#4a86e8');
+      ctx.fill();
+      ctx.restore();
+  }
+  
+  highlight(currentId, prevId = null, edge = null) {
+      if(prevId) {
+          const prevNode = this.nodes.find(n => n.id === prevId);
+          if (prevNode) prevNode.highlighted = false;
+      }
+      if(currentId) {
+          const currentNode = this.nodes.find(n => n.id === currentId);
+          if (currentNode) currentNode.highlighted = true;
+      }
+      this.edges.forEach(e => e.highlighted = false);
+      if(edge) {
+          const edgeToHighlight = this.edges.find(e => e.source === edge.source && e.target === edge.target);
+          if (edgeToHighlight) edgeToHighlight.highlighted = true;
+      }
+  }
+  
+  getCanvasCoords({ clientX, clientY }) {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = (clientX - rect.left - this.offset.x) / this.scale;
+      const y = (clientY - rect.top - this.offset.y) / this.scale;
+      return { x, y };
+  }
+  
+  resizeCanvas() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  }
+  
+  wasDragged() { return this.dragged; }
+
+  setupEventListeners() {
+      window.addEventListener('resize', () => this.resizeCanvas());
+
+      this.canvas.addEventListener('mousedown', (e) => {
+          this.dragging = true;
+          this.dragged = false;
+          this.dragStart.x = e.clientX - this.offset.x;
+          this.dragStart.y = e.clientY - this.offset.y;
+      });
+
+      this.canvas.addEventListener('mouseup', () => { this.dragging = false; });
+      this.canvas.addEventListener('mouseleave', () => { this.dragging = false; });
+
+      this.canvas.addEventListener('mousemove', (e) => {
+          if (this.dragging) {
+              this.dragged = true;
+              this.offset.x = e.clientX - this.dragStart.x;
+              this.offset.y = e.clientY - this.dragStart.y;
+          }
+      });
+
+      this.canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const zoomIntensity = 0.1;
+          const wheel = e.deltaY < 0 ? 1 : -1;
+          const zoom = Math.exp(wheel * zoomIntensity);
+          const rect = this.canvas.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
+          this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
+          this.scale *= zoom;
+          this.scale = Math.max(0.1, Math.min(5, this.scale));
+      });
+  }
+}
+
