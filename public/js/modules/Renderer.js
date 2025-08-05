@@ -6,18 +6,24 @@ export default class Renderer {
   constructor(canvasId, graphData) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
-    this.graphData = graphData; // Needed for getSourceUrl
+    this.graphData = graphData;
     
     this.nodes = [];
     this.edges = [];
     this.meta = {};
     this.images = {};
 
+    // Проверка поддержки roundRect
+    this.supportsRoundRect = false;
+    if (typeof CanvasRenderingContext2D !== 'undefined') {
+      this.supportsRoundRect = typeof CanvasRenderingContext2D.prototype.roundRect === 'function';
+    }
+
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
     
     this.dragStart = { x: 0, y: 0 };
-    this.dragging = false; // For canvas panning
+    this.dragging = false;
     this.dragged = false;
     this.draggingNode = null;
     this.dragNodeOffset = { x: 0, y: 0 };
@@ -25,12 +31,9 @@ export default class Renderer {
     this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
 
-    this.resizeCanvas(); // This method must exist
+    this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
-
-    this.supportsRoundRect = typeof CanvasRenderingContext2D.prototype.roundRect === 'function';
-}
-  }
+}  }
 
   setData(nodes, edges, meta) {
     this.nodes = nodes;
@@ -141,32 +144,44 @@ export default class Renderer {
     context.fillText(line.trim(), x, y);
   }
 
-  drawNode(node) {
+drawNode(node) {
     const ctx = this.ctx;
     const width = 160, collapsedHeight = 40, expandedHeight = 90;
     const height = node.isCollapsed ? collapsedHeight : expandedHeight;
     ctx.save();
     
-    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
-    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
-    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
+    if (node.selected) { 
+      ctx.strokeStyle = '#e74c3c'; 
+      ctx.lineWidth = 3; 
+    }
+    else if (node.highlighted) { 
+      ctx.strokeStyle = '#FFD700'; 
+      ctx.lineWidth = 3; 
+    }
+    else { 
+      ctx.strokeStyle = '#424242'; 
+      ctx.lineWidth = 1; 
+    }
 
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    if (ctx.roundRect) {
-        ctx.roundRect(node.x, node.y, width, height, 8);
+    
+    // Исправленный блок для отрисовки прямоугольника
+    if (this.supportsRoundRect) {
+      ctx.roundRect(node.x, node.y, width, height, 8);
     } else {
-        const r = 8;
-        ctx.moveTo(node.x + r, node.y);
-        ctx.arcTo(node.x + width, node.y, node.x + width, node.y + height, r);
-        ctx.arcTo(node.x + width, node.y + height, node.x, node.y + height, r);
-        ctx.arcTo(node.x, node.y + height, node.x, node.y, r);
-        ctx.arcTo(node.x, node.y, node.x + width, node.y, r);
-        ctx.closePath();
-          }
+      const r = 8;
+      ctx.moveTo(node.x + r, node.y);
+      ctx.arcTo(node.x + width, node.y, node.x + width, node.y + height, r);
+      ctx.arcTo(node.x + width, node.y + height, node.x, node.y + height, r);
+      ctx.arcTo(node.x, node.y + height, node.x, node.y, r);
+      ctx.arcTo(node.x, node.y, node.x + width, node.y, r);
+      ctx.closePath();
+    }
+    
     ctx.fill();
     ctx.stroke();
-
+    
     ctx.fillStyle = '#e0e0e0';
     ctx.font = 'bold 14px Segoe UI';
 
