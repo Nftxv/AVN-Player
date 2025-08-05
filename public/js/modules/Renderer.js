@@ -35,7 +35,7 @@ export default class Renderer {
     this.renderLoop = this.renderLoop.bind(this);
 }  }
 
-  setData(nodes, edges, meta) {
+  setData(nodes, edges, meta);{
     this.nodes = nodes;
     this.edges = edges;
     this.meta = meta;
