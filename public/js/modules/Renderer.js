@@ -188,19 +188,23 @@ export default class Renderer {
       
       const ctx = this.ctx;
       
-      // Находим центры нод
-      const startX = src.x + 80; // (width / 2)
-      const startY = src.y + 45; // (height / 2)
+      const startX = src.x + 80;
+      const startY = src.y + 45;
       const endX = trg.x + 80;
       const endY = trg.y + 45;
 
-      // Определяем цвет и толщину
-      const color = edge.selected ? '#e74c3c' : (edge.highlighted ? '#FFD700' : (edge.color || '#6c757d')); // Светло-серый по умолчанию
-      const lineWidth = edge.selected || edge.highlighted ? 3 : 1; // Делаем линии тоньше
+      // ИСПРАВЛЕНИЕ №1: Цвет
+      // Используем светло-серый (#6c757d) как базовый.
+      // Свойство edge.color будет его переопределять, если оно задано.
+      let color = edge.color || '#6c757d'; 
+      if (edge.selected) color = '#e74c3c';
+      if (edge.highlighted) color = '#FFD700';
+
+      const lineWidth = edge.selected || edge.highlighted ? 2 : 1; // Делаем линии еще тоньше
 
       ctx.save();
       
-      // --- Рисуем прямую линию ---
+      // --- Рисуем линию ---
       ctx.beginPath();
       ctx.moveTo(startX, startY);
       ctx.lineTo(endX, endY);
@@ -210,23 +214,25 @@ export default class Renderer {
 
       // --- Рисуем стрелку на конце ---
       const angle = Math.atan2(endY - startY, endX - startX);
-      const arrowSize = 10;
+      const arrowSize = 8;
       
       ctx.translate(endX, endY);
       ctx.rotate(angle);
       
+      // ИСПРАВЛЕНИЕ №2: Логика рисования стрелки
+      // Теперь стрелка рисуется как залитый треугольник, что более надежно
       ctx.beginPath();
-      // Смещаем стрелку чуть назад, чтобы ее кончик касался центра, а не заходил за него
-      ctx.moveTo(-arrowSize, -arrowSize / 2);
-      ctx.lineTo(0, 0);
+      ctx.moveTo(0, 0); // Кончик стрелки находится точно в конечной точке
+      ctx.lineTo(-arrowSize, -arrowSize / 2);
       ctx.lineTo(-arrowSize, arrowSize / 2);
-      
-      ctx.strokeStyle = color; // Используем strokeStyle для контура стрелки
-      ctx.lineWidth = lineWidth; // Та же толщина, что и у линии
-      ctx.stroke(); // Рисуем контур, а не заливаем
+      ctx.closePath(); // Замыкаем контур, чтобы получился треугольник
+
+      ctx.fillStyle = color; // Используем fillStyle, чтобы залить стрелку цветом
+      ctx.fill(); // Заливаем
 
       ctx.restore();
-  }  
+  }
+  
   drawTemporaryEdge() {
       const ctx = this.ctx;
       const startX = this.edgeCreationSource.x + 80;
