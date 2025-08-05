@@ -1,3 +1,47 @@
+## ./c2t.py
+
+import os
+
+def is_hidden(path):
+    return any(part.startswith('.') for part in path.split(os.sep))
+
+def main():
+    base_dir = os.getcwd()
+    output_lines = []
+
+    for root, dirs, files in os.walk(base_dir):
+        # delite h
+        dirs[:] = [d for d in dirs if not is_hidden(d)]
+
+        for file in files:
+            if is_hidden(file):
+                continue
+
+            full_path = os.path.join(root, file)
+            rel_path = os.path.relpath(full_path, base_dir)
+            rel_path_posix = rel_path.replace('\\', '/')
+
+            try:
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"skip (not read): {rel_path_posix}")
+                continue
+
+            output_lines.append(f"## ./{rel_path_posix}")
+            output_lines.append("")
+            output_lines.append(content.rstrip('\n'))
+            output_lines.append("")
+            output_lines.append("")
+
+    with open("project_dump.md", "w", encoding="utf-8") as out:
+        out.write("\n".join(output_lines))
+
+    print("project_dump.md <- done.")
+
+if __name__ == "__main__":
+    main()
+
 
 ## ./public/index.html
 
@@ -32,8 +76,6 @@
     <div id="editorModeControls">
       <button id="addNodeBtn" title="Add New Node">Add Node</button>
       <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
-      <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
-      <button id="collapseAllBtn" title="Collapse All Nodes">Collapse All</button>
       <button id="settingsBtn" title="Global Settings">⚙️</button>
     </div>
   </div>
@@ -416,7 +458,7 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; }
 ## ./public/js/app.js
 
 /**
- * AVN Player v1.5.0 - Main Application
+ * AVN Player v2.2 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -428,7 +470,7 @@ import Navigation from './modules/Navigation.js';
 class GraphApp {
   constructor() {
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas', this.graphData); // Pass graphData to Renderer
+    this.renderer = new Renderer('graphCanvas');
     this.player = new Player(this.graphData);
     this.navigation = new Navigation(this.graphData, this.player, this.renderer);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
@@ -443,7 +485,7 @@ class GraphApp {
       this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
-      this.toggleEditorMode(false);
+      this.toggleEditorMode(false); // Убедимся, что начинаем в режиме плеера
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -451,15 +493,14 @@ class GraphApp {
     }
   }
 
-  setAllNodesCollapsed(isCollapsed) {
-    this.graphData.nodes.forEach(node => node.isCollapsed = isCollapsed);
-  }
-
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
+    
+    // Сбрасываем состояния при переключении
     this.player.stop();
     this.navigation.reset();
+    
     if (!isEditor) {
       this.editorTools.selectEntity(null);
       this.editorTools.closeInspector();
@@ -471,30 +512,37 @@ class GraphApp {
         (e) => this.handleCanvasClick(e),
         (e) => this.handleCanvasDblClick(e),
         (source, target) => {
-            if (this.isEditorMode) this.editorTools.createEdge(source, target);
+            if (this.isEditorMode) {
+                this.editorTools.createEdge(source, target);
+            }
         }
     );
 
+    // --- СЛУШАТЕЛИ ДЛЯ ЕДИНОЙ ПАНЕЛИ ---
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
     
+    // Кнопки режима плеера
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
-    
+
+    // Кнопки режима редактора
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
         this.editorTools.openInspector(newNode);
     });
-    document.getElementById('deleteSelectionBtn').addEventListener('click', () => this.editorTools.deleteEntity(this.editorTools.selectedEntity));
+    document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
+        this.editorTools.deleteEntity(this.editorTools.selectedEntity);
+    });
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
-    document.getElementById('expandAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(false));
-    document.getElementById('collapseAllBtn').addEventListener('click', () => this.setAllNodesCollapsed(true));
     
+    // --- СЛУШАТЕЛИ ИНСПЕКТОРА И МОДАЛЬНЫХ ОКОН ---
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
     document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
     document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
     
+    // --- СЛУШАТЕЛИ ПЛЕЕРА ---
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
@@ -504,32 +552,37 @@ class GraphApp {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
     
-    const toggledNode = this.renderer.getNodeToggleAt(coords.x, coords.y);
-    if (toggledNode) {
-      toggledNode.isCollapsed = !toggledNode.isCollapsed;
-      return;
-    }
-
     if (this.isEditorMode) {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.editorTools.selectEntity(clickedNode);
-        return;
+        return; // Нашли ноду, выходим
       }
+
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-      this.editorTools.selectEntity(clickedEdge); // Can be null to deselect
-    } else {
+      if (clickedEdge) {
+        this.editorTools.selectEntity(clickedEdge);
+        return; // Нашли связь, выходим
+      }
+      
+      // Если кликнули в пустоту, снимаем выделение
+      this.editorTools.selectEntity(null);
+
+    } else { // Режим плеера
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      if (clickedNode) this.navigation.startFromNode(clickedNode.id);
+      if (clickedNode) {
+        this.navigation.startFromNode(clickedNode.id);
+      }
     }
   }
   
   handleCanvasDblClick(event) {
-    if (this.renderer.wasDragged()) return;
     if (!this.isEditorMode) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-    if (clickedNode) this.editorTools.openInspector(clickedNode);
+    if (clickedNode) {
+        this.editorTools.openInspector(clickedNode);
+    }
   }
 }
 
@@ -542,7 +595,7 @@ window.addEventListener('load', () => {
 ## ./public/js/modules/EditorTools.js
 
 /**
- * AVN Player v1.5.0 - Editor Tools Module
+ * AVN Player v2.2 - Editor Tools Module
  * by Nftxv
  */
 export default class EditorTools {
@@ -553,34 +606,48 @@ export default class EditorTools {
     this.selectedEntity = null;
   }
 
+  // --- Core Editor Functions ---
+
   createNode() {
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      x: 100, y: 100,
+      x: 100, y: 100, // Default position
       audioSources: [], coverSources: [], lyricsSource: null,
-      isCollapsed: false, customLinks: []
     };
-    this.graphData.nodes.push(newNode);
+      this.graphData.nodes.push(newNode);
     return newNode;
   }
 
   createEdge(sourceNode, targetNode) {
-    const edgeExists = this.graphData.edges.some(e => e.source === sourceNode.id && e.target === targetNode.id);
-    if (edgeExists || sourceNode.id === targetNode.id) return;
-    const newEdge = { source: sourceNode.id, target: targetNode.id, label: '' };
+    // ...
+    const newEdge = {
+      source: sourceNode.id,
+      target: targetNode.id,
+      // color: '#4a86e8', // УДАЛЯЕМ ЭТУ СТРОКУ
+      label: ''
+    };
     this.graphData.edges.push(newEdge);
   }
-
+  
   deleteEntity(entity) {
     if (!entity || !confirm('Are you sure you want to delete this item?')) return;
-    if (entity.source) {
-      const index = this.graphData.edges.findIndex(e => e === entity);
-      if (index > -1) this.graphData.edges.splice(index, 1);
-    } else {
-      this.graphData.edges = this.graphData.edges.filter(e => e.source !== entity.id && e.target !== entity.id);
+
+    if (entity.source && entity.target) { // It's an edge
+      const index = this.graphData.edges.findIndex(
+        e => e.source === entity.source && e.target === entity.target
+      );
+      if (index > -1) {
+        this.graphData.edges.splice(index, 1);
+      }
+    } else { // It's a node
+      this.graphData.edges = this.graphData.edges.filter(
+        e => e.source !== entity.id && e.target !== entity.id
+      );
       const index = this.graphData.nodes.findIndex(n => n.id === entity.id);
-      if (index > -1) this.graphData.nodes.splice(index, 1);
+      if (index > -1) {
+        this.graphData.nodes.splice(index, 1);
+      }
     }
     this.selectEntity(null);
   }
@@ -592,33 +659,50 @@ export default class EditorTools {
     document.getElementById('deleteSelectionBtn').disabled = !entity;
   }
 
+  // --- Inspector Panel Logic ---
+
   openInspector(node) {
     this.editingNode = node;
+    const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
-    const linksAsText = (node.customLinks || []).join('\n');
+
     content.innerHTML = `
       <label for="nodeTitle">Title:</label>
       <input type="text" id="nodeTitle" value="${node.title}">
-      <label for="audioSource">Audio (URL/IPFS):</label>
+      
+      <label for="audioSource">Audio (URL or IPFS hash):</label>
       <input type="text" id="audioSource" value="${node.audioSources?.[0]?.value || ''}">
-      <label for="coverSource">Cover (URL/IPFS):</label>
+
+      <label for="coverSource">Cover (URL or IPFS hash):</label>
       <input type="text" id="coverSource" value="${node.coverSources?.[0]?.value || ''}">
-      <label for="lyricsSource">Lyrics (URL/IPFS):</label>
+
+      <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
       <input type="text" id="lyricsSource" value="${node.lyricsSource?.value || ''}">
-      <label for="customLinks">Custom Links (one per line):</label>
-      <textarea id="customLinks" rows="4">${linksAsText}</textarea>
     `;
-    document.getElementById('inspectorPanel').classList.remove('hidden');
+    panel.classList.remove('hidden');
   }
 
   saveInspectorChanges() {
     if (!this.editingNode) return;
+    
     this.editingNode.title = document.getElementById('nodeTitle').value;
-    const parse = (url) => url ? (url.startsWith('Qm') || url.startsWith('bafy') ? { type: 'ipfs', value: url } : { type: 'url', value: url }) : null;
-    this.editingNode.audioSources = [parse(document.getElementById('audioSource').value)].filter(Boolean);
-    this.editingNode.coverSources = [parse(document.getElementById('coverSource').value)].filter(Boolean);
-    this.editingNode.lyricsSource = parse(document.getElementById('lyricsSource').value);
-    this.editingNode.customLinks = document.getElementById('customLinks').value.split('\n').map(l => l.trim()).filter(Boolean);
+
+    const parseSource = (url) => {
+      if (!url || url.trim() === '') return null;
+      if (url.startsWith('Qm') || url.startsWith('bafy')) {
+        return { type: 'ipfs', value: url };
+      }
+      return { type: 'url', value: url };
+    };
+
+    const audioSource = parseSource(document.getElementById('audioSource').value);
+    this.editingNode.audioSources = audioSource ? [audioSource] : [];
+    
+    const coverSource = parseSource(document.getElementById('coverSource').value);
+    this.editingNode.coverSources = coverSource ? [coverSource] : [];
+
+    this.editingNode.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
+
     this.closeInspector();
   }
 
@@ -627,13 +711,17 @@ export default class EditorTools {
     this.editingNode = null;
   }
   
+  // --- Settings Modal Logic ---
+  
   openSettings() {
-    document.getElementById('ipfsGatewayInput').value = this.graphData.meta.gateways?.[0] || '';
+    const gateway = this.graphData.meta.gateways?.[0] || '';
+    document.getElementById('ipfsGatewayInput').value = gateway;
     document.getElementById('settingsModal').classList.remove('hidden');
   }
   
   saveSettings() {
-    this.graphData.meta.gateways = [document.getElementById('ipfsGatewayInput').value];
+    const gateway = document.getElementById('ipfsGatewayInput').value;
+    this.graphData.meta.gateways = gateway ? [gateway] : [];
     this.closeSettings();
   }
   
@@ -641,18 +729,23 @@ export default class EditorTools {
     document.getElementById('settingsModal').classList.add('hidden');
   }
 
+  // --- Graph Management ---
+
   exportGraph() {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = 'music-graph.jsonld';
     a.click();
-    URL.revokeObjectURL(a.href);
+    URL.revokeObjectURL(url);
   }
 
   resetGraph() {
-    if (confirm('Are you sure you want to reset?')) window.location.reload();
+    if (confirm('Are you sure you want to reset the graph to its default state? All local changes will be lost.')) {
+      window.location.reload();
+    }
   }
 }
 
@@ -660,8 +753,7 @@ export default class EditorTools {
 ## ./public/js/modules/GraphData.js
 
 /**
- * AVN Player v1.5.0 - Graph Data Module
- * by Nftxv
+ * Manages the graph's data, including loading, parsing, and providing access to nodes and edges.
  */
 export default class GraphData {
   constructor() {
@@ -670,6 +762,10 @@ export default class GraphData {
     this.meta = {};
   }
 
+  /**
+   * Loads graph data from a given URL.
+   * @param {string} url - The URL of the JSON/JSON-LD file.
+   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -677,10 +773,16 @@ export default class GraphData {
     this.parseData(data);
   }
 
+  /**
+   * Parses the raw JSON-LD data and populates nodes, edges, and metadata.
+   * @param {object} data - The raw data object from the JSON file.
+   */
   parseData(data) {
+    // Store metadata, providing a default IPFS gateway if none is specified
     this.meta = data.meta || { gateways: ['https://cloudflare-ipfs.com/ipfs/'] };
     const graph = data['@graph'] || [];
 
+    // Filter and map nodes of type 'MusicRecording'
     this.nodes = graph
       .filter(item => item['@type'] === 'MusicRecording')
       .map(node => ({
@@ -691,20 +793,23 @@ export default class GraphData {
         lyricsSource: node.lyricsSource,
         x: node.position?.x || Math.random() * 800,
         y: node.position?.y || Math.random() * 600,
-        isCollapsed: node.isCollapsed === undefined ? true : node.isCollapsed,
-        customLinks: node.customLinks || [],
       }));
 
+    // Filter and map edges of type 'Path'
     this.edges = graph
       .filter(item => item['@type'] === 'Path')
       .map(edge => ({
         source: edge.source,
         target: edge.target,
-        color: edge.color, // Allow undefined color for default
+        color: edge.color || '#4a86e8', // Default edge color
         label: edge.label || '',
       }));
   }
 
+  /**
+   * Serializes the current graph data back into a JSON-LD format for export.
+   * @returns {object} - The complete graph object.
+   */
   getGraph() {
     const graph = [
       ...this.nodes.map(n => ({
@@ -715,8 +820,6 @@ export default class GraphData {
         audioSources: n.audioSources,
         coverSources: n.coverSources,
         lyricsSource: n.lyricsSource,
-        isCollapsed: n.isCollapsed,
-        customLinks: n.customLinks,
       })),
       ...this.edges.map(e => ({
         '@type': 'Path',
@@ -733,7 +836,7 @@ export default class GraphData {
     };
   }
 
-  getSourceUrl(source) {
+    getSourceUrl(source) {
     if (!source) return null;
     if (source.type === 'ipfs') {
       const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
@@ -742,10 +845,20 @@ export default class GraphData {
     return source.value;
   }
 
+  /**
+   * Finds a node by its unique ID.
+   * @param {string} id - The ID of the node to find.
+   * @returns {object|undefined}
+   */
   getNodeById(id) {
     return this.nodes.find(node => node.id === id);
   }
   
+  /**
+   * Finds all edges originating from a specific node.
+   * @param {string} nodeId - The ID of the source node.
+   * @returns {Array<object>}
+   */
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }
@@ -1051,33 +1164,52 @@ export default class Player {
 ## ./public/js/modules/Renderer.js
 
 /**
- * AVN Player v1.5.0 - Renderer Module
+ * AVN Player v1.4 - Renderer Module
  * by Nftxv
+ *
+ * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
+ *
+ * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+ * International License (CC BY-NC-SA 4.0).
+ *
+ * You can find the full license text at:
+ * https://creativecommons.org/licenses/by-nc-sa/4.0/
+ */
+
+/**
+ * Handles all rendering on the canvas, including nodes, edges, and user interactions
+ * like panning, zooming, and visual editing.
  */
 export default class Renderer {
-  constructor(canvasId, graphData) {
+  constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
-    this.graphData = graphData; // Needed for getSourceUrl
     
+    // Data
     this.nodes = [];
     this.edges = [];
     this.meta = {};
-    this.images = {};
+    this.images = {}; // Cache for loaded cover images
 
+    // View camera state
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
     
+    // General dragging state
     this.dragStart = { x: 0, y: 0 };
     this.dragging = false; // For canvas panning
-    this.dragged = false;
+    this.dragged = false;  // To distinguish a drag from a click
+
+    // Node dragging state
     this.draggingNode = null;
     this.dragNodeOffset = { x: 0, y: 0 };
+
+    // Edge creation state
     this.isCreatingEdge = false;
     this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
 
-    this.resizeCanvas(); // This method must exist
+    this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
   }
 
@@ -1112,14 +1244,20 @@ export default class Renderer {
   }
 
   getSourceUrl(source) {
-    return this.graphData.getSourceUrl(source);
+    if (!source) return null;
+    if (source.type === 'ipfs') {
+      const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
+      return `${gateway}${source.value}`;
+    }
+    return source.value;
   }
-
+  
   getNodeAt(x, y) {
+    // Iterate backwards to select the top-most node
     for (let i = this.nodes.length - 1; i >= 0; i--) {
         const node = this.nodes[i];
-        const height = node.isCollapsed ? 40 : 90;
-        if (x > node.x && x < node.x + 160 && y > node.y && y < node.y + height) {
+        const width = 160, height = 90;
+        if (x > node.x && x < node.x + width && y > node.y && y < node.y + height) {
             return node;
         }
     }
@@ -1127,206 +1265,204 @@ export default class Renderer {
   }
 
   getEdgeAt(x, y) {
-    const tolerance = 8;
+    const tolerance = 5; // Click tolerance in pixels
     for (const edge of this.edges) {
       const src = this.nodes.find(n => n.id === edge.source);
       const trg = this.nodes.find(n => n.id === edge.target);
       if (!src || !trg) continue;
 
-      const srcHeight = src.isCollapsed ? 40 : 90;
-      const trgHeight = trg.isCollapsed ? 40 : 90;
-      const x1 = src.x + 80, y1 = src.y + srcHeight / 2;
-      const x2 = trg.x + 80, y2 = trg.y + trgHeight / 2;
-      
-      const dist = Math.abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) / Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-      const onSegment = (x >= Math.min(x1, x2) - tolerance) && (x <= Math.max(x1, x2) + tolerance) && (y >= Math.min(y1, y2) - tolerance) && (y <= Math.max(y1, y2) + tolerance);
-      
-      if (dist < tolerance && onSegment) return edge;
+      const startX = src.x + 80, startY = src.y + 45;
+      const endX = trg.x + 80, endY = trg.y + 45;
+      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
+      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
+
+      // A simple distance check to the curve's midpoint
+      const dist = Math.sqrt(Math.pow(x - cpX, 2) + Math.pow(y - cpY, 2));
+      if (dist < tolerance * 5) { // A wider tolerance for the midpoint
+        return edge;
+      }
     }
     return null;
   }
 
-  getNodeToggleAt(x, y) {
-    const toggleSize = 16;
-    for (let i = this.nodes.length - 1; i >= 0; i--) {
-        const node = this.nodes[i];
-        const height = node.isCollapsed ? 40 : 90;
-        const toggleX = node.x + 160 - toggleSize / 2 - 8;
-        const toggleY = node.y + height - toggleSize / 2 - 8;
-        if (Math.sqrt(Math.pow(x - toggleX, 2) + Math.pow(y - toggleY, 2)) < toggleSize / 2 + 2) {
-            return node;
-        }
-    }
-    return null;
-  }
-  
   renderLoop() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
+
     this.edges.forEach(edge => this.drawEdge(edge));
     this.nodes.forEach(node => this.drawNode(node));
+    
+    // Draw the temporary line for edge creation
     if (this.isCreatingEdge && this.edgeCreationSource) {
       this.drawTemporaryEdge();
     }
+
     this.ctx.restore();
     requestAnimationFrame(this.renderLoop);
   }
 
-  wrapText(context, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(' ');
-    let line = '';
-    for (let n = 0; n < words.length; n++) {
-      const testLine = line + words[n] + ' ';
-      if (context.measureText(testLine).width > maxWidth && n > 0) {
-        context.fillText(line.trim(), x, y);
-        line = words[n] + ' ';
-        y += lineHeight;
-      } else {
-        line = testLine;
-      }
-    }
-    context.fillText(line.trim(), x, y);
-  }
-
   drawNode(node) {
     const ctx = this.ctx;
-    const width = 160, collapsedHeight = 40, expandedHeight = 90;
-    const height = node.isCollapsed ? collapsedHeight : expandedHeight;
+    const width = 160, height = 90;
     ctx.save();
     
-    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
-    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
-    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
+    // Determine style based on state: selected (editor) > highlighted (player) > default
+    if (node.selected) {
+        ctx.strokeStyle = '#e74c3c'; // Red for selected
+        ctx.lineWidth = 4;
+    } else if (node.highlighted) {
+        ctx.strokeStyle = '#FFD700'; // Gold for highlighted
+        ctx.lineWidth = 4;
+    } else {
+        ctx.strokeStyle = '#4a86e8'; // Blue for default
+        ctx.lineWidth = 2;
+    }
 
-    ctx.fillStyle = '#2d2d2d';
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    (ctx.roundRect || ((x, y, w, h, r) => { ctx.rect(x, y, w, h); }))(node.x, node.y, width, height, 8);
+    ctx.roundRect ? ctx.roundRect(node.x, node.y, width, height, 8) : ctx.rect(node.x, node.y, width, height);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#e0e0e0';
-    ctx.font = 'bold 14px Segoe UI';
-
-    if (node.isCollapsed) {
-      ctx.textAlign = 'center';
-      this.wrapText(ctx, node.title, node.x + width / 2, node.y + 16, width - 20, 16);
+    // Draw cover image
+    const coverSource = node.coverSources?.[0];
+    const coverUrl = this.getSourceUrl(coverSource);
+    if (coverUrl && this.images[coverUrl]) {
+        ctx.drawImage(this.images[coverUrl], node.x + 5, node.y + 5, height - 10, height - 10);
     } else {
-      const coverUrl = this.getSourceUrl(node.coverSources?.[0]);
-      if (coverUrl && this.images[coverUrl]) {
-        ctx.drawImage(this.images[coverUrl], node.x + 8, node.y + 8, 34, 34);
-      } else {
-        ctx.fillStyle = '#444';
-        ctx.fillRect(node.x + 8, node.y + 8, 34, 34);
-      }
-      ctx.fillStyle = '#e0e0e0';
-      this.wrapText(ctx, node.title, node.x + 50, node.y + 20, width - 55, 16);
-      let currentIconX = node.x + 12;
-      ctx.font = `18px Segoe UI Symbol`;
-      ctx.fillStyle = '#a0a0a0';
-      ctx.fillText('▶', currentIconX, node.y + 55 + 9);
-      currentIconX += 22;
-      (node.customLinks || []).forEach(link => {
-        ctx.fillText(this.getIconForUrl(link), currentIconX, node.y + 55 + 9);
-        currentIconX += 22;
-      });
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(node.x + 5, node.y + 5, height - 10, height - 10);
     }
 
-    this.drawToggleIcon(ctx, node, width, height);
+    // Draw title
+    ctx.fillStyle = '#000000';
+    ctx.font = '14px Segoe UI';
+    ctx.fillText(node.title, node.x + height, node.y + 25, width - height - 10);
     ctx.restore();
   }
 
-  drawToggleIcon(ctx, node, width, height) {
-    const s = 16, x = node.x + width - s / 2 - 8, y = node.y + height - s / 2 - 8;
-    ctx.save();
-    ctx.fillStyle = '#4f4f4f'; ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(x, y, s / 2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#e0e0e0'; ctx.font = 'bold 14px Segoe UI';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(node.isCollapsed ? '+' : '−', x, y + 1);
-    ctx.restore();
-  }
+// Файл: public/js/modules/Renderer.js
 
-  getIconForUrl(url) {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return '▶️';
-    if (url.includes('spotify.com')) return '🎵';
-    if (url.includes('soundcloud.com')) return '☁️';
-    if (url.includes('twitter.com') || url.includes('x.com')) return '𝕏';
-    return '🔗';
-  }
-
+  // ЗАМЕНИТЕ ВЕСЬ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
   drawEdge(edge) {
       const src = this.nodes.find(n => n.id === edge.source);
       const trg = this.nodes.find(n => n.id === edge.target);
       if (!src || !trg) return;
       
       const ctx = this.ctx;
-      const cornerRadius = 8;
-      const srcHeight = src.isCollapsed ? 40 : 90;
-      const trgHeight = trg.isCollapsed ? 40 : 90;
-      const startX = src.x + 80, startY = src.y + srcHeight / 2;
-      const endX = trg.x + 80, endY = trg.y + trgHeight / 2;
+      
+      const nodeWidth = 160;
+      const nodeHeight = 90;
+      // "Магическая" константа. Это радиус скругления, который вы используете в drawNode.
+      // Мы заставим линию заходить внутрь на это расстояние.
+      const cornerRadius = 8; 
 
-      const dx = endX - startX, dy = endY - startY;
-      if (dx === 0 && dy === 0) return;
+      const startX = src.x + nodeWidth / 2;
+      const startY = src.y + nodeHeight / 2;
+      let endX = trg.x + nodeWidth / 2;
+      let endY = trg.y + nodeHeight / 2;
+
+      // --- МАТЕМАТИКА ДЛЯ ОПРЕДЕЛЕНИЯ ТОЧКИ НА ГРАНИЦЕ НОДЫ ---
+      const dx = endX - startX;
+      const dy = endY - startY;
       const angle = Math.atan2(dy, dx);
+
+      // Рассчитываем точку пересечения с прямоугольником целевой ноды
+      const h_x = nodeWidth / 2;
+      const h_y = nodeHeight / 2;
+      const tan_angle = Math.tan(angle);
       
-      const h_x = 80, h_y = trgHeight / 2;
-      let finalX = endX, finalY = endY;
+      let finalX = endX;
+      let finalY = endY;
       
-      if (Math.abs(dy) * h_x < Math.abs(dx) * h_y) {
+      // Расчет точки на границе острого прямоугольника
+      if (Math.abs(dy) < Math.abs(dx) * (h_y / h_x)) {
           finalX = endX - Math.sign(dx) * h_x;
-          finalY = endY - Math.sign(dx) * h_x * Math.tan(angle);
+          finalY = endY - Math.sign(dx) * h_x * tan_angle;
       } else {
           finalY = endY - Math.sign(dy) * h_y;
-          finalX = endY - Math.sign(dy) * h_y / Math.tan(angle);
+          finalX = endX - Math.sign(dy) * h_y / tan_angle;
       }
 
+      // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+      // Смещаем конечную точку немного "внутрь" по направлению к центру ноды.
+      // Это компенсирует скругленные углы.
       finalX -= Math.cos(angle) * cornerRadius;
       finalY -= Math.sin(angle) * cornerRadius;
       
+      // --- СТИЛИЗАЦИЯ ---
       let color = edge.color || '#888888';
-      if (edge.selected) color = '#e74c3c'; if (edge.highlighted) color = '#FFD700';
+      if (edge.selected) color = '#e74c3c';
+      if (edge.highlighted) color = '#FFD700';
+
       const lineWidth = edge.selected || edge.highlighted ? 2 : 1;
       
       ctx.save();
-      ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(finalX, finalY);
-      ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
+      
+      // --- РИСУЕМ ЛИНИЮ ---
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(finalX, finalY);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+
+      // --- РИСУЕМ СТРЕЛКУ ---
       const arrowSize = 8;
-      ctx.translate(finalX, finalY); ctx.rotate(angle);
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-arrowSize, -arrowSize / 2);
-      ctx.lineTo(-arrowSize, arrowSize / 2); ctx.closePath();
-      ctx.fillStyle = color; ctx.fill();
+      ctx.translate(finalX, finalY);
+      ctx.rotate(angle);
+      
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-arrowSize, -arrowSize / 2);
+      ctx.lineTo(-arrowSize, arrowSize / 2);
+      ctx.closePath();
+      
+      ctx.fillStyle = color;
+      ctx.fill();
+
       ctx.restore();
   }
       
   drawTemporaryEdge() {
       const ctx = this.ctx;
       const startX = this.edgeCreationSource.x + 80;
-      const startY = this.edgeCreationSource.y + (this.edgeCreationSource.isCollapsed ? 20 : 45);
+      const startY = this.edgeCreationSource.y + 45;
+      
       ctx.save();
-      ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
-      ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(this.mousePos.x, this.mousePos.y);
+      ctx.strokeStyle = '#e74c3c';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
       ctx.restore();
   }
-  
+
   highlight(currentId, prevId = null, edge = null) {
-      this.nodes.forEach(n => n.highlighted = false);
-      this.edges.forEach(e => e.highlighted = false);
-      if(currentId) {
-          const node = this.nodes.find(n => n.id === currentId);
-          if (node) node.highlighted = true;
+      if(prevId) {
+          const prevNode = this.nodes.find(n => n.id === prevId);
+          if (prevNode) prevNode.highlighted = false;
       }
+      if(currentId) {
+          const currentNode = this.nodes.find(n => n.id === currentId);
+          if (currentNode) currentNode.highlighted = true;
+      }
+      this.edges.forEach(e => e.highlighted = false);
       if(edge) {
-          const e = this.edges.find(e => e.source === edge.source && e.target === edge.target);
-          if (e) e.highlighted = true;
+          const edgeToHighlight = this.edges.find(e => e.source === edge.source && e.target === edge.target);
+          if (edgeToHighlight) edgeToHighlight.highlighted = true;
       }
   }
   
   getCanvasCoords({ clientX, clientY }) {
       const rect = this.canvas.getBoundingClientRect();
-      return { x: (clientX - rect.left - this.offset.x) / this.scale, y: (clientY - rect.top - this.offset.y) / this.scale };
+      const x = (clientX - rect.left - this.offset.x) / this.scale;
+      const y = (clientY - rect.top - this.offset.y) / this.scale;
+      return { x, y };
   }
   
   resizeCanvas() {
@@ -1339,40 +1475,44 @@ export default class Renderer {
   setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
       window.addEventListener('resize', () => this.resizeCanvas());
 
+      // --- Left Click Down: Pan or start dragging a node ---
       this.canvas.addEventListener('mousedown', (e) => {
-          this.dragged = false;
+          if (e.button !== 0) return; // Only handle left clicks
           const mousePos = this.getCanvasCoords(e);
           const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
 
-          if (e.button === 0) { // Left Mouse
-              if (clickedNode) {
-                  this.draggingNode = clickedNode;
-                  this.dragNodeOffset.x = mousePos.x - clickedNode.x;
-                  this.dragNodeOffset.y = mousePos.y - clickedNode.y;
-              }
-          } else if (e.button === 1) { // Middle Mouse
-              e.preventDefault();
+          if (clickedNode) {
+              this.draggingNode = clickedNode;
+              this.dragNodeOffset.x = mousePos.x - clickedNode.x;
+              this.dragNodeOffset.y = mousePos.y - clickedNode.y;
+          } else {
               this.dragging = true;
               this.dragStart.x = e.clientX - this.offset.x;
               this.dragStart.y = e.clientY - this.offset.y;
           }
+          this.dragged = false;
       });
-      
+
+      // --- Right Click Down: Start creating an edge ---
       this.canvas.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
+          e.preventDefault(); // Prevent browser context menu
           const mousePos = this.getCanvasCoords(e);
           const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-          if (clickedNode && this.isEditorMode) {
+          if (clickedNode) {
               this.isCreatingEdge = true;
               this.edgeCreationSource = clickedNode;
           }
       });
       
+      // --- Mouse Move: Handle all dragging types ---
       this.canvas.addEventListener('mousemove', (e) => {
           this.mousePos = this.getCanvasCoords(e);
+          
+          // Only set dragged flag if a button is held down
           if (this.dragging || this.draggingNode || this.isCreatingEdge) {
               this.dragged = true;
           }
+
           if (this.draggingNode) {
               this.draggingNode.x = this.mousePos.x - this.dragNodeOffset.x;
               this.draggingNode.y = this.mousePos.y - this.dragNodeOffset.y;
@@ -1382,6 +1522,7 @@ export default class Renderer {
           }
       });
 
+      // --- Mouse Up: Finalize actions ---
       this.canvas.addEventListener('mouseup', (e) => {
           if (this.isCreatingEdge) {
               const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
@@ -1389,9 +1530,14 @@ export default class Renderer {
                   onEdgeCreated(this.edgeCreationSource, targetNode);
               }
           }
+          
+          // Reset all dragging states
           this.dragging = false;
           this.draggingNode = null;
           this.isCreatingEdge = false;
+          this.edgeCreationSource = null;
+
+          // Use a timeout to reset the 'dragged' flag after the 'click' event has fired
           setTimeout(() => { this.dragged = false; }, 0);
       });
 
@@ -1401,6 +1547,7 @@ export default class Renderer {
           this.isCreatingEdge = false;
       });
       
+      // --- Wheel: Zoom ---
       this.canvas.addEventListener('wheel', (e) => {
           e.preventDefault();
           const zoomIntensity = 0.1;
@@ -1411,9 +1558,11 @@ export default class Renderer {
           const mouseY = e.clientY - rect.top;
           this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
           this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
+          this.scale *= zoom;
           this.scale = Math.max(0.1, Math.min(5, this.scale));
       });
 
+      // --- Pass control for clicks back to the main app ---
       this.canvas.addEventListener('click', onClick);
       this.canvas.addEventListener('dblclick', onDblClick);
   }
