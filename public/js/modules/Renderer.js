@@ -190,6 +190,9 @@ export default class Renderer {
       
       const nodeWidth = 160;
       const nodeHeight = 90;
+      // "Магическая" константа. Это радиус скругления, который вы используете в drawNode.
+      // Мы заставим линию заходить внутрь на это расстояние.
+      const cornerRadius = 8; 
 
       const startX = src.x + nodeWidth / 2;
       const startY = src.y + nodeHeight / 2;
@@ -208,8 +211,9 @@ export default class Renderer {
       
       let finalX = endX;
       let finalY = endY;
-
-      if (Math.abs(dy) < Math.abs(dx)) {
+      
+      // Расчет точки на границе острого прямоугольника
+      if (Math.abs(dy) < Math.abs(dx) * (h_y / h_x)) {
           finalX = endX - Math.sign(dx) * h_x;
           finalY = endY - Math.sign(dx) * h_x * tan_angle;
       } else {
@@ -217,8 +221,14 @@ export default class Renderer {
           finalX = endX - Math.sign(dy) * h_y / tan_angle;
       }
 
+      // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+      // Смещаем конечную точку немного "внутрь" по направлению к центру ноды.
+      // Это компенсирует скругленные углы.
+      finalX -= Math.cos(angle) * cornerRadius;
+      finalY -= Math.sin(angle) * cornerRadius;
+      
       // --- СТИЛИЗАЦИЯ ---
-      let color = edge.color || '#888888'; // Более светлый серый по умолчанию
+      let color = edge.color || '#888888';
       if (edge.selected) color = '#e74c3c';
       if (edge.highlighted) color = '#FFD700';
 
@@ -229,18 +239,18 @@ export default class Renderer {
       // --- РИСУЕМ ЛИНИЮ ---
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      ctx.lineTo(finalX, finalY); // Линия доходит ТОЛЬКО до границы
+      ctx.lineTo(finalX, finalY);
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.stroke();
 
       // --- РИСУЕМ СТРЕЛКУ ---
       const arrowSize = 8;
-      ctx.translate(finalX, finalY); // Перемещаемся в точку на границе
+      ctx.translate(finalX, finalY);
       ctx.rotate(angle);
       
       ctx.beginPath();
-      ctx.moveTo(0, 0); // Кончик стрелки теперь точно на границе
+      ctx.moveTo(0, 0);
       ctx.lineTo(-arrowSize, -arrowSize / 2);
       ctx.lineTo(-arrowSize, arrowSize / 2);
       ctx.closePath();
@@ -250,7 +260,7 @@ export default class Renderer {
 
       ctx.restore();
   }
-    
+      
   drawTemporaryEdge() {
       const ctx = this.ctx;
       const startX = this.edgeCreationSource.x + 80;
