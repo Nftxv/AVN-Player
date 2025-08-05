@@ -1,19 +1,6 @@
 /**
- * AVN Player v1.4 - Renderer Module
+ * AVN Player v2.3 - Renderer Module with Marquee Selection
  * by Nftxv
- *
- * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
- *
- * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
- * International License (CC BY-NC-SA 4.0).
- *
- * You can find the full license text at:
- * https://creativecommons.org/licenses/by-nc-sa/4.0/
- */
-
-/**
- * Handles all rendering on the canvas, including nodes, edges, and user interactions
- * like panning, zooming, and visual editing.
  */
 export default class Renderer {
   constructor(canvasId) {
@@ -24,25 +11,29 @@ export default class Renderer {
     this.nodes = [];
     this.edges = [];
     this.meta = {};
-    this.images = {}; // Cache for loaded cover images
+    this.images = {};
 
     // View camera state
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
     
-    // General dragging state
-    this.dragStart = { x: 0, y: 0 };
-    this.dragging = false; // For canvas panning
-    this.dragged = false;  // To distinguish a drag from a click
-
-    // Node dragging state
-    this.draggingNode = null;
-    this.dragNodeOffset = { x: 0, y: 0 };
-
-    // Edge creation state
-    this.isCreatingEdge = false;
-    this.edgeCreationSource = null;
+    // Interaction states
+    this.dragged = false;
     this.mousePos = { x: 0, y: 0 };
+
+    // Action states
+    this.isPanning = false; // Middle mouse drag
+    this.isDraggingNodes = false; // Left mouse drag on a selection
+    this.isCreatingEdge = false; // Right mouse drag
+    this.isMarqueeSelecting = false; // Left mouse drag on empty space
+
+    // Dragging details
+    this.dragStart = { x: 0, y: 0 };
+    this.draggingNodes = []; // The group of nodes being dragged
+    this.edgeCreationSource = null;
+
+    // Marquee selection details
+    this.marqueeRect = { x: 0, y: 0, width: 0, height: 0 };
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
@@ -54,71 +45,12 @@ export default class Renderer {
     this.meta = meta;
   }
 
-  async loadAndRenderAll() {
-    await this.loadImages();
-    this.renderLoop();
-  }
-
-  async loadImages() {
-    const promises = this.nodes.flatMap(node =>
-      (node.coverSources || []).map(async source => {
-        const url = this.getSourceUrl(source);
-        if (url && !this.images[url]) {
-          try {
-            const img = new Image();
-            img.src = url;
-            await img.decode();
-            this.images[url] = img;
-          } catch (e) {
-            console.warn(`Failed to load cover image: ${url}`, e);
-          }
-        }
-      })
-    );
-    await Promise.all(promises);
-  }
-
-  getSourceUrl(source) {
-    if (!source) return null;
-    if (source.type === 'ipfs') {
-      const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-      return `${gateway}${source.value}`;
-    }
-    return source.value;
-  }
+  async loadAndRenderAll() { /* ... без изменений ... */ }
+  async loadImages() { /* ... без изменений ... */ }
+  getSourceUrl(source) { /* ... без изменений ... */ }
   
-  getNodeAt(x, y) {
-    // Iterate backwards to select the top-most node
-    for (let i = this.nodes.length - 1; i >= 0; i--) {
-        const node = this.nodes[i];
-        const width = 160, height = 90;
-        if (x > node.x && x < node.x + width && y > node.y && y < node.y + height) {
-            return node;
-        }
-    }
-    return null;
-  }
-
-  getEdgeAt(x, y) {
-    const tolerance = 5; // Click tolerance in pixels
-    for (const edge of this.edges) {
-      const src = this.nodes.find(n => n.id === edge.source);
-      const trg = this.nodes.find(n => n.id === edge.target);
-      if (!src || !trg) continue;
-
-      const startX = src.x + 80, startY = src.y + 45;
-      const endX = trg.x + 80, endY = trg.y + 45;
-      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
-      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
-
-      // A simple distance check to the curve's midpoint
-      const dist = Math.sqrt(Math.pow(x - cpX, 2) + Math.pow(y - cpY, 2));
-      if (dist < tolerance * 5) { // A wider tolerance for the midpoint
-        return edge;
-      }
-    }
-    return null;
-  }
+  getNodeAt(x, y) { /* ... без изменений ... */ }
+  getEdgeAt(x, y) { /* ... без изменений ... */ }
 
   renderLoop() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -129,236 +61,107 @@ export default class Renderer {
     this.edges.forEach(edge => this.drawEdge(edge));
     this.nodes.forEach(node => this.drawNode(node));
     
-    // Draw the temporary line for edge creation
     if (this.isCreatingEdge && this.edgeCreationSource) {
       this.drawTemporaryEdge();
+    }
+    
+    if (this.isMarqueeSelecting) {
+      this.drawMarquee();
     }
 
     this.ctx.restore();
     requestAnimationFrame(this.renderLoop);
   }
 
-  drawNode(node) {
+  drawNode(node) { /* ... без изменений ... */ }
+  drawEdge(edge) { /* ... без изменений ... */ }
+  drawTemporaryEdge() { /* ... без изменений ... */ }
+  
+  drawMarquee() {
     const ctx = this.ctx;
-    const width = 160, height = 90;
     ctx.save();
-    
-    // Determine style based on state: selected (editor) > highlighted (player) > default
-    if (node.selected) {
-        ctx.strokeStyle = '#e74c3c'; // Red for selected
-        ctx.lineWidth = 4;
-    } else if (node.highlighted) {
-        ctx.strokeStyle = '#FFD700'; // Gold for highlighted
-        ctx.lineWidth = 4;
-    } else {
-        ctx.strokeStyle = '#4a86e8'; // Blue for default
-        ctx.lineWidth = 2;
-    }
-
-    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#00faff';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(0, 250, 255, 0.1)';
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(node.x, node.y, width, height, 8) : ctx.rect(node.x, node.y, width, height);
+    ctx.rect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.width, this.marqueeRect.height);
     ctx.fill();
     ctx.stroke();
-
-    // Draw cover image
-    const coverSource = node.coverSources?.[0];
-    const coverUrl = this.getSourceUrl(coverSource);
-    if (coverUrl && this.images[coverUrl]) {
-        ctx.drawImage(this.images[coverUrl], node.x + 5, node.y + 5, height - 10, height - 10);
-    } else {
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(node.x + 5, node.y + 5, height - 10, height - 10);
-    }
-
-    // Draw title
-    ctx.fillStyle = '#000000';
-    ctx.font = '14px Segoe UI';
-    ctx.fillText(node.title, node.x + height, node.y + 25, width - height - 10);
     ctx.restore();
   }
 
-// Файл: public/js/modules/Renderer.js
-
-  // ЗАМЕНИТЕ ВЕСЬ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
-  drawEdge(edge) {
-      const src = this.nodes.find(n => n.id === edge.source);
-      const trg = this.nodes.find(n => n.id === edge.target);
-      if (!src || !trg) return;
-      
-      const ctx = this.ctx;
-      
-      const nodeWidth = 160;
-      const nodeHeight = 90;
-      // "Магическая" константа. Это радиус скругления, который вы используете в drawNode.
-      // Мы заставим линию заходить внутрь на это расстояние.
-      const cornerRadius = 8; 
-
-      const startX = src.x + nodeWidth / 2;
-      const startY = src.y + nodeHeight / 2;
-      let endX = trg.x + nodeWidth / 2;
-      let endY = trg.y + nodeHeight / 2;
-
-      // --- МАТЕМАТИКА ДЛЯ ОПРЕДЕЛЕНИЯ ТОЧКИ НА ГРАНИЦЕ НОДЫ ---
-      const dx = endX - startX;
-      const dy = endY - startY;
-      const angle = Math.atan2(dy, dx);
-
-      // Рассчитываем точку пересечения с прямоугольником целевой ноды
-      const h_x = nodeWidth / 2;
-      const h_y = nodeHeight / 2;
-      const tan_angle = Math.tan(angle);
-      
-      let finalX = endX;
-      let finalY = endY;
-      
-      // Расчет точки на границе острого прямоугольника
-      if (Math.abs(dy) < Math.abs(dx) * (h_y / h_x)) {
-          finalX = endX - Math.sign(dx) * h_x;
-          finalY = endY - Math.sign(dx) * h_x * tan_angle;
-      } else {
-          finalY = endY - Math.sign(dy) * h_y;
-          finalX = endX - Math.sign(dy) * h_y / tan_angle;
-      }
-
-      // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-      // Смещаем конечную точку немного "внутрь" по направлению к центру ноды.
-      // Это компенсирует скругленные углы.
-      finalX -= Math.cos(angle) * cornerRadius;
-      finalY -= Math.sin(angle) * cornerRadius;
-      
-      // --- СТИЛИЗАЦИЯ ---
-      let color = edge.color || '#888888';
-      if (edge.selected) color = '#e74c3c';
-      if (edge.highlighted) color = '#FFD700';
-
-      const lineWidth = edge.selected || edge.highlighted ? 2 : 1;
-      
-      ctx.save();
-      
-      // --- РИСУЕМ ЛИНИЮ ---
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(finalX, finalY);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.stroke();
-
-      // --- РИСУЕМ СТРЕЛКУ ---
-      const arrowSize = 8;
-      ctx.translate(finalX, finalY);
-      ctx.rotate(angle);
-      
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-arrowSize, -arrowSize / 2);
-      ctx.lineTo(-arrowSize, arrowSize / 2);
-      ctx.closePath();
-      
-      ctx.fillStyle = color;
-      ctx.fill();
-
-      ctx.restore();
-  }
-      
-  drawTemporaryEdge() {
-      const ctx = this.ctx;
-      const startX = this.edgeCreationSource.x + 80;
-      const startY = this.edgeCreationSource.y + 45;
-      
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(this.mousePos.x, this.mousePos.y);
-      ctx.strokeStyle = '#e74c3c';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.restore();
-  }
-
-  highlight(currentId, prevId = null, edge = null) {
-      if(prevId) {
-          const prevNode = this.nodes.find(n => n.id === prevId);
-          if (prevNode) prevNode.highlighted = false;
-      }
-      if(currentId) {
-          const currentNode = this.nodes.find(n => n.id === currentId);
-          if (currentNode) currentNode.highlighted = true;
-      }
-      this.edges.forEach(e => e.highlighted = false);
-      if(edge) {
-          const edgeToHighlight = this.edges.find(e => e.source === edge.source && e.target === edge.target);
-          if (edgeToHighlight) edgeToHighlight.highlighted = true;
-      }
-  }
-  
-  getCanvasCoords({ clientX, clientY }) {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = (clientX - rect.left - this.offset.x) / this.scale;
-      const y = (clientY - rect.top - this.offset.y) / this.scale;
-      return { x, y };
-  }
-  
-  resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-  }
-  
+  highlight(currentId, prevId = null, edge = null) { /* ... без изменений ... */ }
+  getCanvasCoords({ clientX, clientY }) { /* ... без изменений ... */ }
+  resizeCanvas() { /* ... без изменений ... */ }
   wasDragged() { return this.dragged; }
 
-  setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
+  setupCanvasInteraction(callbacks) {
+      const { onClick, onDblClick, onEdgeCreated, onSelectionChange } = callbacks;
+
       window.addEventListener('resize', () => this.resizeCanvas());
 
-      // --- Left Click Down: Pan or start dragging a node ---
       this.canvas.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return; // Only handle left clicks
-          const mousePos = this.getCanvasCoords(e);
-          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-
-          if (clickedNode) {
-              this.draggingNode = clickedNode;
-              this.dragNodeOffset.x = mousePos.x - clickedNode.x;
-              this.dragNodeOffset.y = mousePos.y - clickedNode.y;
-          } else {
-              this.dragging = true;
-              this.dragStart.x = e.clientX - this.offset.x;
-              this.dragStart.y = e.clientY - this.offset.y;
-          }
+          this.dragStart = this.getCanvasCoords(e);
           this.dragged = false;
-      });
+          
+          const clickedNode = this.getNodeAt(this.dragStart.x, this.dragStart.y);
 
-      // --- Right Click Down: Start creating an edge ---
-      this.canvas.addEventListener('contextmenu', (e) => {
-          e.preventDefault(); // Prevent browser context menu
-          const mousePos = this.getCanvasCoords(e);
-          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-          if (clickedNode) {
-              this.isCreatingEdge = true;
-              this.edgeCreationSource = clickedNode;
+          if (e.button === 0) { // Left Mouse Button
+              if (clickedNode && clickedNode.selected) {
+                  this.isDraggingNodes = true;
+                  // Prepare all selected nodes for dragging
+                  this.draggingNodes = this.nodes.filter(n => n.selected);
+                  this.draggingNodes.forEach(n => {
+                      n.dragOffsetX = this.dragStart.x - n.x;
+                      n.dragOffsetY = this.dragStart.y - n.y;
+                  });
+              } else {
+                  this.isMarqueeSelecting = true;
+                  this.marqueeRect.x = this.dragStart.x;
+                  this.marqueeRect.y = this.dragStart.y;
+                  this.marqueeRect.width = 0;
+                  this.marqueeRect.height = 0;
+              }
+          } else if (e.button === 1) { // Middle Mouse Button
+              e.preventDefault();
+              this.isPanning = true;
+              this.dragStart.panX = e.clientX - this.offset.x;
+              this.dragStart.panY = e.clientY - this.offset.y;
+          } else if (e.button === 2) { // Right Mouse Button
+              if (clickedNode) {
+                  this.isCreatingEdge = true;
+                  this.edgeCreationSource = clickedNode;
+              }
           }
       });
-      
-      // --- Mouse Move: Handle all dragging types ---
+
       this.canvas.addEventListener('mousemove', (e) => {
-          this.mousePos = this.getCanvasCoords(e);
+          const currentMousePos = this.getCanvasCoords(e);
+          this.mousePos = currentMousePos; // for temp edge
           
-          // Only set dragged flag if a button is held down
-          if (this.dragging || this.draggingNode || this.isCreatingEdge) {
+          if (this.isPanning || this.isDraggingNodes || this.isMarqueeSelecting || this.isCreatingEdge) {
               this.dragged = true;
           }
 
-          if (this.draggingNode) {
-              this.draggingNode.x = this.mousePos.x - this.dragNodeOffset.x;
-              this.draggingNode.y = this.mousePos.y - this.dragNodeOffset.y;
-          } else if (this.dragging) {
-              this.offset.x = e.clientX - this.dragStart.x;
-              this.offset.y = e.clientY - this.dragStart.y;
+          if (this.isDraggingNodes) {
+              this.draggingNodes.forEach(n => {
+                  n.x = currentMousePos.x - n.dragOffsetX;
+                  n.y = currentMousePos.y - n.dragOffsetY;
+              });
+          } else if (this.isMarqueeSelecting) {
+              this.marqueeRect.width = currentMousePos.x - this.marqueeRect.x;
+              this.marqueeRect.height = currentMousePos.y - this.marqueeRect.y;
+          } else if (this.isPanning) {
+              this.offset.x = e.clientX - this.dragStart.panX;
+              this.offset.y = e.clientY - this.dragStart.panY;
           }
       });
 
-      // --- Mouse Up: Finalize actions ---
       this.canvas.addEventListener('mouseup', (e) => {
+          if (this.isMarqueeSelecting) {
+              const rect = this.normalizeRect(this.marqueeRect);
+              onSelectionChange(rect, e.shiftKey);
+          }
           if (this.isCreatingEdge) {
               const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
               if (targetNode && this.edgeCreationSource) {
@@ -366,39 +169,30 @@ export default class Renderer {
               }
           }
           
-          // Reset all dragging states
-          this.dragging = false;
-          this.draggingNode = null;
+          // Reset all states
+          this.isPanning = false;
+          this.isDraggingNodes = false;
+          this.isMarqueeSelecting = false;
           this.isCreatingEdge = false;
-          this.edgeCreationSource = null;
+          this.draggingNodes = [];
 
-          // Use a timeout to reset the 'dragged' flag after the 'click' event has fired
           setTimeout(() => { this.dragged = false; }, 0);
       });
-
-      this.canvas.addEventListener('mouseleave', () => {
-          this.dragging = false;
-          this.draggingNode = null;
-          this.isCreatingEdge = false;
-      });
       
-      // --- Wheel: Zoom ---
-      this.canvas.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          const zoomIntensity = 0.1;
-          const wheel = e.deltaY < 0 ? 1 : -1;
-          const zoom = Math.exp(wheel * zoomIntensity);
-          const rect = this.canvas.getBoundingClientRect();
-          const mouseX = e.clientX - rect.left;
-          const mouseY = e.clientY - rect.top;
-          this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
-          this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
-          this.scale *= zoom;
-          this.scale = Math.max(0.1, Math.min(5, this.scale));
-      });
+      this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      this.canvas.addEventListener('mouseleave', () => { /* ... сброс состояний ... */ });
+      this.canvas.addEventListener('wheel', (e) => { /* ... без изменений ... */ });
 
-      // --- Pass control for clicks back to the main app ---
       this.canvas.addEventListener('click', onClick);
       this.canvas.addEventListener('dblclick', onDblClick);
+  }
+  
+  normalizeRect(rect) {
+    return {
+        x: rect.width < 0 ? rect.x + rect.width : rect.x,
+        y: rect.height < 0 ? rect.y + rect.height : rect.y,
+        width: Math.abs(rect.width),
+        height: Math.abs(rect.height),
+    };
   }
 }

@@ -1,3 +1,47 @@
+## ./c2t.py
+
+import os
+
+def is_hidden(path):
+    return any(part.startswith('.') for part in path.split(os.sep))
+
+def main():
+    base_dir = os.getcwd()
+    output_lines = []
+
+    for root, dirs, files in os.walk(base_dir):
+        # delite h
+        dirs[:] = [d for d in dirs if not is_hidden(d)]
+
+        for file in files:
+            if is_hidden(file):
+                continue
+
+            full_path = os.path.join(root, file)
+            rel_path = os.path.relpath(full_path, base_dir)
+            rel_path_posix = rel_path.replace('\\', '/')
+
+            try:
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"skip (not read): {rel_path_posix}")
+                continue
+
+            output_lines.append(f"## ./{rel_path_posix}")
+            output_lines.append("")
+            output_lines.append(content.rstrip('\n'))
+            output_lines.append("")
+            output_lines.append("")
+
+    with open("project_dump.md", "w", encoding="utf-8") as out:
+        out.write("\n".join(output_lines))
+
+    print("project_dump.md <- done.")
+
+if __name__ == "__main__":
+    main()
+
 
 ## ./public/index.html
 
@@ -104,14 +148,22 @@
 :root {
   --player-height: 80px;
   --primary-color: #4285f4;
-  --primary-hover: #3367d6;
+  --primary-hover: #5a95f5;
+  
+  /* Цвета для темной темы */
+  --dark-bg: #1e1e1e;
+  --dark-surface: #2d2d2d;
+  --dark-text: #e0e0e0;
+  --dark-subtle-text: #9e9e9e;
+  --dark-border: #424242;
 }
 
 body {
   margin: 0;
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #171717;
+  background-color: var(--dark-bg); /* ИСПОЛЬЗУЕМ НОВЫЙ ФОН */
+  color: var(--dark-text); /* Ставим светлый текст по умолчанию */
 }
 
 canvas {
@@ -145,11 +197,11 @@ button:hover, .button-like:hover {
   left: 0;
   right: 0;
   height: var(--player-height);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(45, 45, 45, 0.9); /* Темный фон для плеера */
+  border-top: 1px solid var(--dark-border);
   padding: 10px 20px;
   display: flex;
   align-items: center;
-  box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.1);
   z-index: 100;
   gap: 15px;
 }
@@ -159,8 +211,7 @@ button:hover, .button-like:hover {
   height: 60px;
   border-radius: 5px;
   object-fit: cover;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  background-color: #e0e0e0;
+  background-color: #333;
   flex-shrink: 0;
 }
 
@@ -179,6 +230,7 @@ button:hover, .button-like:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--dark-text); /* Светлый текст */
 }
 
 #playerControls {
@@ -188,9 +240,7 @@ button:hover, .button-like:hover {
   width: 100%;
 }
 
-#progress {
-  flex-grow: 1;
-}
+#progress { flex-grow: 1; }
 
 #lyricsContainer {
   position: fixed;
@@ -198,98 +248,44 @@ button:hover, .button-like:hover {
   left: 10px;
   right: 10px;
   max-height: 40vh;
-  background: white;
+  background: var(--dark-surface); /* Темный фон */
+  border: 1px solid var(--dark-border);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   z-index: 300;
   overflow-y: auto;
   padding: 20px;
+  color: var(--dark-text); /* Светлый текст */
 }
+#closeLyricsBtn { color: var(--dark-text); }
+#closeLyricsBtn:hover { color: #e74c3c; }
 
-#lyricsContainer pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-size: 1em;
-  font-family: 'Consolas', 'Menlo', monospace;
-}
 
-#closeLyricsBtn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  background: transparent;
-  color: #333;
-  border: none;
-  font-size: 20px;
-  line-height: 1;
-  padding: 5px;
-}
-#closeLyricsBtn:hover {
-  color: red;
-  background: transparent;
-  transform: none;
-}
+.hidden { display: none !important; }
 
-.hidden {
-  display: none !important;
-}
-
-#choiceModal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 400;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 15px;
-}
-
-#modalContent {
-  background: white;
+/* Modal windows styling */
+.modal-content {
+  background: var(--dark-surface);
   padding: 25px;
-  border-radius: 3px;
+  border-radius: 8px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--dark-border);
 }
-
-#choiceOptions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 20px 0;
-}
-
 #choiceOptions button {
-  width: 100%;
-  text-align: left;
-  padding: 12px;
-  background-color: #f1f3f4;
-  color: #202124;
+  background-color: #3c3c3c;
+  color: var(--dark-text);
 }
 #choiceOptions button:hover {
-  background-color: #e8eaed;
+  background-color: #4f4f4f;
 }
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-  #player {
-    height: auto;
-    flex-direction: column;
-    padding: 10px;
-    gap: 10px;
-  }
-  #playerContent {
-    width: 100%;
-  }
-  #songTitle {
-    text-align: center;
-  }
+  #player { height: auto; flex-direction: column; padding: 10px; gap: 10px; }
+  #playerContent { width: 100%; }
+  #songTitle { text-align: center; }
 }
 
 #copyright {
@@ -297,76 +293,75 @@ button:hover, .button-like:hover {
   bottom: 5px;
   right: 15px;
   font-size: 12px;
-  color: #777;
+  color: var(--dark-subtle-text);
   z-index: 99;
 }
-
-#copyright a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-#copyright a:hover {
-  text-decoration: underline;
-}
+#copyright a { color: var(--primary-color); text-decoration: none; }
+#copyright a:hover { text-decoration: underline; }
 
 /* Editor UI & Toolbar */
 #topToolbar {
   position: fixed;
   top: 10px;
   left: 10px;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(45, 45, 45, 0.9); /* Темный фон */
+  border: 1px solid var(--dark-border);
   padding: 8px;
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
   z-index: 200;
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
-#playerModeControls, #editorModeControls {
-  display: flex;
-  gap: 10px;
-}
-
-.editor-mode-label { user-select: none; font-size: 0.9em; color: #555; }
-.divider { width: 1px; height: 24px; background-color: #ccc; margin: 0 5px; }
+#playerModeControls, #editorModeControls { display: flex; gap: 10px; }
+.editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
+.divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
 /* Switch Toggle */
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
-.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #e0e0e0; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--primary-color); }
 input:checked + .slider:before { transform: translateX(20px); }
 
 /* Properties Inspector Panel */
 #inspectorPanel {
   position: fixed; top: 60px; right: 10px; width: 300px;
-  max-height: calc(100vh - 80px); background: white; border-radius: 8px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 250; padding: 15px;
-  overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  max-height: calc(100vh - 80px); background: var(--dark-surface);
+  border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  border: 1px solid var(--dark-border);
+  z-index: 250; padding: 15px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
 }
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input { width: 95%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+#inspectorContent input {
+  width: 95%; padding: 8px; border-radius: 4px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: var(--dark-text);
+}
 
 /* Settings & Choice Modals */
 #settingsModal, #choiceModal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5); z-index: 400; display: flex;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
   justify-content: center; align-items: center; padding: 15px;
 }
 .modal-content {
-  background: white; padding: 25px; border-radius: 10px;
-  width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+  background: var(--dark-surface); padding: 25px; border-radius: 8px;
+  border: 1px solid var(--dark-border);
+  width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.3);
 }
 .modal-content label { display: block; margin-bottom: 5px; }
-.modal-content input { width: 95%; padding: 8px; margin-bottom: 15px; }
+.modal-content input {
+  width: 95%; padding: 8px; margin-bottom: 15px;
+  background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text);
+}
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
-
 
 /* Editor Mode Visibility Toggle LOGIC */
 body:not(.editor-mode) #editorModeControls { display: none; }
@@ -625,15 +620,16 @@ export default class EditorTools {
   }
 
   createEdge(sourceNode, targetNode) {
-    const edgeExists = this.graphData.edges.some(
-      e => e.source === sourceNode.id && e.target === targetNode.id
-    );
-    if (edgeExists || sourceNode.id === targetNode.id) return;
-
-    const newEdge = { source: sourceNode.id, target: targetNode.id, color: '#4a86e8', label: '' };
+    // ...
+    const newEdge = {
+      source: sourceNode.id,
+      target: targetNode.id,
+      // color: '#4a86e8', // УДАЛЯЕМ ЭТУ СТРОКУ
+      label: ''
+    };
     this.graphData.edges.push(newEdge);
   }
-
+  
   deleteEntity(entity) {
     if (!entity || !confirm('Are you sure you want to delete this item?')) return;
 
@@ -1347,44 +1343,89 @@ export default class Renderer {
     ctx.restore();
   }
 
+// Файл: public/js/modules/Renderer.js
+
+  // ЗАМЕНИТЕ ВЕСЬ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
   drawEdge(edge) {
       const src = this.nodes.find(n => n.id === edge.source);
       const trg = this.nodes.find(n => n.id === edge.target);
       if (!src || !trg) return;
       
       const ctx = this.ctx;
-      const startX = src.x + 80, startY = src.y + 45;
-      const endX = trg.x + 80, endY = trg.y + 45;
+      
+      const nodeWidth = 160;
+      const nodeHeight = 90;
+      // "Магическая" константа. Это радиус скругления, который вы используете в drawNode.
+      // Мы заставим линию заходить внутрь на это расстояние.
+      const cornerRadius = 8; 
 
-      // Determine style based on state
-      const color = edge.selected ? '#e74c3c' : (edge.highlighted ? '#FFD700' : (edge.color || '#4a86e8'));
-      const lineWidth = edge.selected || edge.highlighted ? 5 : 3;
+      const startX = src.x + nodeWidth / 2;
+      const startY = src.y + nodeHeight / 2;
+      let endX = trg.x + nodeWidth / 2;
+      let endY = trg.y + nodeHeight / 2;
 
+      // --- МАТЕМАТИКА ДЛЯ ОПРЕДЕЛЕНИЯ ТОЧКИ НА ГРАНИЦЕ НОДЫ ---
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const angle = Math.atan2(dy, dx);
+
+      // Рассчитываем точку пересечения с прямоугольником целевой ноды
+      const h_x = nodeWidth / 2;
+      const h_y = nodeHeight / 2;
+      const tan_angle = Math.tan(angle);
+      
+      let finalX = endX;
+      let finalY = endY;
+      
+      // Расчет точки на границе острого прямоугольника
+      if (Math.abs(dy) < Math.abs(dx) * (h_y / h_x)) {
+          finalX = endX - Math.sign(dx) * h_x;
+          finalY = endY - Math.sign(dx) * h_x * tan_angle;
+      } else {
+          finalY = endY - Math.sign(dy) * h_y;
+          finalX = endX - Math.sign(dy) * h_y / tan_angle;
+      }
+
+      // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+      // Смещаем конечную точку немного "внутрь" по направлению к центру ноды.
+      // Это компенсирует скругленные углы.
+      finalX -= Math.cos(angle) * cornerRadius;
+      finalY -= Math.sin(angle) * cornerRadius;
+      
+      // --- СТИЛИЗАЦИЯ ---
+      let color = edge.color || '#888888';
+      if (edge.selected) color = '#e74c3c';
+      if (edge.highlighted) color = '#FFD700';
+
+      const lineWidth = edge.selected || edge.highlighted ? 2 : 1;
+      
       ctx.save();
-      // Draw curve
+      
+      // --- РИСУЕМ ЛИНИЮ ---
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
-      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
-      ctx.quadraticCurveTo(cpX, cpY, endX, endY);
+      ctx.lineTo(finalX, finalY);
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.stroke();
 
-      // Draw arrowhead
-      const angle = Math.atan2(endY - cpY, endX - cpX);
-      ctx.translate(endX, endY);
+      // --- РИСУЕМ СТРЕЛКУ ---
+      const arrowSize = 8;
+      ctx.translate(finalX, finalY);
       ctx.rotate(angle);
+      
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(-12, 7);
-      ctx.lineTo(-12, -7);
+      ctx.lineTo(-arrowSize, -arrowSize / 2);
+      ctx.lineTo(-arrowSize, arrowSize / 2);
       ctx.closePath();
+      
       ctx.fillStyle = color;
       ctx.fill();
+
       ctx.restore();
   }
-  
+      
   drawTemporaryEdge() {
       const ctx = this.ctx;
       const startX = this.edgeCreationSource.x + 80;
