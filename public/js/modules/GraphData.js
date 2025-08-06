@@ -24,11 +24,9 @@ export default class GraphData {
    * @param {object} data - The raw data object from the JSON file.
    */
   parseData(data) {
-    // Store metadata, providing a default IPFS gateway if none is specified
     this.meta = data.meta || { gateways: ['https://cloudflare-ipfs.com/ipfs/'] };
     const graph = data['@graph'] || [];
 
-    // Filter and map nodes of type 'MusicRecording'
     this.nodes = graph
       .filter(item => item['@type'] === 'MusicRecording')
       .map(node => ({
@@ -41,16 +39,15 @@ export default class GraphData {
         y: node.position?.y || Math.random() * 600,
       }));
 
-    // Filter and map edges of type 'Path'
     this.edges = graph
       .filter(item => item['@type'] === 'Path')
       .map(edge => ({
         source: edge.source,
         target: edge.target,
-        color: edge.color || '#4a86e8', // Default edge color
+        color: edge.color || '#888888', // Default edge color is now grey
         label: edge.label || '',
-        lineWidth: edge.lineWidth || 2, // Default line width
-        controlPoints: edge.controlPoints || [], // Support for control points
+        lineWidth: edge.lineWidth || 2,
+        controlPoints: edge.controlPoints || [],
       }));
   }
 
@@ -95,20 +92,10 @@ export default class GraphData {
     return source.value;
   }
 
-  /**
-   * Finds a node by its unique ID.
-   * @param {string} id - The ID of the node to find.
-   * @returns {object|undefined}
-   */
   getNodeById(id) {
     return this.nodes.find(node => node.id === id);
   }
   
-  /**
-   * Finds all edges originating from a specific node.
-   * @param {string} nodeId - The ID of the source node.
-   * @returns {Array<object>}
-   */
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }

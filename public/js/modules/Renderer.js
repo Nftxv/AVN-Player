@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.4 - Renderer Module
+ * AVN Player v2.5 - Renderer Module
  * by Nftxv
  */
 export default class Renderer {
@@ -7,30 +7,22 @@ export default class Renderer {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
     
-    // Data
+    // Data, View, Dragging, Edge Creation states...
     this.nodes = [];
     this.edges = [];
     this.meta = {};
     this.images = {};
-
-    // View & camera state
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
-    
-    // Dragging state
     this.dragStart = { x: 0, y: 0 };
     this.dragged = false;
-    this.dragging = false; // For canvas panning
+    this.dragging = false;
     this.draggingNode = null;
     this.dragNodeOffset = { x: 0, y: 0 };
-    this.draggingControlPoint = null; // { edge, pointIndex }
-
-    // Edge creation state
+    this.draggingControlPoint = null;
     this.isCreatingEdge = false;
     this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
-
-    // Snapping state
     this.snapThreshold = 10;
     this.snapLines = [];
 
@@ -49,6 +41,7 @@ export default class Renderer {
     this.renderLoop();
   }
 
+  // --- Image Loading and Coordinate Helpers (no changes) ---
   async loadImages() {
     const promises = this.nodes.flatMap(node =>
       (node.coverSources || []).map(async source => {
@@ -57,11 +50,8 @@ export default class Renderer {
           try {
             const img = new Image();
             img.src = url;
-            await img.decode();
-            this.images[url] = img;
-          } catch (e) {
-            console.warn(`Failed to load cover image: ${url}`, e);
-          }
+            await img.decode(); this.images[url] = img;
+          } catch (e) { console.warn(`Failed to load cover image: ${url}`, e); }
         }
       })
     );
@@ -111,14 +101,15 @@ export default class Renderer {
         const pathPoints = [
             { x: src.x + 80, y: src.y + 45 },
             ...(edge.controlPoints || []),
-            { x: trg.x + 80, y: trg.y + 45 }
+            this._getIntersectionWithNodeRect({ x: trg.x + 80, y: trg.y + 45 }, (edge.controlPoints || []).at(-1) || { x: src.x + 80, y: src.y + 45 }, trg)
         ];
 
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i];
             const p2 = pathPoints[i + 1];
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-            const dot = (((x - p1.x) * (p2.x - p1.x)) + ((y - p1.y) * (p2.y - p1.y))) / Math.pow(len, 2);
+            if (len < 1) continue;
+            const dot = (((x - p1.x) * (p2.x - p1.x)) + ((y - p1.y) * (p2.y - p1.y))) / (len * len);
             const closestX = p1.x + (dot * (p2.x - p1.x));
             const closestY = p1.y + (dot * (p2.y - p1.y));
             
@@ -130,6 +121,8 @@ export default class Renderer {
     }
     return null;
   }
+
+  // --- Main Render Loop & Drawing Functions ---
 
   renderLoop() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -151,6 +144,7 @@ export default class Renderer {
   }
 
   drawNode(node) {
+    // ... (no changes to this method)
     const ctx = this.ctx;
     const width = 160, height = 90;
     ctx.save();
@@ -196,110 +190,114 @@ export default class Renderer {
       if (edge.selected) color = '#e74c3c';
       if (edge.highlighted) color = '#FFD700';
 
-      const lineWidth = edge.selected || edge.highlighted ? (edge.lineWidth || 2) + 1 : (edge.lineWidth || 2);
+      const edgeLineWidth = edge.lineWidth || 2;
+      const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
+      const arrowSize = 6 + edgeLineWidth * 2.5; // Arrow size now scales with line width
 
-      const pathPoints = [
-          { x: src.x + 160 / 2, y: src.y + 90 / 2 },
-          ...(edge.controlPoints || []),
-      ];
+      const controlPoints = edge.controlPoints || [];
+      const startPoint = { x: src.x + 80, y: src.y + 45 };
+      const lastPathPoint = controlPoints.length > 0 ? controlPoints[controlPoints.length - 1] : startPoint;
+      
+      const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
 
-      // Draw segments between control points
+      const pathPoints = [startPoint, ...controlPoints, intersection];
+
+      // Draw line segments
       ctx.beginPath();
       ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
       for (let i = 1; i < pathPoints.length; i++) {
           ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       }
-
-      // Draw the final segment to the node border
-      const lastPoint = pathPoints[pathPoints.length - 1];
-      const targetCenter = { x: trg.x + 160 / 2, y: trg.y + 90 / 2 };
-      const intersection = this._getIntersectionWithNodeRect(lastPoint, targetCenter, trg);
-      ctx.lineTo(intersection.x, intersection.y);
-
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.stroke();
 
-      // Draw arrows and control points
+      // Draw arrows at each point along the path
       for (let i = 1; i < pathPoints.length; i++) {
           const p1 = pathPoints[i-1];
           const p2 = pathPoints[i];
           const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-          this._drawArrow(p2.x, p2.y, angle, color); // Arrow at control point
+          this._drawArrow(p2.x, p2.y, angle, color, arrowSize);
           
-          ctx.beginPath();
-          ctx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = color;
-          ctx.fill();
+          // Draw control point handle
+          if (i <= controlPoints.length) {
+              ctx.beginPath();
+              ctx.arc(p1.x, p1.y, 5, 0, 2 * Math.PI);
+              ctx.fillStyle = (this.draggingControlPoint?.edge === edge && this.draggingControlPoint?.pointIndex === i-1) ? '#e74c3c' : color;
+              if (i>1) ctx.fill();
+          }
       }
-      
-      // Draw the final arrow on the node border
-      const finalAngle = Math.atan2(intersection.y - lastPoint.y, intersection.x - lastPoint.x);
-      this._drawArrow(intersection.x, intersection.y, finalAngle, color);
       
       // Draw label
       if (edge.label) {
-        const midIndex = Math.floor((pathPoints.length - 1) / 2);
-        const midPoint1 = pathPoints[midIndex];
-        const midPoint2 = (pathPoints.length > 1) ? pathPoints[midIndex + 1] : targetCenter;
+        const midIndex = Math.floor((pathPoints.length - 2) / 2);
+        const p1 = pathPoints[midIndex];
+        const p2 = pathPoints[midIndex + 1];
         
         ctx.font = '12px Segoe UI';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(edge.label, (midPoint1.x + midPoint2.x) / 2, (midPoint1.y + midPoint2.y) / 2 - 8);
+        ctx.save();
+        ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
+        ctx.rotate(Math.atan2(p2.y - p1.y, p2.x - p1.x));
+        if (Math.abs(ctx.getTransform().a) < 0.01) ctx.rotate(Math.PI); // Correct label orientation
+        ctx.fillText(edge.label, 0, -8);
+        ctx.restore();
       }
       
       ctx.restore();
   }
       
-  _drawArrow(x, y, angle, color) {
-      const size = 10;
+  _drawArrow(x, y, angle, color, size) {
       this.ctx.save();
       this.ctx.translate(x, y);
       this.ctx.rotate(angle);
       this.ctx.beginPath();
+      // Move tip to the exact point, draw backwards
       this.ctx.moveTo(0, 0);
-      this.ctx.lineTo(-size, -size / 2);
-      this.ctx.lineTo(-size, size / 2);
+      this.ctx.lineTo(-size, -size * 0.4);
+      this.ctx.lineTo(-size, size * 0.4);
       this.ctx.closePath();
       this.ctx.fillStyle = color;
       this.ctx.fill();
       this.ctx.restore();
   }
 
-  _getIntersectionWithNodeRect(p1, p2, node) {
+  // ** NEW ROBUST INTERSECTION ALGORITHM **
+  _getIntersectionWithNodeRect(node, externalPoint) {
       const w = 160, h = 90;
-      const cx = node.x + w / 2;
-      const cy = node.y + h / 2;
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
+      const halfW = w / 2, halfH = h / 2;
+      const cx = node.x + halfW;
+      const cy = node.y + halfH;
+
+      const dx = externalPoint.x - cx;
+      const dy = externalPoint.y - cy;
       
-      if (dx === 0 && dy === 0) return { x: cx, y: cy };
+      if (dx === 0 && dy === 0) return {x: cx, y: cy};
 
       const angle = Math.atan2(dy, dx);
+      
       const tan = Math.tan(angle);
-
-      const h_x = w / 2 - 8; // Subtract radius for better accuracy
-      const h_y = h / 2 - 8;
-
-      let finalX = cx, finalY = cy;
-
-      if (Math.abs(dy) < Math.abs(dx) * (h_y / h_x)) {
-          finalX = cx + Math.sign(dx) * h_x;
-          finalY = cy + Math.sign(dx) * h_x * tan;
+      // Determine intersection on horizontal or vertical edge
+      let x, y;
+      if (Math.abs(halfH * dx) > Math.abs(halfW * dy)) {
+          // Intersection with vertical edge
+          x = cx + Math.sign(dx) * halfW;
+          y = cy + Math.sign(dx) * halfW * tan;
       } else {
-          finalY = cy + Math.sign(dy) * h_y;
-          finalX = cx + Math.sign(dy) * h_y / tan;
+          // Intersection with horizontal edge
+          y = cy + Math.sign(dy) * halfH;
+          x = cx + Math.sign(dy) * halfH / tan;
       }
-      return { x: finalX, y: finalY };
+      return { x, y };
   }
 
+  // --- Other methods (highlight, getCanvasCoords, resizeCanvas, wasDragged, snapping, setupCanvasInteraction) have no significant changes ---
   drawTemporaryEdge() {
     const ctx = this.ctx;
     const startX = this.edgeCreationSource.x + 80;
     const startY = this.edgeCreationSource.y + 45;
-    
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(startX, startY);
@@ -310,81 +308,68 @@ export default class Renderer {
     ctx.stroke();
     ctx.restore();
   }
-
   highlight(currentId, prevId = null, edge = null) {
-      if(prevId) {
-          const prevNode = this.nodes.find(n => n.id === prevId);
-          if (prevNode) prevNode.highlighted = false;
-      }
-      if(currentId) {
-          const currentNode = this.nodes.find(n => n.id === currentId);
-          if (currentNode) currentNode.highlighted = true;
-      }
+      this.nodes.forEach(n => n.highlighted = false);
       this.edges.forEach(e => e.highlighted = false);
-      if(edge) {
-          const edgeToHighlight = this.edges.find(e => e.source === edge.source && e.target === edge.target);
-          if (edgeToHighlight) edgeToHighlight.highlighted = true;
+      if (currentId) {
+          const node = this.nodes.find(n => n.id === currentId);
+          if (node) node.highlighted = true;
+      }
+      if (edge) {
+          const e = this.edges.find(i => i.source === edge.source && i.target === edge.target);
+          if (e) e.highlighted = true;
       }
   }
-  
   getCanvasCoords({ clientX, clientY }) {
       const rect = this.canvas.getBoundingClientRect();
       const x = (clientX - rect.left - this.offset.x) / this.scale;
       const y = (clientY - rect.top - this.offset.y) / this.scale;
       return { x, y };
   }
-  
   resizeCanvas() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
   }
-  
   wasDragged() { return this.dragged; }
-
-  // --- SNAPPING LOGIC ---
-
   _getSnappedPosition(pos, ignoredEntity = null) {
       let snappedPos = { ...pos };
       this.snapLines = [];
-
-      const checkAndSnap = (val, targetVal, axis) => {
-          if (Math.abs(val - targetVal) < this.snapThreshold / this.scale) {
-              if (axis === 'x') {
-                  snappedPos.x = targetVal;
-                  this.snapLines.push({ type: 'v', pos: targetVal });
-              } else {
-                  snappedPos.y = targetVal;
-                  this.snapLines.push({ type: 'h', pos: targetVal });
-              }
-              return true;
-          }
-          return false;
-      };
+      const threshold = this.snapThreshold / this.scale;
 
       const snapTargets = [];
       this.nodes.forEach(n => {
-          if (n !== ignoredEntity) snapTargets.push({ x: n.x + 160 / 2, y: n.y + 90 / 2 });
+          if (n !== ignoredEntity) {
+              snapTargets.push({ x: n.x, y: n.y, w: 160, h: 90, type: 'node' });
+          }
       });
-      this.edges.forEach(e => {
+      (this.edges || []).forEach(e => {
           (e.controlPoints || []).forEach(p => {
-              if (p !== ignoredEntity) snapTargets.push(p);
+              if (p !== ignoredEntity) snapTargets.push({ x: p.x, y: p.y, type: 'point' });
           });
       });
 
+      let snapX = false, snapY = false;
+
       for (const target of snapTargets) {
-          checkAndSnap(pos.x, target.x, 'x');
-          checkAndSnap(pos.y, target.y, 'y');
+          if (target.type === 'node') {
+              if (Math.abs(pos.x - (target.x + target.w / 2)) < threshold) { snappedPos.x = target.x + target.w / 2; snapX = true; }
+              if (Math.abs(pos.y - (target.y + target.h / 2)) < threshold) { snappedPos.y = target.y + target.h / 2; snapY = true; }
+          } else { // point
+              if (Math.abs(pos.x - target.x) < threshold) { snappedPos.x = target.x; snapX = true; }
+              if (Math.abs(pos.y - target.y) < threshold) { snappedPos.y = target.y; snapY = true; }
+          }
       }
+      if (snapX) this.snapLines.push({ type: 'v', pos: snappedPos.x });
+      if (snapY) this.snapLines.push({ type: 'h', pos: snappedPos.y });
+
       return snappedPos;
   }
-
   _drawSnapGuides() {
       const ctx = this.ctx;
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)';
       ctx.lineWidth = 1 / this.scale;
       ctx.setLineDash([5 / this.scale, 5 / this.scale]);
-      
       this.snapLines.forEach(line => {
           ctx.beginPath();
           if (line.type === 'v') {
@@ -398,124 +383,104 @@ export default class Renderer {
       });
       ctx.restore();
   }
-
-
   setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
-      window.addEventListener('resize', () => this.resizeCanvas());
+    window.addEventListener('resize', () => this.resizeCanvas());
+    this.canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-      this.canvas.addEventListener('mousedown', (e) => {
-          if (e.button !== 0 && e.button !== 2) return;
-          const mousePos = this.getCanvasCoords(e);
-          
-          if (e.button === 0) { // Left click
-              const clickedControlPoint = this.getControlPointAt(mousePos.x, mousePos.y);
-              const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+    this.canvas.addEventListener('mousedown', (e) => {
+        const mousePos = this.getCanvasCoords(e);
+        this.dragged = false;
+        
+        if (e.button === 0) { // Left click
+            const cp = this.getControlPointAt(mousePos.x, mousePos.y);
+            if (cp) { this.draggingControlPoint = cp; return; }
+            
+            const node = this.getNodeAt(mousePos.x, mousePos.y);
+            if (node) {
+                this.draggingNode = node;
+                this.dragNodeOffset.x = mousePos.x - node.x;
+                this.dragNodeOffset.y = mousePos.y - node.y;
+                return;
+            }
+            
+            this.dragging = true;
+            this.dragStart.x = e.clientX - this.offset.x;
+            this.dragStart.y = e.clientY - this.offset.y;
+        } else if (e.button === 2) { // Right click
+            const cp = this.getControlPointAt(mousePos.x, mousePos.y);
+            if (cp) {
+                if (!cp.edge.controlPoints) cp.edge.controlPoints = [];
+                cp.edge.controlPoints.splice(cp.pointIndex, 1);
+            } else {
+                const node = this.getNodeAt(mousePos.x, mousePos.y);
+                if (node) {
+                    this.isCreatingEdge = true;
+                    this.edgeCreationSource = node;
+                }
+            }
+        }
+    });
+    
+    this.canvas.addEventListener('mousemove', (e) => {
+        this.mousePos = this.getCanvasCoords(e);
+        if (e.buttons === 0) {
+            this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = false;
+            this.snapLines = [];
+            return;
+        }
+        this.dragged = true;
 
-              if (clickedControlPoint) {
-                  this.draggingControlPoint = clickedControlPoint;
-              } else if (clickedNode) {
-                  this.draggingNode = clickedNode;
-                  this.dragNodeOffset.x = mousePos.x - clickedNode.x;
-                  this.dragNodeOffset.y = mousePos.y - clickedNode.y;
-              } else {
-                  this.dragging = true;
-                  this.dragStart.x = e.clientX - this.offset.x;
-                  this.dragStart.y = e.clientY - this.offset.y;
-              }
-          }
-          
-          if (e.button === 2) { // Right click for context menu
-              e.preventDefault();
-              const clickedControlPoint = this.getControlPointAt(mousePos.x, mousePos.y);
-              if (clickedControlPoint) {
-                  clickedControlPoint.edge.controlPoints.splice(clickedControlPoint.pointIndex, 1);
-              } else {
-                  const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-                  if (clickedNode) {
-                      this.isCreatingEdge = true;
-                      this.edgeCreationSource = clickedNode;
-                  }
-              }
-          }
-          this.dragged = false;
-      });
-      
-      this.canvas.addEventListener('mousemove', (e) => {
-          this.mousePos = this.getCanvasCoords(e);
-          if (e.buttons === 0) { // If no button is pressed, reset dragging states
-              this.dragging = this.draggingNode = this.draggingControlPoint = null;
-              this.snapLines = [];
-              return;
-          }
+        if (this.draggingNode) {
+            let newPos = { x: this.mousePos.x - this.dragNodeOffset.x, y: this.mousePos.y - this.dragNodeOffset.y };
+            let centerPos = { x: newPos.x + 80, y: newPos.y + 45 };
+            let snappedCenter = this._getSnappedPosition(centerPos, this.draggingNode);
+            this.draggingNode.x = snappedCenter.x - 80;
+            this.draggingNode.y = snappedCenter.y - 45;
+        } else if (this.draggingControlPoint) {
+            const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
+            const snappedPos = this._getSnappedPosition(this.mousePos, point);
+            point.x = snappedPos.x;
+            point.y = snappedPos.y;
+        } else if (this.dragging) {
+            this.offset.x = e.clientX - this.dragStart.x;
+            this.offset.y = e.clientY - this.dragStart.y;
+            this.snapLines = [];
+        }
+    });
 
-          if (this.dragging || this.draggingNode || this.isCreatingEdge || this.draggingControlPoint) {
-              this.dragged = true;
-          }
+    this.canvas.addEventListener('mouseup', (e) => {
+        if (this.isCreatingEdge && e.button === 2) {
+            const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
+            if (targetNode && this.edgeCreationSource && targetNode.id !== this.edgeCreationSource.id) {
+                onEdgeCreated(this.edgeCreationSource, targetNode);
+            }
+        }
+        
+        this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = false;
+        this.snapLines = [];
+        setTimeout(() => { this.dragged = false; }, 0);
+    });
 
-          if (this.draggingNode) {
-              let newPos = { 
-                  x: this.mousePos.x - this.dragNodeOffset.x, 
-                  y: this.mousePos.y - this.dragNodeOffset.y
-              };
-              // Snap center of the node, not top-left corner
-              let centerPos = { x: newPos.x + 160 / 2, y: newPos.y + 90 / 2 };
-              let snappedCenter = this._getSnappedPosition(centerPos, this.draggingNode);
-              
-              this.draggingNode.x = snappedCenter.x - 160 / 2;
-              this.draggingNode.y = snappedCenter.y - 90 / 2;
+    this.canvas.addEventListener('mouseleave', () => {
+        if (this.dragging || this.draggingNode || this.draggingControlPoint || this.isCreatingEdge) {
+            this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = false;
+            this.snapLines = [];
+        }
+    });
+    
+    this.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomIntensity = 0.1;
+        const wheel = e.deltaY < 0 ? 1 : -1;
+        const zoom = Math.exp(wheel * zoomIntensity);
+        const rect = this.canvas.getBoundingClientRect();
+        this.offset.x -= (e.clientX - rect.left - this.offset.x) * (zoom - 1);
+        this.offset.y -= (e.clientY - rect.top - this.offset.y) * (zoom - 1);
+        this.scale *= zoom;
+        this.scale = Math.max(0.1, Math.min(5, this.scale));
+    });
 
-          } else if (this.draggingControlPoint) {
-              const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
-              const snappedPos = this._getSnappedPosition(this.mousePos, point);
-              point.x = snappedPos.x;
-              point.y = snappedPos.y;
-          
-          } else if (this.dragging) {
-              this.offset.x = e.clientX - this.dragStart.x;
-              this.offset.y = e.clientY - this.dragStart.y;
-              this.snapLines = [];
-          }
-      });
-
-      this.canvas.addEventListener('mouseup', (e) => {
-          if (this.isCreatingEdge && e.button === 2) { // Edge creation ends on right mouse up
-              const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
-              if (targetNode && this.edgeCreationSource && targetNode.id !== this.edgeCreationSource.id) {
-                  onEdgeCreated(this.edgeCreationSource, targetNode);
-              }
-          }
-          
-          this.dragging = false;
-          this.draggingNode = null;
-          this.draggingControlPoint = null;
-          this.isCreatingEdge = false;
-          this.edgeCreationSource = null;
-          this.snapLines = [];
-
-          setTimeout(() => { this.dragged = false; }, 0);
-      });
-
-      this.canvas.addEventListener('contextmenu', e => e.preventDefault());
-      this.canvas.addEventListener('mouseleave', () => {
-          this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = null;
-          this.snapLines = [];
-      });
-      
-      this.canvas.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          const zoomIntensity = 0.1;
-          const wheel = e.deltaY < 0 ? 1 : -1;
-          const zoom = Math.exp(wheel * zoomIntensity);
-          const rect = this.canvas.getBoundingClientRect();
-          const mouseX = e.clientX - rect.left;
-          const mouseY = e.clientY - rect.top;
-          this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
-          this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
-          this.scale *= zoom;
-          this.scale = Math.max(0.1, Math.min(5, this.scale));
-      });
-
-      this.canvas.addEventListener('click', onClick);
-      this.canvas.addEventListener('dblclick', onDblClick);
+    this.canvas.addEventListener('click', onClick);
+    this.canvas.addEventListener('dblclick', onDblClick);
   }
 }

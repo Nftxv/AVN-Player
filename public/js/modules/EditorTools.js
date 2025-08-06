@@ -1,35 +1,34 @@
 /**
- * AVN Player v2.3 - Editor Tools Module
+ * AVN Player v2.4 - Editor Tools Module
  * by Nftxv
  */
 export default class EditorTools {
   constructor(graphData, renderer) {
     this.graphData = graphData;
     this.renderer = renderer;
-    this.editingEntity = null; // Can be a node or an edge
+    this.editingEntity = null;
     this.selectedEntity = null;
   }
-
-  // --- Core Editor Functions ---
 
   createNode() {
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      x: 100, y: 100, // Default position
+      x: 100, y: 100,
       audioSources: [], coverSources: [], lyricsSource: null,
     };
     this.graphData.nodes.push(newNode);
+    this.renderer.loadAndRenderAll(); // Refresh images if needed
     return newNode;
   }
 
   createEdge(sourceNode, targetNode) {
-    if (sourceNode.id === targetNode.id) return; // Prevent self-loops
+    if (sourceNode.id === targetNode.id) return;
     const newEdge = {
       source: sourceNode.id,
       target: targetNode.id,
-      color: '#4a86e8', // Default color
-      lineWidth: 2,      // Default width
+      color: '#888888', // Default color is now grey
+      lineWidth: 2,
       label: '',
       controlPoints: [],
     };
@@ -39,14 +38,14 @@ export default class EditorTools {
   deleteEntity(entity) {
     if (!entity || !confirm('Are you sure you want to delete this item?')) return;
     
-    this.closeInspector(); // Close inspector before deleting
+    this.closeInspector();
 
-    if (entity.source && entity.target) { // It's an edge
+    if (entity.source && entity.target) {
       const index = this.graphData.edges.findIndex(
         e => e.source === entity.source && e.target === entity.target && e.label === entity.label
       );
       if (index > -1) this.graphData.edges.splice(index, 1);
-    } else { // It's a node
+    } else {
       this.graphData.edges = this.graphData.edges.filter(
         e => e.source !== entity.id && e.target !== entity.id
       );
@@ -57,7 +56,13 @@ export default class EditorTools {
   }
 
   selectEntity(entity) {
-    if (this.selectedEntity === entity) return;
+    if (this.selectedEntity === entity) {
+      // If clicking the same entity, open inspector if it's not already open for it
+      if (entity && this.editingEntity !== entity) {
+        this.openInspector(entity);
+      }
+      return;
+    }
 
     if (this.selectedEntity) this.selectedEntity.selected = false;
     this.selectedEntity = entity;
@@ -72,46 +77,44 @@ export default class EditorTools {
     }
   }
 
-  // --- Inspector Panel Logic ---
-
   openInspector(entity) {
     this.editingEntity = entity;
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
     const title = panel.querySelector('h4');
 
-    if (entity.source && entity.target) { // It's an EDGE
+    if (entity.source && entity.target) {
       title.textContent = 'Edge Properties';
       content.innerHTML = `
         <label for="edgeLabel">Label:</label>
         <input type="text" id="edgeLabel" value="${entity.label || ''}">
         
         <label for="edgeColor">Color:</label>
-        <input type="color" id="edgeColor" value="${entity.color || '#4a86e8'}">
+        <input type="color" id="edgeColor" value="${entity.color || '#888888'}">
 
         <label for="edgeWidth">Line Width:</label>
         <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
         
-        <label>Control Points: ${entity.controlPoints.length} (Right-click a point to delete)</label>
+        <label>Control Points: ${(entity.controlPoints || []).length} (Right-click a point to delete)</label>
         <button id="addControlPointBtn">Add Control Point</button>
       `;
       document.getElementById('addControlPointBtn').onclick = () => {
           this.addControlPoint();
-          this.openInspector(this.editingEntity); // Re-render inspector
+          this.openInspector(this.editingEntity);
       };
-    } else { // It's a NODE
+    } else {
       title.textContent = 'Node Properties';
       content.innerHTML = `
         <label for="nodeTitle">Title:</label>
-        <input type="text" id="nodeTitle" value="${entity.title}">
+        <input type="text" id="nodeTitle" value="${entity.title || ''}">
         
-        <label for="audioSource">Audio (URL or IPFS hash):</label>
+        <label for="audioSource">Audio (URL or IPFS):</label>
         <input type="text" id="audioSource" value="${entity.audioSources?.[0]?.value || ''}">
 
-        <label for="coverSource">Cover (URL or IPFS hash):</label>
+        <label for="coverSource">Cover (URL or IPFS):</label>
         <input type="text" id="coverSource" value="${entity.coverSources?.[0]?.value || ''}">
 
-        <label for="lyricsSource">Lyrics (URL or IPFS hash):</label>
+        <label for="lyricsSource">Lyrics (URL or IPFS):</label>
         <input type="text" id="lyricsSource" value="${entity.lyricsSource?.value || ''}">
       `;
     }
@@ -123,11 +126,11 @@ export default class EditorTools {
     
     const entity = this.editingEntity;
 
-    if (entity.source && entity.target) { // Saving an EDGE
+    if (entity.source && entity.target) {
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
         entity.lineWidth = parseInt(document.getElementById('edgeWidth').value, 10);
-    } else { // Saving a NODE
+    } else {
         entity.title = document.getElementById('nodeTitle').value;
 
         const parseSource = (url) => {
@@ -145,9 +148,13 @@ export default class EditorTools {
         entity.coverSources = coverSource ? [coverSource] : [];
 
         entity.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
+        
+        // Reload image if source changed
+        this.renderer.loadAndRenderAll();
     }
 
-    this.closeInspector();
+    // Do not close inspector on save, allow for multiple edits.
+    // this.closeInspector(); 
   }
 
   closeInspector() {
@@ -157,14 +164,17 @@ export default class EditorTools {
         this.selectedEntity.selected = false;
         this.selectedEntity = null;
     }
-    document.getElementById('deleteSelectionBtn').disabled = true;
+    if (document.getElementById('deleteSelectionBtn')) {
+      document.getElementById('deleteSelectionBtn').disabled = true;
+    }
   }
   
-  // --- Edge Control Points ---
   addControlPoint() {
       if (!this.editingEntity || !this.editingEntity.source) return;
 
       const edge = this.editingEntity;
+      if (!edge.controlPoints) edge.controlPoints = [];
+
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
 
@@ -174,7 +184,6 @@ export default class EditorTools {
           { x: endNode.x + 80, y: endNode.y + 45 }
       ];
 
-      // Find the longest segment to split
       let maxDist = -1;
       let splitIndex = 0;
       for (let i = 0; i < points.length - 1; i++) {
@@ -193,9 +202,6 @@ export default class EditorTools {
       edge.controlPoints.splice(splitIndex, 0, newPoint);
   }
 
-
-  // --- Settings Modal Logic ---
-  
   openSettings() {
     const gateway = this.graphData.meta.gateways?.[0] || '';
     document.getElementById('ipfsGatewayInput').value = gateway;
@@ -211,8 +217,6 @@ export default class EditorTools {
   closeSettings() {
     document.getElementById('settingsModal').classList.add('hidden');
   }
-
-  // --- Graph Management ---
 
   exportGraph() {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
