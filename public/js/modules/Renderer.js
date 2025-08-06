@@ -1,11 +1,11 @@
 /**
- * AVN Player v1.5.03 - Renderer Module with UI/UX updates
+ * AVN Player v1.5.02 - Renderer Module with UI/UX updates
  * by Nftxv
  */
 const NODE_WIDTH = 200;
 const NODE_HEIGHT_COLLAPSED = 45;
 const NODE_HEIGHT_EXPANDED = 225;
-const TOGGLE_ICON_SIZE = 16; // Slightly larger for easier clicking
+const TOGGLE_ICON_SIZE = 14;
 
 export default class Renderer {
   constructor(canvasId) {
@@ -82,8 +82,8 @@ export default class Renderer {
         const node = this.graphData.nodes[i];
         const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
         
-        const iconX = node.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 4;
-        const iconY = node.y + height - TOGGLE_ICON_SIZE - 4;
+        const iconX = node.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 5;
+        const iconY = node.y + 5;
         if (x > iconX && x < iconX + TOGGLE_ICON_SIZE && y > iconY && y < iconY + TOGGLE_ICON_SIZE) {
             return { type: 'collapse_toggle', entity: node };
         }
@@ -158,11 +158,8 @@ export default class Renderer {
         const src = this.graphData.nodes.find(n => n.id === edge.source);
         const trg = this.graphData.nodes.find(n => n.id === edge.target);
         if (!src || !trg) continue;
-        
-        // Use fixed anchor point for source
-        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
-
         const controlPoints = edge.controlPoints || [];
+        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + (src.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED) / 2 };
         const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
         const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
         const pathPoints = [startPoint, ...controlPoints, intersection];
@@ -210,10 +207,7 @@ export default class Renderer {
       const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
       const arrowSize = 6 + edgeLineWidth * 2.5;
       const controlPoints = edge.controlPoints || [];
-      
-      // Use fixed anchor point based on collapsed state size
-      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
-      
+      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + (src.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED) / 2 };
       const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
       const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
       const pathPoints = [startPoint, ...controlPoints, intersection];
@@ -262,66 +256,58 @@ export default class Renderer {
     const ctx = this.ctx;
     const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
     
-    // The node's (x,y) is always the top-left of the expanded state.
-    // When collapsed, we draw it centered vertically.
-    const drawY = node.isCollapsed ? node.y + (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2 : node.y;
-    
     ctx.save();
     
     // Node Body
-    ctx.fillStyle = '#2d2d2d';
+    ctx.fillStyle = '#2d2d2d'; // Dark surface color
     ctx.beginPath();
-    ctx.roundRect(node.x, drawY, NODE_WIDTH, NODE_HEIGHT_COLLAPSED, 8);
-    // If expanded, draw the larger background part
-    if (!node.isCollapsed) {
-        ctx.roundRect(node.x, node.y, NODE_WIDTH, height, 8);
-    }
+    ctx.roundRect(node.x, node.y, NODE_WIDTH, height, 8);
     ctx.fill();
     
     // Border
     if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
     else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
-    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
+    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; } // Dark border color
     ctx.stroke();
 
-    // Content Area
+    // Content Area (for expanded node)
     if (!node.isCollapsed) {
         const coverUrl = this.getSourceUrl(node.coverSources?.[0]);
         const contentHeight = 150;
         if (coverUrl && this.images[coverUrl]) {
             ctx.drawImage(this.images[coverUrl], node.x + 10, node.y + 10, NODE_WIDTH - 20, contentHeight);
         } else {
-            ctx.fillStyle = '#1e1e1e';
+            ctx.fillStyle = '#1e1e1e'; // Dark bg color
             ctx.fillRect(node.x + 10, node.y + 10, NODE_WIDTH - 20, contentHeight);
         }
     }
     
     // Title
-    ctx.fillStyle = '#e0e0e0';
-    ctx.font = '14px Segoe UI';
+    ctx.fillStyle = '#e0e0e0'; // Light text color
+    ctx.font = '14px Segoe UI'; // Non-bold font
     ctx.textAlign = 'center';
     const titleMaxWidth = NODE_WIDTH - 30;
     const fittedTitle = this._fitText(node.title, titleMaxWidth);
-    
-    const titleY = node.isCollapsed 
-        ? drawY + NODE_HEIGHT_COLLAPSED / 2
-        : node.y + 175; // Position under the content area
-    ctx.textBaseline = node.isCollapsed ? 'middle' : 'top';
-    ctx.fillText(fittedTitle, node.x + NODE_WIDTH / 2, titleY);
+    if (node.isCollapsed) {
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fittedTitle, node.x + NODE_WIDTH / 2, node.y + height / 2);
+    } else {
+        ctx.textBaseline = 'top';
+        ctx.fillText(fittedTitle, node.x + NODE_WIDTH / 2, node.y + 175);
+    }
 
     // Toggle Icon
     const iconX = node.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
-    const iconY = drawY + NODE_HEIGHT_COLLAPSED - TOGGLE_ICON_SIZE - 6;
-    ctx.strokeStyle = '#9e9e9e';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
+    const iconY = node.y + 6;
+    ctx.strokeStyle = '#9e9e9e'; // Subtle text color for icon
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(iconX, iconY, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE);
     ctx.beginPath();
-    // Horizontal line for '-'
-    ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
-    ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
-    if (node.isCollapsed) { // Vertical line for '+'
-      ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 4);
-      ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
+    ctx.moveTo(iconX + 3, iconY + TOGGLE_ICON_SIZE / 2);
+    ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 3, iconY + TOGGLE_ICON_SIZE / 2);
+    if (node.isCollapsed) {
+      ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 3);
+      ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 3);
     }
     ctx.stroke();
 
@@ -347,12 +333,10 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-      // The visual representation of the node changes, so intersection must adapt.
-      const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-      const nodeY = node.isCollapsed ? node.y + (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2 : node.y;
-      
-      const halfW = NODE_WIDTH / 2, halfH = height / 2;
-      const cx = node.x + halfW, cy = nodeY + halfH;
+      const w = NODE_WIDTH;
+      const h = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
+      const halfW = w / 2, halfH = h / 2;
+      const cx = node.x + halfW, cy = node.y + halfH;
       const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
       if (dx === 0 && dy === 0) return {x: cx, y: cy};
       const angle = Math.atan2(dy, dx);
@@ -363,10 +347,7 @@ export default class Renderer {
   }
   
   drawTemporaryEdge() {
-    const ctx = this.ctx;
-    // Always connect from the fixed anchor point
-    const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
-    const startY = this.edgeCreationSource.y + NODE_HEIGHT_COLLAPSED / 2;
+    const ctx = this.ctx; const startX = this.edgeCreationSource.x + NODE_WIDTH / 2; const startY = this.edgeCreationSource.y + (this.edgeCreationSource.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED) / 2;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
   }
@@ -393,7 +374,7 @@ export default class Renderer {
       const snapTargets = [];
       this.graphData.nodes.forEach(n => {
           if (n !== ignoredEntity && !n.selected) {
-            const height = NODE_HEIGHT_COLLAPSED; // Always snap to the anchor's size
+            const height = n.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
             snapTargets.push({ x: n.x, y: n.y, w: NODE_WIDTH, h: height, type: 'node' });
           }
       });
@@ -404,7 +385,7 @@ export default class Renderer {
       for (const target of snapTargets) {
           if (target.type === 'node') {
               const targetCenterX = target.x + target.w / 2;
-              const targetCenterY = target.y + target.h / 2; // Snap to center of anchor rect
+              const targetCenterY = target.y + target.h / 2;
               if (Math.abs(pos.x - targetCenterX) < threshold) { snappedPos.x = targetCenterX; snapX = true; }
               if (Math.abs(pos.y - targetCenterY) < threshold) { snappedPos.y = targetCenterY; snapY = true; }
           } else {
@@ -462,6 +443,7 @@ export default class Renderer {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { this.draggingControlPoint = cp; return; }
             
+            // Important: Use getClickableEntityAt to check if user clicks on the toggle icon
             const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y);
             if (clicked && clicked.type === 'node') {
                 const node = clicked.entity;
@@ -472,7 +454,7 @@ export default class Renderer {
                 return;
             }
 
-            if (!clicked) {
+            if (!clicked) { // Only start marquee if clicking on empty space
                 this.isMarqueeSelecting = true;
                 this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
             }
@@ -498,10 +480,10 @@ export default class Renderer {
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.isDraggingSelection) {
             const primaryNode = this.draggingNode;
-            const primaryNodeCenter = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + NODE_HEIGHT_COLLAPSED / 2 };
+            const primaryNodeCenter = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + (primaryNode.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED) / 2 };
             const snappedCenter = this._getSnappedPosition(primaryNodeCenter, primaryNode);
             const snappedX = snappedCenter.x - NODE_WIDTH / 2;
-            const snappedY = snappedCenter.y - NODE_HEIGHT_COLLAPSED / 2;
+            const snappedY = snappedCenter.y - (primaryNode.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED) / 2;
             const dx = snappedX - primaryNode.x;
             const dy = snappedY - primaryNode.y;
 
@@ -517,10 +499,11 @@ export default class Renderer {
                 }
             });
         } else if (this.draggingNode) {
-            const centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + NODE_HEIGHT_COLLAPSED / 2 };
-            const snappedCenter = this._getSnappedPosition(centerPos, this.draggingNode);
+            const nodeHeight = this.draggingNode.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
+            let centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + nodeHeight / 2 };
+            let snappedCenter = this._getSnappedPosition(centerPos, this.draggingNode);
             this.draggingNode.x = snappedCenter.x - NODE_WIDTH / 2;
-            this.draggingNode.y = snappedCenter.y - NODE_HEIGHT_COLLAPSED / 2;
+            this.draggingNode.y = snappedCenter.y - nodeHeight / 2;
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);

@@ -1,5 +1,5 @@
 /**
- * AVN Player v1.5.03 - Main Application
+ * AVN Player v1.5.02 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -111,7 +111,14 @@ class GraphApp {
 
     } else { // Player mode
       if (clicked && clicked.type === 'node') {
-        this.navigation.startFromNode(clicked.entity.id);
+        const clickedNode = clicked.entity;
+        // In player mode, expand the node on click to show content, but don't re-trigger play if already current
+        if (this.navigation.currentNode?.id !== clickedNode.id) {
+            if (clickedNode.isCollapsed) {
+              clickedNode.isCollapsed = false;
+            }
+            this.navigation.startFromNode(clickedNode.id);
+        }
       }
     }
   }
