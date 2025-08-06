@@ -1,24 +1,21 @@
 /**
- * AVN Player v2.6 - Editor Tools Module
+ * AVN Player v2.8 - Editor Tools Module with Multi-Select
  * by Nftxv
  */
 export default class EditorTools {
   constructor(graphData, renderer) {
     this.graphData = graphData;
     this.renderer = renderer;
-    this.editingEntity = null;
-    this.selectedEntity = null;
+    this.inspectedEntity = null; // The single entity shown in the inspector
+    this.selectedEntities = []; // Now an array for multiple selections
   }
 
-  // ** FIX: createNode now uses the renderer's viewport to position the new node **
   createNode() {
     const center = this.renderer.getViewportCenter();
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      // Position the node so its center is at the viewport's center
-      x: center.x - 80, // (160 / 2)
-      y: center.y - 45, // (90 / 2)
+      x: center.x - 80, y: center.y - 45,
       audioSources: [], coverSources: [], lyricsSource: null,
     };
     this.graphData.nodes.push(newNode);
@@ -37,54 +34,89 @@ export default class EditorTools {
     };
     this.graphData.edges.push(newEdge);
   }
-
-  deleteEntity(entity) {
-    if (!entity || !confirm('Are you sure you want to delete this item?')) return;
+  
+  // MODIFIED: Renamed and updated for multi-selection
+  deleteSelection() {
+    if (this.selectedEntities.length === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.length} item(s)?`)) {
+        return;
+    }
     
     this.closeInspector();
 
-    if (entity.source && entity.target) { // It's an edge
-      const index = this.graphData.edges.findIndex(
-        e => e === entity
-      );
-      if (index > -1) this.graphData.edges.splice(index, 1);
-    } else { // It's a node
-      const nodeId = entity.id;
-      // Use filter to create new arrays, ensuring no stale references
-      this.graphData.edges = this.graphData.edges.filter(
-        e => e.source !== nodeId && e.target !== nodeId
-      );
-      this.graphData.nodes = this.graphData.nodes.filter(
-        n => n.id !== nodeId
-      );
-    }
-    this.selectEntity(null);
+    const nodesToDelete = new Set();
+    const edgesToDelete = new Set(this.selectedEntities.filter(e => e.source));
+
+    this.selectedEntities.forEach(entity => {
+        if (!entity.source) { // It's a node
+            nodesToDelete.add(entity.id);
+        }
+    });
+
+    // Delete edges connected to the deleted nodes
+    this.graphData.edges.forEach(edge => {
+        if (nodesToDelete.has(edge.source) || nodesToDelete.has(edge.target)) {
+            edgesToDelete.add(edge);
+        }
+    });
+
+    // Filter out the deleted entities from the main data arrays
+    this.graphData.nodes = this.graphData.nodes.filter(n => !nodesToDelete.has(n.id));
+    this.graphData.edges = this.graphData.edges.filter(e => !edgesToDelete.has(e));
+    
+    this.updateSelection([], 'set'); // Clear selection
   }
   
-  // The rest of the file is unchanged
-  // ...
+  // MODIFIED: Now handles single selection from a click
   selectEntity(entity) {
-    if (this.selectedEntity === entity) {
-      if (entity && this.editingEntity !== entity) {
-        this.openInspector(entity);
+    // A single click always sets the selection to that one entity
+    this.updateSelection(entity ? [entity] : [], 'set');
+  }
+
+  // NEW: Central logic for managing selections
+  updateSelection(entities, mode = 'set') {
+      const newSelection = new Map(entities.map(e => [e.id || `${e.source}-${e.target}`, e]));
+
+      let finalSelection;
+
+      if (mode === 'set') {
+          finalSelection = Array.from(newSelection.values());
+      } else {
+          const currentSelection = new Map(this.selectedEntities.map(e => [e.id || `${e.source}-${e.target}`, e]));
+          if (mode === 'add') { // CTRL
+              newSelection.forEach((value, key) => currentSelection.set(key, value));
+          } else if (mode === 'remove') { // SHIFT
+              newSelection.forEach((value, key) => currentSelection.delete(key));
+          }
+          finalSelection = Array.from(currentSelection.values());
       }
-      return;
-    }
-    if (this.selectedEntity) this.selectedEntity.selected = false;
-    this.selectedEntity = entity;
-    if (this.selectedEntity) this.selectedEntity.selected = true;
-    
-    document.getElementById('deleteSelectionBtn').disabled = !entity;
-    
-    if (entity) {
-      this.openInspector(entity);
-    } else {
-      this.closeInspector();
-    }
+      
+      this.selectedEntities = finalSelection;
+
+      // Update the 'selected' property on the actual graph data objects
+      const selectedIds = new Set(this.selectedEntities.map(e => e.id || `${e.source}-${e.target}`));
+      this.graphData.nodes.forEach(n => n.selected = selectedIds.has(n.id));
+      this.graphData.edges.forEach(e => e.selected = selectedIds.has(`${e.source}-${e.target}`));
+      
+      this.updateUIState();
+  }
+  
+  // NEW: Update UI elements based on selection state
+  updateUIState() {
+      document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
+
+      if (this.selectedEntities.length === 1) {
+          this.openInspector(this.selectedEntities[0]);
+      } else {
+          this.closeInspector();
+      }
+  }
+
+  getSelection() {
+      return this.selectedEntities;
   }
 
   openInspector(entity) {
-    this.editingEntity = entity;
+    this.inspectedEntity = entity;
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
     const title = panel.querySelector('h4');
@@ -118,8 +150,8 @@ export default class EditorTools {
   }
 
   saveInspectorChanges() {
-    if (!this.editingEntity) return;
-    const entity = this.editingEntity;
+    if (!this.inspectedEntity) return;
+    const entity = this.inspectedEntity;
     if (entity.source && entity.target) {
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
@@ -140,9 +172,7 @@ export default class EditorTools {
 
   closeInspector() {
     document.getElementById('inspectorPanel').classList.add('hidden');
-    this.editingEntity = null;
-    if (this.selectedEntity) { this.selectedEntity.selected = false; this.selectedEntity = null; }
-    if (document.getElementById('deleteSelectionBtn')) document.getElementById('deleteSelectionBtn').disabled = true;
+    this.inspectedEntity = null;
   }
   
   addControlPointAt(edge, position) {

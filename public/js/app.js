@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.3 - Main Application
+ * AVN Player v2.8 - Main Application with Multi-Select
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -23,7 +23,6 @@ class GraphApp {
   async init() {
     try {
       await this.graphData.load('data/default.jsonld');
-      // **FIX: Pass the entire graphData object to the renderer**
       this.renderer.setData(this.graphData);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
@@ -35,27 +34,33 @@ class GraphApp {
     }
   }
 
-  // The rest of the file remains unchanged
-  // ...
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
-      this.editorTools.selectEntity(null);
-      this.editorTools.closeInspector();
+      this.editorTools.updateSelection([], 'set');
     }
   }
 
+  // MODIFIED: setupEventListeners now passes more callbacks to the renderer
   setupEventListeners() {
-    this.renderer.setupCanvasInteraction(
-        (e) => this.handleCanvasClick(e),
-        (e) => this.handleCanvasDblClick(e),
-        (source, target) => {
+    this.renderer.setupCanvasInteraction({
+        onClick: (e) => this.handleCanvasClick(e),
+        onDblClick: (e) => this.handleCanvasDblClick(e),
+        onEdgeCreated: (source, target) => {
             if (this.isEditorMode) this.editorTools.createEdge(source, target);
-        }
-    );
+        },
+        onMarqueeSelect: (rect, ctrlKey, shiftKey) => {
+            if (!this.isEditorMode) return;
+            const nodes = this.renderer.getNodesInRect(rect);
+            const edges = this.renderer.getEdgesInRect(rect, nodes);
+            const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
+            this.editorTools.updateSelection([...nodes, ...edges], mode);
+        },
+        getSelection: () => this.editorTools.getSelection()
+    });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
@@ -64,8 +69,9 @@ class GraphApp {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
     });
+    // MODIFIED: Calls the new deleteSelection method
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
-        this.editorTools.deleteEntity(this.editorTools.selectedEntity);
+        this.editorTools.deleteSelection();
     });
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
@@ -83,16 +89,16 @@ class GraphApp {
     
     if (this.isEditorMode) {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      if (clickedNode) {
-        this.editorTools.selectEntity(clickedNode);
-        return;
-      }
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-      if (clickedEdge) {
-        this.editorTools.selectEntity(clickedEdge);
-        return;
+      const clickedEntity = clickedNode || clickedEdge;
+      
+      // If clicking with CTRL, add/remove from selection
+      if (event.ctrlKey) {
+          this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], 'add');
+      } else {
+          // Otherwise, just select the clicked entity, or clear selection if background is clicked
+          this.editorTools.selectEntity(clickedEntity);
       }
-      this.editorTools.selectEntity(null);
     } else {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
@@ -107,12 +113,15 @@ class GraphApp {
     const coords = this.renderer.getCanvasCoords(event);
     const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
     
-    if (clickedNode) {
-        this.editorTools.openInspector(clickedNode);
-    } else {
-        const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-        if (clickedEdge) {
-            this.editorTools.addControlPointAt(clickedEdge, coords);
+    // Double clicking should still only work on a single entity for inspector/control points
+    if (this.editorTools.selectedEntities.length <= 1) {
+        if (clickedNode) {
+            this.editorTools.openInspector(clickedNode);
+        } else {
+            const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
+            if (clickedEdge) {
+                this.editorTools.addControlPointAt(clickedEdge, coords);
+            }
         }
     }
   }
