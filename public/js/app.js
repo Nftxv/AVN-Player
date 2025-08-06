@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.9 - Main Application with Mode-Aware Interaction
+ * AVN Player v1.5.01 - Main Application with Collapsible Nodes
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -40,7 +40,7 @@ class GraphApp {
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
-      this.editorTools.updateSelection([], 'set'); // Clear selection when leaving editor mode
+      this.editorTools.updateSelection([], 'set');
     }
   }
 
@@ -72,11 +72,16 @@ class GraphApp {
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         this.editorTools.deleteSelection();
     });
+    
+    document.getElementById('collapseAllBtn').addEventListener('click', () => this.editorTools.collapseAllNodes());
+    document.getElementById('expandAllBtn').addEventListener('click', () => this.editorTools.expandAllNodes());
+
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
     document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
     document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
+    
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
@@ -87,10 +92,15 @@ class GraphApp {
     const coords = this.renderer.getCanvasCoords(event);
     
     if (this.isEditorMode) {
-      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-      const clickedEntity = clickedNode || clickedEdge;
+      const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
+
+      if (clicked && clicked.type === 'collapse_toggle') {
+        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
+        // Don't change selection when just toggling
+        return;
+      }
       
+      const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
       if (event.ctrlKey) {
           mode = 'add';
@@ -100,9 +110,13 @@ class GraphApp {
       
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
-    } else { // Player mode
-      const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      if (clickedNode) {
+    } else {
+      const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
+      if (clicked && clicked.type === 'node') {
+        const clickedNode = clicked.entity;
+        if (clickedNode.isCollapsed) {
+          clickedNode.isCollapsed = false;
+        }
         this.navigation.startFromNode(clickedNode.id);
       }
     }
@@ -112,18 +126,12 @@ class GraphApp {
     if (!this.isEditorMode) return;
     
     const coords = this.renderer.getCanvasCoords(event);
-    const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
     
-    // Double click should only work on a single entity for inspector/control points
-    if (this.editorTools.selectedEntities.length <= 1) {
-        if (clickedNode) {
-            this.editorTools.openInspector(clickedNode);
-        } else {
-            const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
-            if (clickedEdge) {
-                this.editorTools.addControlPointAt(clickedEdge, coords);
-            }
-        }
+    if (clicked && clicked.type === 'node') {
+        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
+    } else if (clicked && clicked.type === 'edge') {
+        this.editorTools.addControlPointAt(clicked.entity, coords);
     }
   }
 }

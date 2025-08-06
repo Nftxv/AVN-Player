@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="graphCanvas"></canvas>
+  <canvas id="graphCanvas" title="Graph"></canvas>
 
   <!-- UNIFIED TOP TOOLBAR -->
   <div id="topToolbar">
@@ -29,6 +29,11 @@
     <div id="editorModeControls">
       <button id="addNodeBtn" title="Add New Node">Add Node</button>
       <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
+      <div class="divider"></div>
+      <!-- NEW BUTTONS -->
+      <button id="collapseAllBtn" title="Collapse All Nodes">Collapse All</button>
+      <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
+      <div class="divider"></div>
       <button id="settingsBtn" title="Global Settings">⚙️</button>
     </div>
   </div>

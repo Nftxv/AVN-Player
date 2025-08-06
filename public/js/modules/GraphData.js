@@ -37,6 +37,7 @@ export default class GraphData {
         lyricsSource: node.lyricsSource,
         x: node.position?.x || Math.random() * 800,
         y: node.position?.y || Math.random() * 600,
+        isCollapsed: node.isCollapsed === true, // Explicitly check for true
       }));
 
     this.edges = graph
@@ -44,7 +45,7 @@ export default class GraphData {
       .map(edge => ({
         source: edge.source,
         target: edge.target,
-        color: edge.color || '#888888', // Default edge color is now grey
+        color: edge.color || '#888888',
         label: edge.label || '',
         lineWidth: edge.lineWidth || 2,
         controlPoints: edge.controlPoints || [],
@@ -62,6 +63,7 @@ export default class GraphData {
         '@type': 'MusicRecording',
         name: n.title,
         position: { x: n.x, y: n.y },
+        isCollapsed: n.isCollapsed, // Save collapsed state
         audioSources: n.audioSources,
         coverSources: n.coverSources,
         lyricsSource: n.lyricsSource,
@@ -83,7 +85,7 @@ export default class GraphData {
     };
   }
 
-    getSourceUrl(source) {
+  getSourceUrl(source) {
     if (!source) return null;
     if (source.type === 'ipfs') {
       const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';

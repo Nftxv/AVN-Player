@@ -1,13 +1,24 @@
 /**
- * AVN Player v2.8 - Editor Tools Module with Multi-Select
+ * AVN Player v1.5.01 - Editor Tools Module with Collapse/Expand
  * by Nftxv
  */
+const NODE_WIDTH = 160;
+const NODE_HEIGHT_EXPANDED = 180;
+
 export default class EditorTools {
   constructor(graphData, renderer) {
     this.graphData = graphData;
     this.renderer = renderer;
-    this.inspectedEntity = null; // The single entity shown in the inspector
-    this.selectedEntities = []; // Now an array for multiple selections
+    this.inspectedEntity = null;
+    this.selectedEntities = [];
+  }
+
+  collapseAllNodes() {
+    this.graphData.nodes.forEach(node => node.isCollapsed = true);
+  }
+
+  expandAllNodes() {
+    this.graphData.nodes.forEach(node => node.isCollapsed = false);
   }
 
   createNode() {
@@ -15,7 +26,9 @@ export default class EditorTools {
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      x: center.x - 80, y: center.y - 45,
+      x: center.x - NODE_WIDTH / 2,
+      y: center.y - NODE_HEIGHT_EXPANDED / 2,
+      isCollapsed: false, // Default to expanded
       audioSources: [], coverSources: [], lyricsSource: null,
     };
     this.graphData.nodes.push(newNode);
@@ -34,8 +47,7 @@ export default class EditorTools {
     };
     this.graphData.edges.push(newEdge);
   }
-  
-  // MODIFIED: Renamed and updated for multi-selection
+
   deleteSelection() {
     if (this.selectedEntities.length === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.length} item(s)?`)) {
         return;
@@ -52,38 +64,40 @@ export default class EditorTools {
         }
     });
 
-    // Delete edges connected to the deleted nodes
     this.graphData.edges.forEach(edge => {
         if (nodesToDelete.has(edge.source) || nodesToDelete.has(edge.target)) {
             edgesToDelete.add(edge);
         }
     });
 
-    // Filter out the deleted entities from the main data arrays
     this.graphData.nodes = this.graphData.nodes.filter(n => !nodesToDelete.has(n.id));
     this.graphData.edges = this.graphData.edges.filter(e => !edgesToDelete.has(e));
     
-    this.updateSelection([], 'set'); // Clear selection
+    this.updateSelection([], 'set');
   }
   
-  // MODIFIED: Now handles single selection from a click
   selectEntity(entity) {
-    // A single click always sets the selection to that one entity
     this.updateSelection(entity ? [entity] : [], 'set');
   }
 
-  // NEW: Central logic for managing selections
   updateSelection(entities, mode = 'set') {
-      const newSelection = new Map(entities.map(e => [e.id || `${e.source}-${e.target}`, e]));
+      const entityToId = (e) => e.source ? `${e.source}->${e.target}` : e.id;
+      const newSelection = new Map(entities.map(e => [entityToId(e), e]));
 
       let finalSelection;
 
       if (mode === 'set') {
           finalSelection = Array.from(newSelection.values());
       } else {
-          const currentSelection = new Map(this.selectedEntities.map(e => [e.id || `${e.source}-${e.target}`, e]));
-          if (mode === 'add') { // CTRL
-              newSelection.forEach((value, key) => currentSelection.set(key, value));
+          const currentSelection = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
+          if (mode === 'add') {
+              newSelection.forEach((value, key) => {
+                if (currentSelection.has(key)) { // If ctrl-clicking an already selected item, deselect it
+                    currentSelection.delete(key);
+                } else {
+                    currentSelection.set(key, value);
+                }
+              });
           } else if (mode === 'remove') { // SHIFT
               newSelection.forEach((value, key) => currentSelection.delete(key));
           }
@@ -92,15 +106,13 @@ export default class EditorTools {
       
       this.selectedEntities = finalSelection;
 
-      // Update the 'selected' property on the actual graph data objects
-      const selectedIds = new Set(this.selectedEntities.map(e => e.id || `${e.source}-${e.target}`));
-      this.graphData.nodes.forEach(n => n.selected = selectedIds.has(n.id));
-      this.graphData.edges.forEach(e => e.selected = selectedIds.has(`${e.source}-${e.target}`));
+      const selectedIds = new Set(this.selectedEntities.map(e => entityToId(e)));
+      this.graphData.nodes.forEach(n => n.selected = selectedIds.has(entityToId(n)));
+      this.graphData.edges.forEach(e => e.selected = selectedIds.has(entityToId(e)));
       
       this.updateUIState();
   }
   
-  // NEW: Update UI elements based on selection state
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
 
@@ -171,8 +183,8 @@ export default class EditorTools {
   }
 
   closeInspector() {
-    document.getElementById('inspectorPanel').classList.add('hidden');
     this.inspectedEntity = null;
+    document.getElementById('inspectorPanel').classList.add('hidden');
   }
   
   addControlPointAt(edge, position) {
@@ -201,14 +213,17 @@ export default class EditorTools {
     document.getElementById('ipfsGatewayInput').value = gateway;
     document.getElementById('settingsModal').classList.remove('hidden');
   }
+
   saveSettings() {
     const gateway = document.getElementById('ipfsGatewayInput').value;
     this.graphData.meta.gateways = gateway ? [gateway] : [];
     this.closeSettings();
   }
+
   closeSettings() {
     document.getElementById('settingsModal').classList.add('hidden');
   }
+
   exportGraph() {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
@@ -216,6 +231,7 @@ export default class EditorTools {
     const a = document.createElement('a'); a.href = url; a.download = 'music-graph.jsonld'; a.click();
     URL.revokeObjectURL(url);
   }
+  
   resetGraph() {
     if (confirm('Are you sure you want to reset the graph to its default state? All local changes will be lost.')) {
       window.location.reload();
