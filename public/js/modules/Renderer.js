@@ -1,5 +1,5 @@
 /**
- * AVN Player v1.5.04 - Renderer Module with iframe support
+ * AVN Player v1.5.04 - Renderer Module with iframe support [FIXED]
  * by Nftxv
  */
 const NODE_WIDTH = 200;
@@ -210,46 +210,44 @@ export default class Renderer {
   updateIframes() {
     const visibleNodeIds = new Set();
     
-    // Find all visible, expanded iframe nodes
     this.graphData.nodes.forEach(node => {
         if (node.sourceType === 'iframe' && !node.isCollapsed) {
             const rect = this._getNodeVisualRect(node);
-            // Rough visibility check
             if (rect.x * this.scale + this.offset.x < this.canvas.width &&
                 (rect.x + rect.width) * this.scale + this.offset.x > 0 &&
                 rect.y * this.scale + this.offset.y < this.canvas.height &&
                 (rect.y + rect.height) * this.scale + this.offset.y > 0) {
                 
                 visibleNodeIds.add(node.id);
-                let iframe = document.getElementById(node.id);
-                if (!iframe) {
-                    iframe = document.createElement('div');
-                    iframe.id = node.id;
-                    iframe.className = 'video-iframe';
-                    iframe.innerHTML = `<iframe 
-                        width="100%" height="100%" 
-                        src="${node.iframeUrl}?enablejsapi=1&origin=${window.location.origin}"
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen></iframe>
-                        <div class="drag-overlay"></div>`; // Add drag overlay
-                    this.iframeContainer.appendChild(iframe);
+                let iframeWrapper = document.getElementById(node.id);
+                if (!iframeWrapper) {
+                    iframeWrapper = document.createElement('div');
+                    iframeWrapper.id = node.id;
+                    iframeWrapper.className = 'video-iframe';
+                    if (node.iframeUrl) {
+                        iframeWrapper.innerHTML = `<iframe 
+                            width="100%" height="100%" 
+                            src="${node.iframeUrl}?enablejsapi=1&origin=${window.location.origin}"
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen></iframe>
+                            <div class="drag-overlay"></div>`;
+                    }
+                    this.iframeContainer.appendChild(iframeWrapper);
                 }
 
-                // Update position and size
                 const screenX = (rect.x + 10) * this.scale + this.offset.x;
                 const screenY = (rect.y + 10) * this.scale + this.offset.y;
                 const screenWidth = (NODE_WIDTH - 20) * this.scale;
                 const screenHeight = 150 * this.scale;
 
-                iframe.style.transform = `translate(${screenX}px, ${screenY}px)`;
-                iframe.style.width = `${screenWidth}px`;
-                iframe.style.height = `${screenHeight}px`;
+                iframeWrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+                iframeWrapper.style.width = `${screenWidth}px`;
+                iframeWrapper.style.height = `${screenHeight}px`;
             }
         }
     });
 
-    // Remove iframes for nodes that are no longer visible/expanded
     Array.from(this.iframeContainer.children).forEach(iframe => {
         if (!visibleNodeIds.has(iframe.id)) {
             this.iframeContainer.removeChild(iframe);
@@ -344,10 +342,9 @@ export default class Renderer {
                 ctx.fillStyle = '#1e1e1e';
                 ctx.fillRect(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
             }
-        } else { // For iframe, just draw a placeholder bg
-            ctx.fillStyle = '#000000'; // Black bg for video
+        } else {
+            ctx.fillStyle = '#000000';
             ctx.fillRect(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
-            // You could draw a play icon here
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.font = '50px Segoe UI Symbol';
             ctx.textAlign = 'center';
@@ -467,7 +464,7 @@ export default class Renderer {
                 this.draggingNode = node;
                 this.dragNodeOffset.x = mousePos.x - node.position.x;
                 this.dragNodeOffset.y = mousePos.y - node.position.y;
-                document.body.classList.add('is-dragging-node'); // Add class for drag overlay
+                document.body.classList.add('is-dragging-node');
                 return;
             }
 
@@ -571,17 +568,54 @@ export default class Renderer {
         this.scale = Math.max(0.1, Math.min(5, this.scale));
     });
 
-    // Pass all other callbacks
-    Object.entries(callbacks).forEach(([eventName, callback]) => {
-        this.canvas.addEventListener(eventName, callback);
-    });
+    this.canvas.addEventListener('click', onClick);
+    this.canvas.addEventListener('dblclick', onDblClick);
   }
 
-    // Unchanged methods
-    _drawArrow(x, y, angle, color, size){/*...*/}
-    _drawSnapGuides(){/*...*/}
-    drawTemporaryEdge(){/*...*/}
-    highlight(currentId, prevId = null, edge = null){/*...*/}
-    resizeCanvas(){/*...*/}
-    wasDragged(){return this.dragged;}
+  // RESTORED METHODS
+  drawMarquee() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(70, 130, 180, 0.2)';
+    ctx.fillRect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.w, this.marqueeRect.h);
+    ctx.strokeStyle = 'rgba(70, 130, 180, 0.8)';
+    ctx.lineWidth = 1 / this.scale;
+    ctx.setLineDash([5 / this.scale, 3 / this.scale]);
+    ctx.strokeRect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.w, this.marqueeRect.h);
+    ctx.restore();
+  }
+  _drawArrow(x, y, angle, color, size) {
+      this.ctx.save(); this.ctx.translate(x, y); this.ctx.rotate(angle);
+      this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(-size, -size * 0.4);
+      this.ctx.lineTo(-size, size * 0.4); this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill(); this.ctx.restore();
+  }
+  _drawSnapGuides() {
+      const ctx = this.ctx; ctx.save(); ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)'; ctx.lineWidth = 1 / this.scale;
+      ctx.setLineDash([5 / this.scale, 5 / this.scale]);
+      this.snapLines.forEach(line => {
+          ctx.beginPath();
+          if (line.type === 'v') { ctx.moveTo(line.pos, -this.offset.y / this.scale); ctx.lineTo(line.pos, (this.canvas.height - this.offset.y) / this.scale); }
+          else { ctx.moveTo(-this.offset.x / this.scale, line.pos); ctx.lineTo((this.canvas.width - this.offset.x) / this.scale, line.pos); }
+          ctx.stroke();
+      });
+      ctx.restore();
+  }
+  drawTemporaryEdge() {
+    const startX = this.edgeCreationSource.position.x + NODE_WIDTH / 2;
+    const startY = this.edgeCreationSource.position.y + NODE_HEIGHT_COLLAPSED / 2;
+    this.ctx.save(); this.ctx.beginPath(); this.ctx.moveTo(startX, startY); this.ctx.lineTo(this.mousePos.x, this.mousePos.y);
+    this.ctx.strokeStyle = '#e74c3c'; this.ctx.lineWidth = 3; this.ctx.setLineDash([5, 5]); this.ctx.stroke(); this.ctx.restore();
+  }
+  highlight(currentId, prevId = null, edge = null) {
+      this.graphData.nodes.forEach(n => n.highlighted = false); this.graphData.edges.forEach(e => e.highlighted = false);
+      if (currentId) { const node = this.graphData.getNodeById(currentId); if (node) node.highlighted = true; }
+      if (edge) { const e = this.graphData.edges.find(i => i === edge); if (e) e.highlighted = true; }
+  }
+  resizeCanvas() { 
+    this.canvas.width = window.innerWidth; 
+    this.canvas.height = window.innerHeight; 
+  }
+  wasDragged() { 
+    return this.dragged; 
+  }
 }
