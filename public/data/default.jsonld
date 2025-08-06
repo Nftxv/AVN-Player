@@ -2,6 +2,22 @@
   "@context": "https://schema.org/",
   "@graph": [
     {
+      "@id": "deco-rect-1",
+      "@type": "RectangleAnnotation",
+      "position": { "x": 50, "y": 80 },
+      "size": { "width": 950, "height": 350 },
+      "backgroundColor": "#2c3e50"
+    },
+    {
+      "@id": "deco-text-1",
+      "@type": "TextAnnotation",
+      "position": { "x": 525, "y": 60 },
+      "textContent": "Act I: The Journey Begins",
+      "fontSize": 24,
+      "color": "#ecf0f1",
+      "textAlign": "center"
+    },
+    {
       "@id": "node-1",
       "@type": "MusicRecording",
       "name": "Chapter 1: The Beginning",

@@ -1,11 +1,11 @@
 /**
- * AVN Player - Renderer Module with IFrame Synchronization
+ * AVN Player - Renderer Module with Decorative Layers
  * by Nftxv
  */
 const NODE_WIDTH = 200;
 const NODE_HEIGHT_COLLAPSED = 45;
 const NODE_HEIGHT_EXPANDED = 225;
-const NODE_CONTENT_HEIGHT = 150; // Height of cover/iframe area
+const NODE_CONTENT_HEIGHT = 150;
 const NODE_PADDING = 10;
 const TOGGLE_ICON_SIZE = 16;
 
@@ -74,8 +74,12 @@ export default class Renderer {
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
     
+    // NEW: Render decorations first, so they are in the background
+    this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
+    
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
     this.graphData.nodes.forEach(node => this.drawNode(node));
+    
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
     
@@ -85,6 +89,37 @@ export default class Renderer {
     this.updateIframes();
     
     requestAnimationFrame(this.renderLoop);
+  }
+
+  // NEW: Main dispatcher for drawing decorations
+  drawDecoration(deco) {
+    if (deco.type === 'rectangle') {
+      this.drawRectangle(deco);
+    } else if (deco.type === 'text') {
+      this.drawText(deco);
+    }
+  }
+
+  // NEW: Draws a rectangle decoration
+  drawRectangle(rect) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = rect.backgroundColor;
+    ctx.globalAlpha = 0.5; // Make them slightly transparent
+    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+    ctx.restore();
+  }
+
+  // NEW: Draws a text decoration
+  drawText(text) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = `${text.fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+    ctx.fillStyle = text.color;
+    ctx.textAlign = text.textAlign;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text.textContent, text.x, text.y);
+    ctx.restore();
   }
 
   updateIframes() {
@@ -155,6 +190,8 @@ export default class Renderer {
              screenRect.y < this.canvas.height && screenRect.y + screenRect.height > 0;
   }
 
+  // --- UNCHANGED METHODS BELOW ---
+
   getViewportCenter() {
       const worldX = (this.canvas.width / 2 - this.offset.x) / this.scale;
       const worldY = (this.canvas.height / 2 - this.offset.y) / this.scale;
@@ -167,6 +204,7 @@ export default class Renderer {
   }
   
   getClickableEntityAt(x, y) {
+    // For now, decorations are not clickable. This will change in Step 2.
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
@@ -529,7 +567,6 @@ export default class Renderer {
                 return;
             }
             
-            // If no entity clicked, start marquee selection
             this.isMarqueeSelecting = true;
             this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
         } else if (e.button === 2) { // Right mouse
@@ -560,7 +597,7 @@ export default class Renderer {
             const dy = (snappedCenter.y - this._getNodeVisualRect(primaryNode).height / 2) - primaryNode.y;
 
             getSelection().forEach(entity => {
-                if (entity.x !== undefined) { entity.x += dx; entity.y += dy; }
+                if ('x' in entity) { entity.x += dx; entity.y += dy; }
                 else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
             });
         } else if (this.draggingNode) {
@@ -583,7 +620,8 @@ export default class Renderer {
         if (this.isMarqueeSelecting) {
             const normalizedRect = this.normalizeRect(this.marqueeRect);
             if (normalizedRect.w > 5 || normalizedRect.h > 5) {
-                onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
+                // For now, marquee select only targets nodes and edges
+                // onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
             }
         }
         if (this.isCreatingEdge && e.button === 2) {
