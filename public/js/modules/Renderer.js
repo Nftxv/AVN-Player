@@ -113,16 +113,12 @@ export default class Renderer {
     ctx.restore();
   }
 
-  _wrapAndDrawText(textObj) {
+  _getWrappedLines(textObj) {
       const { ctx } = this;
-      const { textContent, x, y, fontSize, color, textAlign, width, lineHeight } = textObj;
+      const { textContent, fontSize, width } = textObj;
       ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-      ctx.fillStyle = color;
-      ctx.textAlign = textAlign;
-      ctx.textBaseline = 'top';
 
       const paragraphs = textContent.split('\n');
-      let currentY = y;
       const allLines = [];
 
       for (const paragraph of paragraphs) {
@@ -143,17 +139,11 @@ export default class Renderer {
               allLines.push(currentLine);
           }
       }
-
-      for (const line of allLines) {
-          ctx.fillText(line, x, currentY);
-          currentY += fontSize * lineHeight;
-      }
-      
       return allLines;
   }
   
   _getTextBounds(textObj, renderedLines) {
-      const { x, y, textAlign, fontSize, width, lineHeight } = textObj;
+      const { fontSize, width, lineHeight } = textObj;
       let maxWidth = 0;
       if (width > 0) {
         maxWidth = width;
@@ -164,47 +154,46 @@ export default class Renderer {
         });
       }
       
-      const totalHeight = (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1));
+      const totalHeight = (renderedLines.length > 0) 
+        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1))
+        : 0;
 
-      let boundsX = x;
-      if (textAlign === 'center') {
-          boundsX = x - maxWidth / 2;
-      } else if (textAlign === 'right') {
-          boundsX = x - maxWidth;
-      }
-      
-      return { x: boundsX, y: y, width: maxWidth, height: totalHeight };
+      return { width: maxWidth, height: totalHeight };
   }
 
   drawText(text) {
       const ctx = this.ctx;
       ctx.save();
-      
-      let renderX = text.x;
-      let renderY = text.y;
-
-      // Temporary context for measurement
       ctx.font = `${text.fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-      const renderedLines = this._wrapAndDrawText({ ...text, textContent: text.textContent || '' });
-      const bounds = this._getTextBounds(text, renderedLines);
+      ctx.fillStyle = text.color;
+      ctx.textAlign = text.textAlign;
+      ctx.textBaseline = 'top';
 
-      // Adjust starting point based on alignment and bounds
-      renderY = text.y - bounds.height / 2;
+      const lines = this._getWrappedLines(text);
+      const bounds = this._getTextBounds(text, lines);
+
+      const topLeftX = text.x - bounds.width / 2;
+      const topLeftY = text.y - bounds.height / 2;
+
+      let drawX;
       if (text.textAlign === 'left') {
-        renderX = text.x - bounds.width / 2;
-      } else if (text.textAlign === 'right') {
-        renderX = text.x + bounds.width / 2;
+          drawX = topLeftX;
+      } else if (text.textAlign === 'center') {
+          drawX = text.x;
+      } else { // right
+          drawX = topLeftX + bounds.width;
       }
-      
-      // Use adjusted coordinates for drawing
-      this._wrapAndDrawText({ ...text, x: renderX, y: renderY });
-      
+
+      let currentY = topLeftY;
+      for (const line of lines) {
+          ctx.fillText(line, drawX, currentY);
+          currentY += text.fontSize * text.lineHeight;
+      }
+
       if (text.selected) {
-          // Recalculate bounds with the correct top-left corner
-          const finalBounds = this._getTextBounds({ ...text, x: renderX, y: renderY}, renderedLines);
           ctx.strokeStyle = '#e74c3c';
           ctx.lineWidth = 1 / this.scale;
-          ctx.strokeRect(finalBounds.x - 2, finalBounds.y - 2, finalBounds.width + 4, finalBounds.height + 4);
+          ctx.strokeRect(topLeftX - 2, topLeftY - 2, bounds.width + 4, bounds.height + 4);
       }
       ctx.restore();
   }
@@ -293,9 +282,14 @@ export default class Renderer {
         return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
     }
     if (deco.type === 'text') {
-        // This is a simplified calculation for snapping, avoiding full render logic
-        const renderedLines = this._wrapAndDrawText({ ...deco, textContent: deco.textContent || '' });
-        return this._getTextBounds(deco, renderedLines);
+        const lines = this._getWrappedLines(deco);
+        const bounds = this._getTextBounds(deco, lines);
+        return { 
+            x: deco.x - bounds.width / 2, 
+            y: deco.y - bounds.height / 2, 
+            width: bounds.width, 
+            height: bounds.height 
+        };
     }
     return { x: deco.x, y: deco.y, width: 0, height: 0 };
   }
@@ -550,7 +544,12 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-      const rect = this._getNodeVisualRect(node);
+      const rect = { 
+          x: node.x, 
+          y: node.y, 
+          width: NODE_WIDTH, 
+          height: NODE_HEIGHT_COLLAPSED 
+      };
       const halfW = rect.width / 2, halfH = rect.height / 2;
       const cx = rect.x + halfW, cy = rect.y + halfH;
       const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
@@ -694,8 +693,8 @@ export default class Renderer {
                 const entity = clicked.entity;
                 if (entity.selected) this.isDraggingSelection = true;
                 this.draggingEntity = entity;
-                this.dragOffset.x = mousePos.x - entity.x;
-                this.dragOffset.y = mousePos.y - entity.y;
+                this.dragOffset.x = mousePos.x - (entity.type === 'rectangle' || entity.type === 'node' ? entity.x : this._getDecorationBounds(entity).x);
+                this.dragOffset.y = mousePos.y - (entity.type === 'rectangle' || entity.type === 'node' ? entity.y : this._getDecorationBounds(entity).y);
                 document.body.classList.add('is-dragging');
                 return;
             }
@@ -738,8 +737,8 @@ export default class Renderer {
             const targetY = this.mousePos.y - this.dragOffset.y;
             
             const snappedPos = this._getSnappedPosition({ x: targetX, y: targetY }, this.draggingEntity);
-            const dx = snappedPos.x - this.draggingEntity.x;
-            const dy = snappedPos.y - this.draggingEntity.y;
+            const dx = snappedPos.x - (this.draggingEntity.type === 'rectangle' || this.draggingEntity.type === 'node' ? this.draggingEntity.x : this._getDecorationBounds(this.draggingEntity).x);
+            const dy = snappedPos.y - (this.draggingEntity.type === 'rectangle' || this.draggingEntity.type === 'node' ? this.draggingEntity.y : this._getDecorationBounds(this.draggingEntity).y);
 
             getSelection().forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
