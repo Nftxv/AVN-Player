@@ -1,10 +1,10 @@
 /**
- * AVN Player v1.5.01 - Renderer Module with Collapsible Nodes
+ * AVN Player v1.5.02 - Renderer Module with UI/UX updates
  * by Nftxv
  */
-const NODE_WIDTH = 160;
-const NODE_HEIGHT_COLLAPSED = 40;
-const NODE_HEIGHT_EXPANDED = 180;
+const NODE_WIDTH = 200;
+const NODE_HEIGHT_COLLAPSED = 45;
+const NODE_HEIGHT_EXPANDED = 225;
 const TOGGLE_ICON_SIZE = 14;
 
 export default class Renderer {
@@ -257,30 +257,34 @@ export default class Renderer {
     const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
     
     ctx.save();
-    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 4; }
-    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 4; }
-    else { ctx.strokeStyle = '#4a86e8'; ctx.lineWidth = 2; }
-    ctx.fillStyle = '#ffffff';
+    
+    // Node Body
+    ctx.fillStyle = '#2d2d2d'; // Dark surface color
     ctx.beginPath();
     ctx.roundRect(node.x, node.y, NODE_WIDTH, height, 8);
     ctx.fill();
+    
+    // Border
+    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
+    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
+    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; } // Dark border color
     ctx.stroke();
 
+    // Content Area (for expanded node)
     if (!node.isCollapsed) {
         const coverUrl = this.getSourceUrl(node.coverSources?.[0]);
-        const contentHeight = 120;
+        const contentHeight = 150;
         if (coverUrl && this.images[coverUrl]) {
-            ctx.drawImage(this.images[coverUrl], node.x + 5, node.y + 5, NODE_WIDTH - 10, contentHeight);
+            ctx.drawImage(this.images[coverUrl], node.x + 10, node.y + 10, NODE_WIDTH - 20, contentHeight);
         } else {
-            ctx.fillStyle = '#f0f0f0';
-            ctx.fillRect(node.x + 5, node.y + 5, NODE_WIDTH - 10, contentHeight);
+            ctx.fillStyle = '#1e1e1e'; // Dark bg color
+            ctx.fillRect(node.x + 10, node.y + 10, NODE_WIDTH - 20, contentHeight);
         }
-        ctx.strokeStyle = '#ddd';
-        ctx.strokeRect(node.x + 5, node.y + 5, NODE_WIDTH - 10, contentHeight);
     }
     
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 14px Segoe UI';
+    // Title
+    ctx.fillStyle = '#e0e0e0'; // Light text color
+    ctx.font = '14px Segoe UI'; // Non-bold font
     ctx.textAlign = 'center';
     const titleMaxWidth = NODE_WIDTH - 30;
     const fittedTitle = this._fitText(node.title, titleMaxWidth);
@@ -289,12 +293,13 @@ export default class Renderer {
         ctx.fillText(fittedTitle, node.x + NODE_WIDTH / 2, node.y + height / 2);
     } else {
         ctx.textBaseline = 'top';
-        ctx.fillText(fittedTitle, node.x + NODE_WIDTH / 2, node.y + 135);
+        ctx.fillText(fittedTitle, node.x + NODE_WIDTH / 2, node.y + 175);
     }
 
-    const iconX = node.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 5;
-    const iconY = node.y + 5;
-    ctx.strokeStyle = '#333';
+    // Toggle Icon
+    const iconX = node.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
+    const iconY = node.y + 6;
+    ctx.strokeStyle = '#9e9e9e'; // Subtle text color for icon
     ctx.lineWidth = 1.5;
     ctx.strokeRect(iconX, iconY, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE);
     ctx.beginPath();
@@ -342,7 +347,7 @@ export default class Renderer {
   }
   
   drawTemporaryEdge() {
-    const ctx = this.ctx; const startX = this.edgeCreationSource.x + 80; const startY = this.edgeCreationSource.y + 45;
+    const ctx = this.ctx; const startX = this.edgeCreationSource.x + NODE_WIDTH / 2; const startY = this.edgeCreationSource.y + (this.edgeCreationSource.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED) / 2;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
   }
@@ -379,8 +384,10 @@ export default class Renderer {
       let snapX = false, snapY = false;
       for (const target of snapTargets) {
           if (target.type === 'node') {
-              if (Math.abs(pos.x - (target.x + target.w / 2)) < threshold) { snappedPos.x = target.x + target.w / 2; snapX = true; }
-              if (Math.abs(pos.y - (target.y + target.h / 2)) < threshold) { snappedPos.y = target.y + target.h / 2; snapY = true; }
+              const targetCenterX = target.x + target.w / 2;
+              const targetCenterY = target.y + target.h / 2;
+              if (Math.abs(pos.x - targetCenterX) < threshold) { snappedPos.x = targetCenterX; snapX = true; }
+              if (Math.abs(pos.y - targetCenterY) < threshold) { snappedPos.y = targetCenterY; snapY = true; }
           } else {
               if (Math.abs(pos.x - target.x) < threshold) { snappedPos.x = target.x; snapX = true; }
               if (Math.abs(pos.y - target.y) < threshold) { snappedPos.y = target.y; snapY = true; }
@@ -435,16 +442,23 @@ export default class Renderer {
         if (e.button === 0) {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { this.draggingControlPoint = cp; return; }
-            const node = this.getNodeAt(mousePos.x, mousePos.y);
-            if (node) {
+            
+            // Important: Use getClickableEntityAt to check if user clicks on the toggle icon
+            const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y);
+            if (clicked && clicked.type === 'node') {
+                const node = clicked.entity;
                 if (node.selected) this.isDraggingSelection = true;
                 this.draggingNode = node;
                 this.dragNodeOffset.x = mousePos.x - node.x;
                 this.dragNodeOffset.y = mousePos.y - node.y;
                 return;
             }
-            this.isMarqueeSelecting = true;
-            this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
+
+            if (!clicked) { // Only start marquee if clicking on empty space
+                this.isMarqueeSelecting = true;
+                this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
+            }
+
         } else if (e.button === 2) {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }

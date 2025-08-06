@@ -1,5 +1,5 @@
 /**
- * AVN Player v1.5.01 - Main Application with Collapsible Nodes
+ * AVN Player v1.5.02 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -63,8 +63,13 @@ class GraphApp {
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
+    
+    document.getElementById('collapseAllBtn').addEventListener('click', () => this.editorTools.collapseAllNodes());
+    document.getElementById('expandAllBtn').addEventListener('click', () => this.editorTools.expandAllNodes());
+
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
+    
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
@@ -73,9 +78,6 @@ class GraphApp {
         this.editorTools.deleteSelection();
     });
     
-    document.getElementById('collapseAllBtn').addEventListener('click', () => this.editorTools.collapseAllNodes());
-    document.getElementById('expandAllBtn').addEventListener('click', () => this.editorTools.expandAllNodes());
-
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
@@ -90,16 +92,14 @@ class GraphApp {
   handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    
-    if (this.isEditorMode) {
-      const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
 
-      if (clicked && clicked.type === 'collapse_toggle') {
+    if (clicked && clicked.type === 'collapse_toggle') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
-        // Don't change selection when just toggling
         return;
-      }
-      
+    }
+
+    if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
       if (event.ctrlKey) {
@@ -107,30 +107,30 @@ class GraphApp {
       } else if (event.shiftKey) {
           mode = 'remove';
       }
-      
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
-    } else {
-      const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
+    } else { // Player mode
       if (clicked && clicked.type === 'node') {
         const clickedNode = clicked.entity;
-        if (clickedNode.isCollapsed) {
-          clickedNode.isCollapsed = false;
+        // In player mode, expand the node on click to show content, but don't re-trigger play if already current
+        if (this.navigation.currentNode?.id !== clickedNode.id) {
+            if (clickedNode.isCollapsed) {
+              clickedNode.isCollapsed = false;
+            }
+            this.navigation.startFromNode(clickedNode.id);
         }
-        this.navigation.startFromNode(clickedNode.id);
       }
     }
   }
   
   handleCanvasDblClick(event) {
-    if (!this.isEditorMode) return;
-    
+    if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
     
     if (clicked && clicked.type === 'node') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
-    } else if (clicked && clicked.type === 'edge') {
+    } else if (this.isEditorMode && clicked && clicked.type === 'edge') {
         this.editorTools.addControlPointAt(clicked.entity, coords);
     }
   }
