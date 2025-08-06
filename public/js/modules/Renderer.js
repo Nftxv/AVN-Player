@@ -292,6 +292,18 @@ export default class Renderer {
     ctx.restore();
   }
 
+    drawMarquee() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(70, 130, 180, 0.2)';
+    ctx.fillRect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.w, this.marqueeRect.h);
+    ctx.strokeStyle = 'rgba(70, 130, 180, 0.8)';
+    ctx.lineWidth = 1 / this.scale;
+    ctx.setLineDash([5 / this.scale, 3 / this.scale]);
+    ctx.strokeRect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.w, this.marqueeRect.h);
+    ctx.restore();
+  }
+
   // --- END Drawing Methods ---
 
   // --- START Helper & Interaction Methods ---
