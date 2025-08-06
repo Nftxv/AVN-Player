@@ -375,7 +375,28 @@ export default class Renderer {
     // Pass original events for app logic
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
-    this.canvas.addEventListener('wheel', (e) => { /* ... (wheel logic is unchanged) */ });
-    this.canvas.addEventListener('mouseleave', () => { /* ... (mouseleave logic is unchanged) */ });
+    
+    this.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomIntensity = 0.1;
+        const wheel = e.deltaY < 0 ? 1 : -1;
+        const zoom = Math.exp(wheel * zoomIntensity);
+        const rect = this.canvas.getBoundingClientRect();
+        this.offset.x -= (e.clientX - rect.left - this.offset.x) * (zoom - 1);
+        this.offset.y -= (e.clientY - rect.top - this.offset.y) * (zoom - 1);
+        this.scale *= zoom;
+        this.scale = Math.max(0.1, Math.min(5, this.scale));
+    });
+    
+    this.canvas.addEventListener('mouseleave', () => {
+        if (this.dragging || this.draggingNode || this.draggingControlPoint || this.isCreatingEdge || this.isSelecting) {
+            this.dragging = false;
+            this.draggingNode = false;
+            this.draggingControlPoint = false;
+            this.isCreatingEdge = false;
+            this.isSelecting = false;
+            this.snapLines = [];
+        }
+    });
   }
 }
