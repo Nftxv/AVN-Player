@@ -112,30 +112,100 @@ export default class Renderer {
     }
     ctx.restore();
   }
+  
+  _wrapAndDrawText(textObj) {
+      const { ctx } = this;
+      const { textContent, x, y, fontSize, color, textAlign, width, lineHeight } = textObj;
+      ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+      ctx.fillStyle = color;
+      ctx.textAlign = textAlign;
+      ctx.textBaseline = 'top';
+
+      const paragraphs = textContent.split('\n');
+      let currentY = y;
+      const lines = [];
+
+      for (const paragraph of paragraphs) {
+          if (!width || width <= 0) { // Auto-width
+              lines.push(paragraph);
+          } else { // Fixed-width, wrap text
+              const words = paragraph.split(' ');
+              let currentLine = '';
+              for (const word of words) {
+                  const testLine = currentLine ? `${currentLine} ${word}` : word;
+                  if (ctx.measureText(testLine).width > width && currentLine) {
+                      lines.push(currentLine);
+                      currentLine = word;
+                  } else {
+                      currentLine = testLine;
+                  }
+              }
+              lines.push(currentLine);
+          }
+      }
+
+      for (const line of lines) {
+          let drawX = x;
+          if (textAlign === 'center') {
+              drawX = x; // The full block is centered, so x is the center
+          } else if (textAlign === 'right') {
+              drawX = x + width / 2;
+          } else { // left
+              drawX = x - width / 2;
+          }
+          ctx.fillText(line, drawX, currentY);
+          currentY += fontSize * lineHeight;
+      }
+      
+      return lines;
+  }
+  
+  _getTextBounds(textObj, renderedLines) {
+      const { x, y, textAlign, fontSize } = textObj;
+      let maxWidth = 0;
+      if (textObj.width > 0) {
+        maxWidth = textObj.width;
+      } else {
+        this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+        renderedLines.forEach(line => {
+            maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width);
+        });
+      }
+      
+      const totalHeight = renderedLines.length * fontSize * textObj.lineHeight;
+
+      let boundsX = x;
+      if (textAlign === 'center') {
+          boundsX = x - maxWidth / 2;
+      } else if (textAlign === 'right') {
+          boundsX = x - maxWidth;
+      }
+      
+      return { x: boundsX, y: y, width: maxWidth, height: totalHeight };
+  }
 
   drawText(text) {
-    const ctx = this.ctx;
-    ctx.save();
-    const font = `${text.fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-    ctx.font = font;
-    ctx.fillStyle = text.color;
-    ctx.textAlign = text.textAlign;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text.textContent, text.x, text.y);
-    
-    if (text.selected) {
-        const metrics = ctx.measureText(text.textContent);
-        const w = metrics.width;
-        const h = text.fontSize;
-        let x = text.x;
-        if(text.textAlign === 'center') x -= w/2;
-        else if (text.textAlign === 'right') x -= w;
-        
-        ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = 1 / this.scale;
-        ctx.strokeRect(x - 2, text.y - h/2 - 2, w + 4, h + 4);
-    }
-    ctx.restore();
+      const ctx = this.ctx;
+      ctx.save();
+      // Adjust position based on text alignment for wrapping
+      let renderX = text.x;
+      if (text.width > 0) {
+        if (text.textAlign === 'center') renderX = text.x - text.width / 2;
+        else if (text.textAlign === 'right') renderX = text.x - text.width;
+      }
+
+      const effectiveTextObj = { ...text, x: renderX };
+
+      // This call now handles all drawing logic
+      const renderedLines = this._wrapAndDrawText(effectiveTextObj);
+      
+      if (text.selected) {
+          const bounds = this._getTextBounds(text, renderedLines);
+          ctx.strokeStyle = '#e74c3c';
+          ctx.lineWidth = 1 / this.scale;
+          ctx.strokeRect(bounds.x - 2, bounds.y - 2, bounds.width + 4, bounds.height + 4);
+      }
+      ctx.restore();
   }
 
   updateIframes() {
@@ -242,13 +312,10 @@ export default class Renderer {
                 return { type: 'decoration', entity: deco };
             }
             if (deco.type === 'text') {
-                const h = deco.fontSize;
-                this.ctx.font = `${h}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-                const w = this.ctx.measureText(deco.textContent).width;
-                let textX = deco.x;
-                if (deco.textAlign === 'center') textX -= w / 2;
-                else if (deco.textAlign === 'right') textX -= w;
-                if (x > textX && x < textX + w && y > deco.y - h / 2 && y < deco.y + h / 2) {
+                 // Pre-calculate lines and bounds for accurate hit detection
+                const renderedLines = this._wrapAndDrawText({ ...deco, textContent: deco.textContent || '' });
+                const bounds = this._getTextBounds(deco, renderedLines);
+                if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
                     return { type: 'decoration', entity: deco };
                 }
             }
@@ -285,13 +352,8 @@ export default class Renderer {
           if (deco.type === 'rectangle') {
             decoBounds = { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
           } else if (deco.type === 'text') {
-            const h = deco.fontSize;
-            this.ctx.font = `${h}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-            const w = this.ctx.measureText(deco.textContent).width;
-            let textX = deco.x;
-            if(deco.textAlign === 'center') textX -= w/2;
-            else if (deco.textAlign === 'right') textX -= w;
-            decoBounds = { x: textX, y: deco.y - h/2, width: w, height: h };
+            const renderedLines = this._wrapAndDrawText({ ...deco, textContent: deco.textContent || '' });
+            decoBounds = this._getTextBounds(deco, renderedLines);
           }
           if (!decoBounds) return false;
           // Check for intersection

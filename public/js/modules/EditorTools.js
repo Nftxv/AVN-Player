@@ -77,9 +77,11 @@ export default class EditorTools {
         type: 'text',
         x: center.x, y: center.y,
         textContent: 'New Text Label',
-        fontSize: 24,
+        fontSize: 16,
         color: '#ecf0f1',
-        textAlign: 'center'
+        textAlign: 'center',
+        width: 250, // NEW
+        lineHeight: 1.2, // NEW
     };
     this.graphData.decorations.push(newText);
     this.selectEntity(newText);
@@ -216,11 +218,15 @@ export default class EditorTools {
         title.textContent = 'Text Properties';
         html = `
             <label for="textContent">Text:</label>
-            <input type="text" id="textContent" value="${entity.textContent || ''}">
+            <textarea id="textContent" rows="4">${entity.textContent || ''}</textarea>
+            <label for="textWidth">Width (px, 0=auto):</label>
+            <input type="number" id="textWidth" value="${entity.width || 0}" min="0">
             <label for="textColor">Text Color:</label>
             <input type="color" id="textColor" value="${entity.color || '#FFFFFF'}">
             <label for="textSize">Font Size:</label>
             <input type="number" id="textSize" value="${entity.fontSize || 16}" min="8">
+             <label for="textLineHeight">Line Height:</label>
+            <input type="number" id="textLineHeight" value="${entity.lineHeight || 1.2}" step="0.1" min="0.8">
             <label for="textAlign">Alignment:</label>
             <select id="textAlign">
                 <option value="left" ${entity.textAlign === 'left' ? 'selected' : ''}>Left</option>
@@ -282,8 +288,10 @@ export default class EditorTools {
         entity.height = parseInt(document.getElementById('rectHeight').value, 10);
     } else if (entity.type === 'text') {
         entity.textContent = document.getElementById('textContent').value;
+        entity.width = parseInt(document.getElementById('textWidth').value, 10);
         entity.color = document.getElementById('textColor').value;
         entity.fontSize = parseInt(document.getElementById('textSize').value, 10);
+        entity.lineHeight = parseFloat(document.getElementById('textLineHeight').value);
         entity.textAlign = document.getElementById('textAlign').value;
     }
   }

@@ -5,7 +5,7 @@ export default class GraphData {
   constructor() {
     this.nodes = [];
     this.edges = [];
-    this.decorations = []; // NEW: For rectangles, text, etc.
+    this.decorations = [];
     this.meta = {};
   }
 
@@ -80,6 +80,8 @@ export default class GraphData {
             fontSize: item.fontSize || 16,
             color: item.color || '#FFFFFF',
             textAlign: item.textAlign || 'left',
+            width: item.width, // NEW
+            lineHeight: item.lineHeight || 1.2, // NEW
           });
           break;
       }
@@ -113,7 +115,6 @@ export default class GraphData {
         lineWidth: e.lineWidth,
         controlPoints: e.controlPoints,
       })),
-      // NEW: Serialize decorations
       ...this.decorations.map(d => {
         const common = { '@id': d.id, position: { x: d.x, y: d.y } };
         if (d.type === 'rectangle') {
@@ -132,6 +133,8 @@ export default class GraphData {
             fontSize: d.fontSize,
             color: d.color,
             textAlign: d.textAlign,
+            width: d.width, // NEW
+            lineHeight: d.lineHeight, // NEW
           };
         }
         return null;

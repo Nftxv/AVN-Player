@@ -47,7 +47,7 @@ class GraphApp {
   setupEventListeners() {
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
-        getIsDecorationsLocked: () => this.editorTools.decorationsLocked, // NEW
+        getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
         onClick: (e) => this.handleCanvasClick(e),
         onDblClick: (e) => this.handleCanvasDblClick(e),
         onEdgeCreated: (source, target) => {
@@ -57,7 +57,7 @@ class GraphApp {
             if (!this.isEditorMode) return;
             const nodes = this.renderer.getNodesInRect(rect);
             const edges = this.renderer.getEdgesInRect(rect, nodes);
-            const decorations = this.renderer.getDecorationsInRect(rect);
+            const decorations = this.editorTools.decorationsLocked ? [] : this.renderer.getDecorationsInRect(rect); // MODIFIED
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
@@ -75,7 +75,7 @@ class GraphApp {
     document.getElementById('addNodeBtn').addEventListener('click', () => this.editorTools.createNode());
     document.getElementById('addRectBtn').addEventListener('click', () => this.editorTools.createRectangle());
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
-    document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock()); // NEW
+    document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => this.editorTools.deleteSelection());
     
@@ -93,7 +93,7 @@ class GraphApp {
   handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked }); // MODIFIED
 
     if (clicked && clicked.type === 'collapse_toggle') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
@@ -118,7 +118,7 @@ class GraphApp {
   handleCanvasDblClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked }); // MODIFIED
     
     if (clicked && clicked.type === 'node') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
