@@ -3,7 +3,7 @@
  * by Nftxv
  */
 export default class Renderer {
-  // Constructor and setup methods (setData, loadAndRenderAll, loadImages, getSourceUrl) are unchanged
+  // Constructor and setup methods (setData, loadAndRenderAll, etc.) are unchanged
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
@@ -65,7 +65,7 @@ export default class Renderer {
       return null;
   }
 
-  // ** REVERTED TO A MORE ROBUST HIT-TESTING LOGIC **
+  // ** FIX: THIS METHOD NOW USES THE CORRECT PATH FOR HIT-TESTING **
   getEdgeAt(x, y) {
     const tolerance = 10 / this.scale;
     for (const edge of this.edges) {
@@ -73,13 +73,12 @@ export default class Renderer {
         const trg = this.nodes.find(n => n.id === edge.target);
         if (!src || !trg) continue;
 
-        // For hit-testing, we use a simplified path to the node centers.
-        // This makes the line much easier to click.
-        const pathPoints = [
-            { x: src.x + 80, y: src.y + 45 },
-            ...(edge.controlPoints || []),
-            { x: trg.x + 80, y: trg.y + 45 }
-        ];
+        const controlPoints = edge.controlPoints || [];
+        const startPoint = { x: src.x + 80, y: src.y + 45 };
+        const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
+        // Use the same intersection logic as in drawEdge for perfect consistency
+        const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
+        const pathPoints = [startPoint, ...controlPoints, intersection];
 
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i];
@@ -115,7 +114,6 @@ export default class Renderer {
   }
 
   drawNode(node) {
-    // (no changes to this method)
     const ctx = this.ctx; const width = 160, height = 90; ctx.save();
     if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 4; }
     else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 4; }
@@ -154,14 +152,14 @@ export default class Renderer {
       for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
 
-      // Draw arrows at each *internal* point and the final intersection
+      // Draw arrows at each point (except the start)
       for (let i = 1; i < pathPoints.length; i++) {
           const p1 = pathPoints[i-1], p2 = pathPoints[i];
           const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
           this._drawArrow(p2.x, p2.y, angle, color, arrowSize);
       }
       
-      // ** FIX: DRAW CONTROL POINT HANDLES IN A SEPARATE, EXPLICIT LOOP **
+      // ** FIX: DRAW CONTROL POINT CIRCLES SEPARATELY TO ENSURE THEY ARE VISIBLE **
       controlPoints.forEach(point => {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
@@ -177,16 +175,11 @@ export default class Renderer {
         ctx.save();
         ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
         const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-        // Prevent upside-down text
-        if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
-             ctx.rotate(angle + Math.PI);
-        } else {
-             ctx.rotate(angle);
-        }
+        if (angle > Math.PI / 2 || angle < -Math.PI / 2) ctx.rotate(angle + Math.PI);
+        else ctx.rotate(angle);
         ctx.fillText(edge.label, 0, -8);
         ctx.restore();
       }
-      
       ctx.restore();
   }
       
@@ -215,7 +208,7 @@ export default class Renderer {
       return { x, y };
   }
   
-  // Other methods (temporary edge, highlight, coords, resize, snapping, interaction) are unchanged
+  // All other methods (temp edge, highlight, coords, resize, snapping, interaction) are unchanged
   drawTemporaryEdge() {
     const ctx = this.ctx; const startX = this.edgeCreationSource.x + 80; const startY = this.edgeCreationSource.y + 45;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
