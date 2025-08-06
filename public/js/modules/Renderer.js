@@ -16,7 +16,6 @@ export default class Renderer {
     this.iframeContainer = document.getElementById('iframe-container');
     
     this.graphData = null; 
-    this.player = null; // NEW: Reference to the player
     this.images = {};
 
     this.offset = { x: 0, y: 0 };
@@ -40,8 +39,9 @@ export default class Renderer {
     this.renderLoop = this.renderLoop.bind(this);
   }
 
-  setData(graphData) { this.graphData = graphData; }
-  setPlayer(player) { this.player = player; } // NEW
+  setData(graphData) {
+    this.graphData = graphData;
+  }
 
   async loadAndRenderAll() {
     if (!this.graphData) return;
@@ -309,7 +309,6 @@ export default class Renderer {
   // --- START Helper & Interaction Methods ---
   
   updateIframes() {
-    if (!this.player) return;
     const visibleNodeIds = new Set();
     
     this.graphData.nodes.forEach(node => {
@@ -318,13 +317,12 @@ export default class Renderer {
         }
 
         visibleNodeIds.add(node.id);
-        const wrapperId = `iframe-wrapper-${node.id}`;
-        let wrapper = document.getElementById(wrapperId);
+        const iframeId = `iframe-${node.id}`;
+        let wrapper = document.getElementById(iframeId);
 
         if (!wrapper) {
             wrapper = this._createIframeWrapper(node);
             this.iframeContainer.appendChild(wrapper);
-            this.player.createYtPlayer(node);
         }
 
         const nodeRect = this._getNodeVisualRect(node);
@@ -340,9 +338,9 @@ export default class Renderer {
 
     const existingIframes = this.iframeContainer.querySelectorAll('.iframe-wrapper');
     existingIframes.forEach(wrapper => {
-        const nodeId = wrapper.dataset.nodeId;
-        if (!visibleNodeIds.has(nodeId)) {
-            this.player.destroyYtPlayer(nodeId);
+        const nodeId = wrapper.id.replace('iframe-', '');
+        const node = this.graphData.getNodeById(nodeId);
+        if (!node || !visibleNodeIds.has(nodeId)) {
             wrapper.remove();
         }
     });
@@ -350,17 +348,18 @@ export default class Renderer {
 
   _createIframeWrapper(node) {
       const wrapper = document.createElement('div');
-      wrapper.id = `iframe-wrapper-${node.id}`;
-      wrapper.dataset.nodeId = node.id;
+      wrapper.id = `iframe-${node.id}`;
       wrapper.className = 'iframe-wrapper';
 
-      const playerDiv = document.createElement('div');
-      playerDiv.id = `yt-player-${node.id}`;
-
+      const iframe = document.createElement('iframe');
+      iframe.src = node.iframeUrl;
+      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+      iframe.allowFullscreen = true;
+      
       const dragOverlay = document.createElement('div');
       dragOverlay.className = 'drag-overlay';
 
-      wrapper.appendChild(playerDiv);
+      wrapper.appendChild(iframe);
       wrapper.appendChild(dragOverlay);
       return wrapper;
   }

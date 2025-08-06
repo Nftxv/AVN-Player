@@ -46,7 +46,7 @@ export default class GraphData {
             audioUrl: item.audioUrl || null,
             coverUrl: item.coverUrl || null,
             lyricsUrl: item.lyricsUrl || null,
-            iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
+            iframeUrl: item.iframeUrl || null,
           });
           break;
         case 'Path':
@@ -80,8 +80,8 @@ export default class GraphData {
             fontSize: item.fontSize || 16,
             color: item.color || '#FFFFFF',
             textAlign: item.textAlign || 'left',
-            width: item.width,
-            lineHeight: item.lineHeight || 1.2,
+            width: item.width, // NEW
+            lineHeight: item.lineHeight || 1.2, // NEW
           });
           break;
       }
@@ -133,8 +133,8 @@ export default class GraphData {
             fontSize: d.fontSize,
             color: d.color,
             textAlign: d.textAlign,
-            width: d.width,
-            lineHeight: d.lineHeight,
+            width: d.width, // NEW
+            lineHeight: d.lineHeight, // NEW
           };
         }
         return null;
@@ -145,31 +145,6 @@ export default class GraphData {
       ...(Object.keys(this.meta).length > 0 && { meta: this.meta }),
       '@graph': graph,
     };
-  }
-  
-  /**
-   * Parses various YouTube URL formats and returns only the video ID.
-   * @param {string} input - The URL or ID provided by the user.
-   * @returns {string|null} - The 11-character video ID or null.
-   */
-  parseYoutubeUrl(input) {
-      if (!input || typeof input !== 'string') return null;
-      
-      // Regular expression to find the YouTube video ID in various URL formats
-      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-      const match = input.match(regex);
-      
-      if (match && match[1]) {
-          return match[1];
-      }
-      
-      // If no match from URL, check if the input itself is a valid ID
-      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) {
-          return input.trim();
-      }
-      
-      console.warn("Could not parse YouTube URL/ID:", input);
-      return null;
   }
 
   getNodeById(id) {

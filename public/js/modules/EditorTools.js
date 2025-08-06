@@ -273,11 +273,12 @@ export default class EditorTools {
             entity.iframeUrl = null;
         } else if (entity.sourceType === 'iframe') {
             const userInput = document.getElementById('iframeUrlInput').value;
-            entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null; // CORRECTED
+            entity.iframeUrl = this._parseYoutubeUrl(userInput) || null;
             entity.audioUrl = null;
             entity.coverUrl = null;
             entity.lyricsUrl = null;
         }
+        this.renderer.loadAndRenderAll();
     } else if (entity.source) { // Edge
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
@@ -294,6 +295,29 @@ export default class EditorTools {
         entity.lineHeight = parseFloat(document.getElementById('textLineHeight').value);
         entity.textAlign = document.getElementById('textAlign').value;
     }
+  }
+
+  _parseYoutubeUrl(input) {
+      if (!input || typeof input !== 'string') return '';
+      if (input.includes('youtube.com/embed/')) {
+        return input;
+      }
+      let videoId = '';
+      try {
+        const url = new URL(input);
+        if (url.hostname.includes('youtube.com')) {
+          videoId = url.searchParams.get('v');
+        } else if (url.hostname.includes('youtu.be')) {
+          videoId = url.pathname.slice(1);
+        }
+      } catch (e) {
+        videoId = input.trim();
+      }
+      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+      console.warn("Could not parse YouTube URL/ID:", input);
+      return input;
   }
 
   closeInspector() {
