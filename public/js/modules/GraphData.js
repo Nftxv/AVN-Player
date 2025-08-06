@@ -1,5 +1,5 @@
 /**
- * Manages the graph's data with new source types.
+ * Manages the graph's data, including loading, parsing, and providing access to nodes and edges.
  */
 export default class GraphData {
   constructor() {
@@ -8,6 +8,10 @@ export default class GraphData {
     this.meta = {};
   }
 
+  /**
+   * Loads graph data from a given URL.
+   * @param {string} url - The URL of the JSON/JSON-LD file.
+   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -15,6 +19,10 @@ export default class GraphData {
     this.parseData(data);
   }
 
+  /**
+   * Parses the raw JSON-LD data and populates nodes, edges, and metadata.
+   * @param {object} data - The raw data object from the JSON file.
+   */
   parseData(data) {
     this.meta = data.meta || { gateways: ['https://cloudflare-ipfs.com/ipfs/'] };
     const graph = data['@graph'] || [];
@@ -24,15 +32,12 @@ export default class GraphData {
       .map(node => ({
         id: node['@id'],
         title: node.name || 'Untitled',
-        position: { x: node.position?.x || Math.random() * 800, y: node.position?.y || Math.random() * 600 },
-        isCollapsed: node.isCollapsed === true,
-        
-        // New data model
-        sourceType: node.sourceType || 'audio',
-        audioUrl: node.audioUrl || null,
-        coverUrl: node.coverUrl || null,
-        lyricsUrl: node.lyricsUrl || null,
-        iframeUrl: node.iframeUrl || null
+        audioSources: node.audioSources || [],
+        coverSources: node.coverSources || [],
+        lyricsSource: node.lyricsSource,
+        x: node.position?.x || Math.random() * 800,
+        y: node.position?.y || Math.random() * 600,
+        isCollapsed: node.isCollapsed === true, // Explicitly check for true
       }));
 
     this.edges = graph
@@ -47,19 +52,21 @@ export default class GraphData {
       }));
   }
 
+  /**
+   * Serializes the current graph data back into a JSON-LD format for export.
+   * @returns {object} - The complete graph object.
+   */
   getGraph() {
     const graph = [
       ...this.nodes.map(n => ({
         '@id': n.id,
         '@type': 'MusicRecording',
         name: n.title,
-        position: n.position,
-        isCollapsed: n.isCollapsed,
-        sourceType: n.sourceType,
-        audioUrl: n.audioUrl,
-        coverUrl: n.coverUrl,
-        lyricsUrl: n.lyricsUrl,
-        iframeUrl: n.iframeUrl,
+        position: { x: n.x, y: n.y },
+        isCollapsed: n.isCollapsed, // Save collapsed state
+        audioSources: n.audioSources,
+        coverSources: n.coverSources,
+        lyricsSource: n.lyricsSource,
       })),
       ...this.edges.map(e => ({
         '@type': 'Path',
@@ -78,14 +85,13 @@ export default class GraphData {
     };
   }
 
-  getSourceUrl(url) {
-    if (!url) return null;
-    // Simple check if it's a potential IPFS hash
-    if (url.startsWith('Qm') || url.startsWith('bafy')) {
+  getSourceUrl(source) {
+    if (!source) return null;
+    if (source.type === 'ipfs') {
       const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-      return `${gateway}${url}`;
+      return `${gateway}${source.value}`;
     }
-    return url;
+    return source.value;
   }
 
   getNodeById(id) {

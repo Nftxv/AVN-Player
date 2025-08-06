@@ -1,9 +1,9 @@
 /**
- * AVN Player v1.5.04 - Editor Tools Module with Source Types
+ * AVN Player v1.5.01 - Editor Tools Module with Collapse/Expand
  * by Nftxv
  */
-const NODE_WIDTH = 200;
-const NODE_HEIGHT_EXPANDED = 225;
+const NODE_WIDTH = 160;
+const NODE_HEIGHT_EXPANDED = 180;
 
 export default class EditorTools {
   constructor(graphData, renderer) {
@@ -26,16 +26,10 @@ export default class EditorTools {
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      position: { 
-        x: center.x - NODE_WIDTH / 2,
-        y: center.y - NODE_HEIGHT_EXPANDED / 2
-      },
-      isCollapsed: false,
-      sourceType: 'audio',
-      audioUrl: '',
-      coverUrl: '',
-      lyricsUrl: '',
-      iframeUrl: '',
+      x: center.x - NODE_WIDTH / 2,
+      y: center.y - NODE_HEIGHT_EXPANDED / 2,
+      isCollapsed: false, // Default to expanded
+      audioSources: [], coverSources: [], lyricsSource: null,
     };
     this.graphData.nodes.push(newNode);
     return newNode;
@@ -65,7 +59,7 @@ export default class EditorTools {
     const edgesToDelete = new Set(this.selectedEntities.filter(e => e.source));
 
     this.selectedEntities.forEach(entity => {
-        if (!entity.source) {
+        if (!entity.source) { // It's a node
             nodesToDelete.add(entity.id);
         }
     });
@@ -98,13 +92,13 @@ export default class EditorTools {
           const currentSelection = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
           if (mode === 'add') {
               newSelection.forEach((value, key) => {
-                if (currentSelection.has(key)) {
+                if (currentSelection.has(key)) { // If ctrl-clicking an already selected item, deselect it
                     currentSelection.delete(key);
                 } else {
                     currentSelection.set(key, value);
                 }
               });
-          } else if (mode === 'remove') {
+          } else if (mode === 'remove') { // SHIFT
               newSelection.forEach((value, key) => currentSelection.delete(key));
           }
           finalSelection = Array.from(currentSelection.values());
@@ -148,98 +142,43 @@ export default class EditorTools {
         <input type="color" id="edgeColor" value="${entity.color || '#888888'}">
         <label for="edgeWidth">Line Width:</label>
         <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
+        <label>Control Points: ${(entity.controlPoints || []).length}</label>
+        <small>Double-click edge to add a point. Right-click a point to delete.</small>
       `;
     } else {
       title.textContent = 'Node Properties';
-      const isAudio = entity.sourceType === 'audio';
       content.innerHTML = `
         <label for="nodeTitle">Title:</label>
         <input type="text" id="nodeTitle" value="${entity.title || ''}">
-        
-        <label>Source Type:</label>
-        <div class="radio-group">
-            <label><input type="radio" name="sourceType" value="audio" ${isAudio ? 'checked' : ''}> Audio File</label>
-            <label><input type="radio" name="sourceType" value="iframe" ${!isAudio ? 'checked' : ''}> YouTube</label>
-        </div>
-
-        <div id="audio-fields" class="${!isAudio ? 'hidden' : ''}">
-            <label for="audioUrl">Audio URL or IPFS:</label>
-            <input type="text" id="audioUrl" value="${entity.audioUrl || ''}">
-            <label for="coverUrl">Cover URL or IPFS:</label>
-            <input type="text" id="coverUrl" value="${entity.coverUrl || ''}">
-            <label for="lyricsUrl">Lyrics URL or IPFS:</label>
-            <input type="text" id="lyricsUrl" value="${entity.lyricsUrl || ''}">
-        </div>
-
-        <div id="iframe-fields" class="${isAudio ? 'hidden' : ''}">
-            <label for="iframeUrl">YouTube URL or Video ID:</label>
-            <input type="text" id="iframeUrl" value="${entity.iframeUrl || ''}">
-        </div>
+        <label for="audioSource">Audio (URL or IPFS):</label>
+        <input type="text" id="audioSource" value="${entity.audioSources?.[0]?.value || ''}">
+        <label for="coverSource">Cover (URL or IPFS):</label>
+        <input type="text" id="coverSource" value="${entity.coverSources?.[0]?.value || ''}">
+        <label for="lyricsSource">Lyrics (URL or IPFS):</label>
+        <input type="text" id="lyricsSource" value="${entity.lyricsSource?.value || ''}">
       `;
-
-      // Add event listener for the radio buttons
-      content.querySelectorAll('input[name="sourceType"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const isAudio = e.target.value === 'audio';
-            document.getElementById('audio-fields').classList.toggle('hidden', !isAudio);
-            document.getElementById('iframe-fields').classList.toggle('hidden', isAudio);
-        });
-      });
     }
     panel.classList.remove('hidden');
-  }
-
-  _parseYoutubeUrl(url) {
-    if (!url) return null;
-    // Check if it's already an embed link
-    if (url.includes('youtube.com/embed/')) {
-        return url;
-    }
-    let videoId;
-    // Standard URL: https://www.youtube.com/watch?v=VIDEO_ID
-    const urlParams = new URLSearchParams(new URL(url, 'https://www.youtube.com').search);
-    videoId = urlParams.get('v');
-    
-    // Short URL: https://youtu.be/VIDEO_ID
-    if (!videoId) {
-        const match = url.match(/youtu\.be\/([^?&]+)/);
-        if (match) videoId = match[1];
-    }
-    
-    // Just the ID
-    if (!videoId && !url.includes('/')) {
-        videoId = url;
-    }
-
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
   }
 
   saveInspectorChanges() {
     if (!this.inspectedEntity) return;
     const entity = this.inspectedEntity;
-    
     if (entity.source && entity.target) {
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
         entity.lineWidth = parseInt(document.getElementById('edgeWidth').value, 10);
     } else {
         entity.title = document.getElementById('nodeTitle').value;
-        entity.sourceType = document.querySelector('input[name="sourceType"]:checked').value;
-
-        if (entity.sourceType === 'audio') {
-            entity.audioUrl = document.getElementById('audioUrl').value;
-            entity.coverUrl = document.getElementById('coverUrl').value;
-            entity.lyricsUrl = document.getElementById('lyricsUrl').value;
-            entity.iframeUrl = null; // Clear unused field
-        } else {
-            const rawUrl = document.getElementById('iframeUrl').value;
-            entity.iframeUrl = this._parseYoutubeUrl(rawUrl) || rawUrl; // Save embeddable or original if parse fails
-            // Clear unused fields
-            entity.audioUrl = null;
-            entity.coverUrl = null;
-            entity.lyricsUrl = null;
-        }
-        this.renderer.loadAndRenderAll(); // Reload images if cover changed
+        const parseSource = (url) => {
+            if (!url || url.trim() === '') return null;
+            if (url.startsWith('Qm') || url.startsWith('bafy')) return { type: 'ipfs', value: url };
+            return { type: 'url', value: url };
+        };
+        entity.audioSources = [parseSource(document.getElementById('audioSource').value)].filter(Boolean);
+        entity.coverSources = [parseSource(document.getElementById('coverSource').value)].filter(Boolean);
+        entity.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
+        this.renderer.loadAndRenderAll();
     }
   }
 
@@ -253,9 +192,7 @@ export default class EditorTools {
       if (!edge.controlPoints) edge.controlPoints = [];
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
-      const startPoint = { x: startNode.position.x + NODE_WIDTH / 2, y: startNode.position.y + NODE_HEIGHT_COLLAPSED / 2 };
-      const endPoint = { x: endNode.position.x + NODE_WIDTH / 2, y: endNode.position.y + NODE_HEIGHT_COLLAPSED / 2 };
-      const pathPoints = [ startPoint, ...edge.controlPoints, endPoint ];
+      const pathPoints = [ { x: startNode.x + 80, y: startNode.y + 45 }, ...edge.controlPoints, { x: endNode.x + 80, y: endNode.y + 45 } ];
       let closestSegmentIndex = 0; let minDistance = Infinity;
       for (let i = 0; i < pathPoints.length - 1; i++) {
           const p1 = pathPoints[i], p2 = pathPoints[i+1];
