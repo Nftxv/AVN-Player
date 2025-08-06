@@ -16,7 +16,7 @@ export default class Renderer {
     this.iframeContainer = document.getElementById('iframe-container');
     
     this.graphData = null; 
-    this.player = null; 
+    this.player = null; // NEW: Reference to the player
     this.images = {};
 
     this.offset = { x: 0, y: 0 };
@@ -41,7 +41,7 @@ export default class Renderer {
   }
 
   setData(graphData) { this.graphData = graphData; }
-  setPlayer(player) { this.player = player; }
+  setPlayer(player) { this.player = player; } // NEW
 
   async loadAndRenderAll() {
     if (!this.graphData) return;
@@ -75,16 +75,22 @@ export default class Renderer {
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
+    // Layer 1: Decorations
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
     
+    // Layer 2: Node bodies (shape + content)
     this.graphData.nodes.forEach(node => {
       this._drawNodeShape(node);
       this._drawNodeContent(node);
     });
     
+    // Layer 3: Edges
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
+
+    // Layer 4: Node headers (text + icons)
     this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
 
+    // Overlays for editor tools
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
     this._drawSnapGuides();
@@ -307,7 +313,7 @@ export default class Renderer {
     const visibleNodeIds = new Set();
     
     this.graphData.nodes.forEach(node => {
-        if (node.sourceType !== 'iframe' || !this._isNodeInView(node) || node.isCollapsed) {
+        if (node.sourceType !== 'iframe' || node.isCollapsed || !this._isNodeInView(node)) {
             return;
         }
 
@@ -318,8 +324,6 @@ export default class Renderer {
         if (!wrapper) {
             wrapper = this._createIframeWrapper(node);
             this.iframeContainer.appendChild(wrapper);
-            this.player.createYtPlayer(node);
-        } else if (!this.player.ytPlayers.has(node.id)) {
             this.player.createYtPlayer(node);
         }
 
@@ -641,6 +645,7 @@ export default class Renderer {
           if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
           snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
       });
+      // NEW: Add other control points as snap targets
       this.graphData.edges.forEach(e => {
         (e.controlPoints || []).forEach(p => {
             if (p !== movingEntity) {
