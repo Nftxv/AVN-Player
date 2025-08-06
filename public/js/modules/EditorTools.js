@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.5 - Editor Tools Module
+ * AVN Player v2.6 - Editor Tools Module
  * by Nftxv
  */
 export default class EditorTools {
@@ -10,17 +10,18 @@ export default class EditorTools {
     this.selectedEntity = null;
   }
 
-  // --- Core Editor Functions (createNode, deleteEntity, selectEntity are mostly unchanged) ---
-
+  // ** FIX: createNode now uses the renderer's viewport to position the new node **
   createNode() {
+    const center = this.renderer.getViewportCenter();
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
-      x: 100, y: 100,
+      // Position the node so its center is at the viewport's center
+      x: center.x - 80, // (160 / 2)
+      y: center.y - 45, // (90 / 2)
       audioSources: [], coverSources: [], lyricsSource: null,
     };
     this.graphData.nodes.push(newNode);
-    this.renderer.loadAndRenderAll();
     return newNode;
   }
   
@@ -42,21 +43,26 @@ export default class EditorTools {
     
     this.closeInspector();
 
-    if (entity.source && entity.target) {
+    if (entity.source && entity.target) { // It's an edge
       const index = this.graphData.edges.findIndex(
-        e => e.source === entity.source && e.target === entity.target && e.label === entity.label
+        e => e === entity
       );
       if (index > -1) this.graphData.edges.splice(index, 1);
-    } else {
+    } else { // It's a node
+      const nodeId = entity.id;
+      // Use filter to create new arrays, ensuring no stale references
       this.graphData.edges = this.graphData.edges.filter(
-        e => e.source !== entity.id && e.target !== entity.id
+        e => e.source !== nodeId && e.target !== nodeId
       );
-      const index = this.graphData.nodes.findIndex(n => n.id === entity.id);
-      if (index > -1) this.graphData.nodes.splice(index, 1);
+      this.graphData.nodes = this.graphData.nodes.filter(
+        n => n.id !== nodeId
+      );
     }
     this.selectEntity(null);
   }
-
+  
+  // The rest of the file is unchanged
+  // ...
   selectEntity(entity) {
     if (this.selectedEntity === entity) {
       if (entity && this.editingEntity !== entity) {
@@ -77,9 +83,6 @@ export default class EditorTools {
     }
   }
 
-
-  // --- Inspector Panel Logic ---
-
   openInspector(entity) {
     this.editingEntity = entity;
     const panel = document.getElementById('inspectorPanel');
@@ -91,29 +94,22 @@ export default class EditorTools {
       content.innerHTML = `
         <label for="edgeLabel">Label:</label>
         <input type="text" id="edgeLabel" value="${entity.label || ''}">
-        
         <label for="edgeColor">Color:</label>
         <input type="color" id="edgeColor" value="${entity.color || '#888888'}">
-
         <label for="edgeWidth">Line Width:</label>
         <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
-        
         <label>Control Points: ${(entity.controlPoints || []).length}</label>
         <small>Double-click edge to add a point. Right-click a point to delete.</small>
       `;
-      // REMOVED BUTTON AND ONCLICK HANDLER
     } else {
       title.textContent = 'Node Properties';
       content.innerHTML = `
         <label for="nodeTitle">Title:</label>
         <input type="text" id="nodeTitle" value="${entity.title || ''}">
-        
         <label for="audioSource">Audio (URL or IPFS):</label>
         <input type="text" id="audioSource" value="${entity.audioSources?.[0]?.value || ''}">
-
         <label for="coverSource">Cover (URL or IPFS):</label>
         <input type="text" id="coverSource" value="${entity.coverSources?.[0]?.value || ''}">
-
         <label for="lyricsSource">Lyrics (URL or IPFS):</label>
         <input type="text" id="lyricsSource" value="${entity.lyricsSource?.value || ''}">
       `;
@@ -123,9 +119,7 @@ export default class EditorTools {
 
   saveInspectorChanges() {
     if (!this.editingEntity) return;
-    
     const entity = this.editingEntity;
-
     if (entity.source && entity.target) {
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
@@ -147,57 +141,31 @@ export default class EditorTools {
   closeInspector() {
     document.getElementById('inspectorPanel').classList.add('hidden');
     this.editingEntity = null;
-    if (this.selectedEntity) {
-        this.selectedEntity.selected = false;
-        this.selectedEntity = null;
-    }
-    if (document.getElementById('deleteSelectionBtn')) {
-      document.getElementById('deleteSelectionBtn').disabled = true;
-    }
+    if (this.selectedEntity) { this.selectedEntity.selected = false; this.selectedEntity = null; }
+    if (document.getElementById('deleteSelectionBtn')) document.getElementById('deleteSelectionBtn').disabled = true;
   }
   
-  // --- Edge Control Points ---
-
   addControlPointAt(edge, position) {
       if (!edge || !position) return;
       if (!edge.controlPoints) edge.controlPoints = [];
-
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
-
-      const pathPoints = [
-          { x: startNode.x + 80, y: startNode.y + 45 },
-          ...edge.controlPoints,
-          { x: endNode.x + 80, y: endNode.y + 45 }
-      ];
-
-      // Find the closest segment to the clicked position
-      let closestSegmentIndex = 0;
-      let minDistance = Infinity;
-
+      const pathPoints = [ { x: startNode.x + 80, y: startNode.y + 45 }, ...edge.controlPoints, { x: endNode.x + 80, y: endNode.y + 45 } ];
+      let closestSegmentIndex = 0; let minDistance = Infinity;
       for (let i = 0; i < pathPoints.length - 1; i++) {
-          const p1 = pathPoints[i];
-          const p2 = pathPoints[i+1];
+          const p1 = pathPoints[i], p2 = pathPoints[i+1];
           const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
           if (len === 0) continue;
           const dot = (((position.x - p1.x) * (p2.x - p1.x)) + ((position.y - p1.y) * (p2.y - p1.y))) / (len * len);
-          const closestX = p1.x + (dot * (p2.x - p1.x));
-          const closestY = p1.y + (dot * (p2.y - p1.y));
-          
-          if (dot >= 0 && dot <= 1) { // Is the projection on the segment?
+          if (dot >= 0 && dot <= 1) {
+            const closestX = p1.x + (dot * (p2.x - p1.x)); const closestY = p1.y + (dot * (p2.y - p1.y));
             const dist = Math.hypot(position.x - closestX, position.y - closestY);
-            if (dist < minDistance) {
-                minDistance = dist;
-                closestSegmentIndex = i;
-            }
+            if (dist < minDistance) { minDistance = dist; closestSegmentIndex = i; }
           }
       }
-
-      // Insert the new point into the controlPoints array at the correct position
       edge.controlPoints.splice(closestSegmentIndex, 0, position);
   }
 
-  // --- Settings & Graph Management (no changes) ---
   openSettings() {
     const gateway = this.graphData.meta.gateways?.[0] || '';
     document.getElementById('ipfsGatewayInput').value = gateway;
@@ -215,10 +183,7 @@ export default class EditorTools {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'music-graph.jsonld';
-    a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'music-graph.jsonld'; a.click();
     URL.revokeObjectURL(url);
   }
   resetGraph() {

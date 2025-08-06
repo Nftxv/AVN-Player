@@ -23,7 +23,8 @@ class GraphApp {
   async init() {
     try {
       await this.graphData.load('data/default.jsonld');
-      this.renderer.setData(this.graphData.nodes, this.graphData.edges, this.graphData.meta);
+      // **FIX: Pass the entire graphData object to the renderer**
+      this.renderer.setData(this.graphData);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
       this.toggleEditorMode(false);
@@ -34,6 +35,8 @@ class GraphApp {
     }
   }
 
+  // The rest of the file remains unchanged
+  // ...
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
