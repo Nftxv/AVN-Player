@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.9 - Renderer Module with Mode-Aware Interaction
+ * AVN Player v2.10 - Renderer Module with Group Drag Fixes
  * by Nftxv
  */
 export default class Renderer {
@@ -286,7 +286,18 @@ export default class Renderer {
       if (snapY) this.snapLines.push({ type: 'h', pos: snappedPos.y });
       return snappedPos;
   }
-  _drawSnapGuides() { /* Unchanged */ }
+  
+  _drawSnapGuides() {
+      const ctx = this.ctx; ctx.save(); ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)'; ctx.lineWidth = 1 / this.scale;
+      ctx.setLineDash([5 / this.scale, 5 / this.scale]);
+      this.snapLines.forEach(line => {
+          ctx.beginPath();
+          if (line.type === 'v') { ctx.moveTo(line.pos, -this.offset.y / this.scale); ctx.lineTo(line.pos, (this.canvas.height - this.offset.y) / this.scale); }
+          else { ctx.moveTo(-this.offset.x / this.scale, line.pos); ctx.lineTo((this.canvas.width - this.offset.x) / this.scale, line.pos); }
+          ctx.stroke();
+      });
+      ctx.restore();
+  }
   
   setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
@@ -351,14 +362,25 @@ export default class Renderer {
         if (this.dragging) { // Panning
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
-        } else if (this.isDraggingSelection) { // Dragging selection
+        } else if (this.isDraggingSelection) { // **FIXED**: Dragging a group of selected entities
             const primaryNode = this.draggingNode;
-            let centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + 80, y: this.mousePos.y - this.dragNodeOffset.y + 45 };
-            let snappedCenter = this._getSnappedPosition(centerPos, primaryNode);
-            const snappedX = snappedCenter.x - 80; const snappedY = snappedCenter.y - 45;
-            const dx = snappedX - primaryNode.x; const dy = snappedY - primaryNode.y;
+            let primaryNodeCenter = { x: this.mousePos.x - this.dragNodeOffset.x + 80, y: this.mousePos.y - this.dragNodeOffset.y + 45 };
+            const snappedCenter = this._getSnappedPosition(primaryNodeCenter, primaryNode);
+            const snappedX = snappedCenter.x - 80;
+            const snappedY = snappedCenter.y - 45;
+            const dx = snappedX - primaryNode.x;
+            const dy = snappedY - primaryNode.y;
+
             getSelection().forEach(entity => {
-                if (entity.x !== undefined) { entity.x += dx; entity.y += dy; }
+                if (entity.x !== undefined) { // Is a Node
+                    entity.x += dx;
+                    entity.y += dy;
+                } else if (entity.controlPoints) { // Is an Edge
+                    entity.controlPoints.forEach(point => {
+                        point.x += dx;
+                        point.y += dy;
+                    });
+                }
             });
         } else if (this.draggingNode) { // Dragging single node
             let centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + 80, y: this.mousePos.y - this.dragNodeOffset.y + 45 };
@@ -399,9 +421,6 @@ export default class Renderer {
             this.snapLines = [];
         }
     });
-    
-
-
     
     this.canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
