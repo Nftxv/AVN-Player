@@ -1,21 +1,22 @@
 /**
- * AVN Player v2.9 - Editor Tools Module (Multi-Select & Drag)
+ * AVN Player v2.6 - Editor Tools Module
  * by Nftxv
  */
 export default class EditorTools {
   constructor(graphData, renderer) {
     this.graphData = graphData;
     this.renderer = renderer;
-    this.selectedEntities = new Set();
-    this.dragStartPositions = new Map(); // For group dragging
+    this.editingEntity = null;
+    this.selectedEntity = null;
   }
 
-  // --- Entity Creation ---
+  // ** FIX: createNode now uses the renderer's viewport to position the new node **
   createNode() {
     const center = this.renderer.getViewportCenter();
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
+      // Position the node so its center is at the viewport's center
       x: center.x - 80, // (160 / 2)
       y: center.y - 45, // (90 / 2)
       audioSources: [], coverSources: [], lyricsSource: null,
@@ -26,111 +27,64 @@ export default class EditorTools {
   
   createEdge(sourceNode, targetNode) {
     if (sourceNode.id === targetNode.id) return;
-    const newEdge = { source: sourceNode.id, target: targetNode.id, color: '#888888', lineWidth: 2, label: '', controlPoints: [] };
+    const newEdge = {
+      source: sourceNode.id,
+      target: targetNode.id,
+      color: '#888888',
+      lineWidth: 2,
+      label: '',
+      controlPoints: [],
+    };
     this.graphData.edges.push(newEdge);
   }
 
-  // --- Selection Logic ---
+  deleteEntity(entity) {
+    if (!entity || !confirm('Are you sure you want to delete this item?')) return;
+    
+    this.closeInspector();
 
-  updateSelection(items, ctrlKey, shiftKey) {
-    items = Array.isArray(items) ? items : [items].filter(Boolean);
-
-    // Shift key REMOVES items from selection
-    if (shiftKey) {
-        items.forEach(item => this.selectedEntities.delete(item));
-    } 
-    // Ctrl key ADDS items to selection (without removing others)
-    else if (ctrlKey) {
-        items.forEach(item => {
-            // This effectively makes Ctrl a toggle for single items or an add for many
-            if (this.selectedEntities.has(item) && items.length === 1) {
-                this.selectedEntities.delete(item);
-            } else {
-                this.selectedEntities.add(item);
-            }
-        });
-    } 
-    // No modifier: set selection to new items
-    else {
-        this.setSelection(items);
+    if (entity.source && entity.target) { // It's an edge
+      const index = this.graphData.edges.findIndex(
+        e => e === entity
+      );
+      if (index > -1) this.graphData.edges.splice(index, 1);
+    } else { // It's a node
+      const nodeId = entity.id;
+      // Use filter to create new arrays, ensuring no stale references
+      this.graphData.edges = this.graphData.edges.filter(
+        e => e.source !== nodeId && e.target !== nodeId
+      );
+      this.graphData.nodes = this.graphData.nodes.filter(
+        n => n.id !== nodeId
+      );
     }
-    
-    this._postSelectionUpdate();
+    this.selectEntity(null);
   }
   
-  setSelection(items) {
-      this.clearSelection(false); // Clear silently
-      items.forEach(item => this.selectedEntities.add(item));
-      this._postSelectionUpdate();
-  }
-
-  clearSelection(update = true) {
-      // De-select all graph entities first
-      this.graphData.nodes.forEach(e => e.selected = false);
-      this.graphData.edges.forEach(e => e.selected = false);
-      this.selectedEntities.clear();
-      if (update) this._postSelectionUpdate();
-  }
-  
-  _postSelectionUpdate() {
-      // Mark all entities in the current set as selected
-      this.selectedEntities.forEach(e => e.selected = true);
-      
-      const selectionSize = this.selectedEntities.size;
-      document.getElementById('deleteSelectionBtn').disabled = selectionSize === 0;
-
-      if (selectionSize === 1) {
-          this.openInspectorFor(this.selectedEntities.values().next().value);
-      } else {
-          this.closeInspector();
-          if (selectionSize > 1) {
-              const panel = document.getElementById('inspectorPanel');
-              const title = panel.querySelector('h4');
-              const content = document.getElementById('inspectorContent');
-              title.textContent = "Multiple Selection";
-              content.innerHTML = `<p>${selectionSize} items selected.</p><small>Drag to move the group.</small>`;
-              panel.classList.remove('hidden');
-          }
+  // The rest of the file is unchanged
+  // ...
+  selectEntity(entity) {
+    if (this.selectedEntity === entity) {
+      if (entity && this.editingEntity !== entity) {
+        this.openInspector(entity);
       }
-  }
-
-  deleteSelection() {
-    if (this.selectedEntities.size === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.size} item(s)?`)) return;
-    const toDelete = new Set(this.selectedEntities);
-    const nodesToDelete = new Set();
-    const edgesToDelete = new Set();
-    toDelete.forEach(item => {
-      if (item.source) edgesToDelete.add(item);
-      else nodesToDelete.add(item.id);
-    });
-    this.graphData.edges = this.graphData.edges.filter(edge => !edgesToDelete.has(edge) && !nodesToDelete.has(edge.source) && !nodesToDelete.has(edge.target));
-    this.graphData.nodes = this.graphData.nodes.filter(node => !nodesToDelete.has(node.id));
-    this.clearSelection();
-  }
-
-  // --- Dragging Logic ---
-  
-  startDragging() {
-    this.dragStartPositions.clear();
-    this.selectedEntities.forEach(entity => {
-      if (!entity.source) { // Only nodes can be dragged
-        this.dragStartPositions.set(entity, { x: entity.x, y: entity.y });
-      }
-    });
-  }
-
-  dragSelection(dx, dy) {
-    this.dragStartPositions.forEach((startPos, entity) => {
-      entity.x = startPos.x + dx;
-      entity.y = startPos.y + dy;
-    });
-  }
-
-  // --- Inspector & Other Methods ---
-
-  openInspectorFor(entity) {
-    if (!entity) { this.closeInspector(); return; }
+      return;
+    }
+    if (this.selectedEntity) this.selectedEntity.selected = false;
+    this.selectedEntity = entity;
+    if (this.selectedEntity) this.selectedEntity.selected = true;
     
+    document.getElementById('deleteSelectionBtn').disabled = !entity;
+    
+    if (entity) {
+      this.openInspector(entity);
+    } else {
+      this.closeInspector();
+    }
+  }
+
+  openInspector(entity) {
+    this.editingEntity = entity;
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
     const title = panel.querySelector('h4');
@@ -145,7 +99,8 @@ export default class EditorTools {
         <label for="edgeWidth">Line Width:</label>
         <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
         <label>Control Points: ${(entity.controlPoints || []).length}</label>
-        <small>Double-click edge to add a point. Right-click a point to delete.</small>`;
+        <small>Double-click edge to add a point. Right-click a point to delete.</small>
+      `;
     } else {
       title.textContent = 'Node Properties';
       content.innerHTML = `
@@ -156,14 +111,15 @@ export default class EditorTools {
         <label for="coverSource">Cover (URL or IPFS):</label>
         <input type="text" id="coverSource" value="${entity.coverSources?.[0]?.value || ''}">
         <label for="lyricsSource">Lyrics (URL or IPFS):</label>
-        <input type="text" id="lyricsSource" value="${entity.lyricsSource?.value || ''}">`;
+        <input type="text" id="lyricsSource" value="${entity.lyricsSource?.value || ''}">
+      `;
     }
     panel.classList.remove('hidden');
   }
 
   saveInspectorChanges() {
-    if (this.selectedEntities.size !== 1) return;
-    const entity = this.selectedEntities.values().next().value;
+    if (!this.editingEntity) return;
+    const entity = this.editingEntity;
     if (entity.source && entity.target) {
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
@@ -181,9 +137,14 @@ export default class EditorTools {
         this.renderer.loadAndRenderAll();
     }
   }
-  
-  closeInspector() { document.getElementById('inspectorPanel').classList.add('hidden'); }
 
+  closeInspector() {
+    document.getElementById('inspectorPanel').classList.add('hidden');
+    this.editingEntity = null;
+    if (this.selectedEntity) { this.selectedEntity.selected = false; this.selectedEntity = null; }
+    if (document.getElementById('deleteSelectionBtn')) document.getElementById('deleteSelectionBtn').disabled = true;
+  }
+  
   addControlPointAt(edge, position) {
       if (!edge || !position) return;
       if (!edge.controlPoints) edge.controlPoints = [];

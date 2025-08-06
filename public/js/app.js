@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.9 - Main Application
+ * AVN Player v2.3 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -23,10 +23,11 @@ class GraphApp {
   async init() {
     try {
       await this.graphData.load('data/default.jsonld');
+      // **FIX: Pass the entire graphData object to the renderer**
       this.renderer.setData(this.graphData);
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
-      this.toggleEditorMode(false); // Start in player mode
+      this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -34,23 +35,26 @@ class GraphApp {
     }
   }
 
+  // The rest of the file remains unchanged
+  // ...
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
-    this.renderer.setEditorMode(isEditor);
     this.player.stop();
     this.navigation.reset();
-    this.editorTools.clearSelection();
+    if (!isEditor) {
+      this.editorTools.selectEntity(null);
+      this.editorTools.closeInspector();
+    }
   }
 
   setupEventListeners() {
     this.renderer.setupCanvasInteraction(
-        (event) => this.handleCanvasClick(event),
-        (event) => this.handleCanvasDblClick(event),
-        (source, target) => { if (this.isEditorMode) this.editorTools.createEdge(source, target); },
-        (items, event) => { if (this.isEditorMode) this.editorTools.updateSelection(items, event.ctrlKey, event.shiftKey); },
-        () => { if (this.isEditorMode) this.editorTools.startDragging(); }, // onDragStart
-        (dx, dy) => { if (this.isEditorMode) this.editorTools.dragSelection(dx, dy); } // onDrag
+        (e) => this.handleCanvasClick(e),
+        (e) => this.handleCanvasDblClick(e),
+        (source, target) => {
+            if (this.isEditorMode) this.editorTools.createEdge(source, target);
+        }
     );
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -58,10 +62,10 @@ class GraphApp {
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
-        this.editorTools.setSelection([newNode]);
+        this.editorTools.selectEntity(newNode);
     });
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
-        this.editorTools.deleteSelection();
+        this.editorTools.deleteEntity(this.editorTools.selectedEntity);
     });
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
@@ -79,10 +83,17 @@ class GraphApp {
     
     if (this.isEditorMode) {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
-      const clickedEdge = !clickedNode ? this.renderer.getEdgeAt(coords.x, coords.y) : null;
-      const clickedEntity = clickedNode || clickedEdge;
-      this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], event.ctrlKey, event.shiftKey);
-    } else { // Player mode
+      if (clickedNode) {
+        this.editorTools.selectEntity(clickedNode);
+        return;
+      }
+      const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
+      if (clickedEdge) {
+        this.editorTools.selectEntity(clickedEdge);
+        return;
+      }
+      this.editorTools.selectEntity(null);
+    } else {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.navigation.startFromNode(clickedNode.id);
@@ -97,7 +108,7 @@ class GraphApp {
     const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
     
     if (clickedNode) {
-        this.editorTools.openInspectorFor(clickedNode);
+        this.editorTools.openInspector(clickedNode);
     } else {
         const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
         if (clickedEdge) {
