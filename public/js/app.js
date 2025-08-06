@@ -17,7 +17,7 @@ class GraphApp {
     this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
-    this.renderer.setPlayer(this.player); // Give renderer access to player
+    this.renderer.setPlayer(this.player);
     this.isEditorMode = false;
   }
 
@@ -126,8 +126,8 @@ class GraphApp {
   }
 }
 
-// Wait for the YouTube API to be ready
-window.onYouTubeIframeAPIReady = () => {
+// Start the application only after the YouTube API is ready.
+window.addEventListener('youtubeApiReady', () => {
   const app = new GraphApp();
   app.init();
-};
+});
