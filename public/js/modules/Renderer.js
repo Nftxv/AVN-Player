@@ -1,16 +1,19 @@
 /**
- * AVN Player v1.5.03 - Renderer Module with Anchor Fixes
+ * AVN Player - Renderer Module with IFrame Synchronization
  * by Nftxv
  */
 const NODE_WIDTH = 200;
 const NODE_HEIGHT_COLLAPSED = 45;
 const NODE_HEIGHT_EXPANDED = 225;
+const NODE_CONTENT_HEIGHT = 150; // Height of cover/iframe area
+const NODE_PADDING = 10;
 const TOGGLE_ICON_SIZE = 16;
 
 export default class Renderer {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
+    this.iframeContainer = document.getElementById('iframe-container');
     
     this.graphData = null; 
     this.images = {};
@@ -29,7 +32,6 @@ export default class Renderer {
     this.snapThreshold = 10;
     this.snapLines = [];
     this.isMarqueeSelecting = false;
-    this.marqueeRect = { x: 0, y: 0, w: 0, h: 0 };
     this.isDraggingSelection = false;
 
     this.resizeCanvas();
@@ -47,9 +49,10 @@ export default class Renderer {
   }
 
   async loadImages() {
-    const promises = this.graphData.nodes.flatMap(node =>
-      (node.coverSources || []).map(async source => {
-        const url = this.getSourceUrl(source);
+    const promises = this.graphData.nodes
+      .filter(node => node.sourceType === 'audio' && node.coverUrl)
+      .map(async node => {
+        const url = node.coverUrl;
         if (url && !this.images[url]) {
           try {
             const img = new Image();
@@ -60,17 +63,98 @@ export default class Renderer {
             console.warn(`Failed to load cover image: ${url}`, e);
           }
         }
-      })
-    );
+      });
     await Promise.all(promises);
   }
 
-  getSourceUrl(source) {
-    if (!source) return null;
-    const gateway = this.graphData.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-    return source.type === 'ipfs' ? `${gateway}${source.value}` : source.value;
+  renderLoop() {
+    if (!this.graphData) return;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.save();
+    this.ctx.translate(this.offset.x, this.offset.y);
+    this.ctx.scale(this.scale, this.scale);
+    
+    this.graphData.edges.forEach(edge => this.drawEdge(edge));
+    this.graphData.nodes.forEach(node => this.drawNode(node));
+    if (this.isCreatingEdge) this.drawTemporaryEdge();
+    if (this.isMarqueeSelecting) this.drawMarquee();
+    
+    this._drawSnapGuides();
+    this.ctx.restore();
+    
+    this.updateIframes();
+    
+    requestAnimationFrame(this.renderLoop);
+  }
+
+  updateIframes() {
+    const visibleNodeIds = new Set();
+    
+    this.graphData.nodes.forEach(node => {
+        if (node.sourceType !== 'iframe' || node.isCollapsed || !this._isNodeInView(node)) {
+            return;
+        }
+
+        visibleNodeIds.add(node.id);
+        const iframeId = `iframe-${node.id}`;
+        let wrapper = document.getElementById(iframeId);
+
+        if (!wrapper) {
+            wrapper = this._createIframeWrapper(node);
+            this.iframeContainer.appendChild(wrapper);
+        }
+
+        const nodeRect = this._getNodeVisualRect(node);
+        const screenX = (nodeRect.x + NODE_PADDING) * this.scale + this.offset.x;
+        const screenY = (nodeRect.y + NODE_PADDING) * this.scale + this.offset.y;
+        const screenWidth = (NODE_WIDTH - NODE_PADDING * 2) * this.scale;
+        const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+
+        wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+        wrapper.style.width = `${screenWidth}px`;
+        wrapper.style.height = `${screenHeight}px`;
+    });
+
+    const existingIframes = this.iframeContainer.querySelectorAll('.iframe-wrapper');
+    existingIframes.forEach(wrapper => {
+        const nodeId = wrapper.id.replace('iframe-', '');
+        const node = this.graphData.getNodeById(nodeId);
+        if (!node || !visibleNodeIds.has(nodeId)) {
+            wrapper.remove();
+        }
+    });
+  }
+
+  _createIframeWrapper(node) {
+      const wrapper = document.createElement('div');
+      wrapper.id = `iframe-${node.id}`;
+      wrapper.className = 'iframe-wrapper';
+
+      const iframe = document.createElement('iframe');
+      iframe.src = node.iframeUrl;
+      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+      iframe.allowFullscreen = true;
+      
+      const dragOverlay = document.createElement('div');
+      dragOverlay.className = 'drag-overlay';
+
+      wrapper.appendChild(iframe);
+      wrapper.appendChild(dragOverlay);
+      return wrapper;
   }
   
+  _isNodeInView(node) {
+      const rect = this._getNodeVisualRect(node);
+      const screenRect = {
+        x: rect.x * this.scale + this.offset.x,
+        y: rect.y * this.scale + this.offset.y,
+        width: rect.width * this.scale,
+        height: rect.height * this.scale
+      };
+      return screenRect.x < this.canvas.width && screenRect.x + screenRect.width > 0 &&
+             screenRect.y < this.canvas.height && screenRect.y + screenRect.height > 0;
+  }
+
   getViewportCenter() {
       const worldX = (this.canvas.width / 2 - this.offset.x) / this.scale;
       const worldY = (this.canvas.height / 2 - this.offset.y) / this.scale;
@@ -78,22 +162,8 @@ export default class Renderer {
   }
 
   _getNodeVisualRect(node) {
-      if (node.isCollapsed) {
-          return {
-              x: node.x,
-              y: node.y,
-              width: NODE_WIDTH,
-              height: NODE_HEIGHT_COLLAPSED
-          };
-      } else {
-          const y = node.y - (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2;
-          return {
-              x: node.x,
-              y: y,
-              width: NODE_WIDTH,
-              height: NODE_HEIGHT_EXPANDED
-          };
-      }
+      const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
+      return { x: node.x, y: node.y, width: NODE_WIDTH, height: height };
   }
   
   getClickableEntityAt(x, y) {
@@ -178,7 +248,7 @@ export default class Renderer {
         const trg = this.graphData.nodes.find(n => n.id === edge.target);
         if (!src || !trg) continue;
         
-        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
+        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
 
         const controlPoints = edge.controlPoints || [];
         const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
@@ -199,23 +269,6 @@ export default class Renderer {
     return null;
   }
 
-  renderLoop() {
-    if (!this.graphData) return;
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.save();
-    this.ctx.translate(this.offset.x, this.offset.y);
-    this.ctx.scale(this.scale, this.scale);
-    
-    this.graphData.edges.forEach(edge => this.drawEdge(edge));
-    this.graphData.nodes.forEach(node => this.drawNode(node));
-    if (this.isCreatingEdge) this.drawTemporaryEdge();
-    if (this.isMarqueeSelecting) this.drawMarquee();
-    
-    this._drawSnapGuides();
-    this.ctx.restore();
-    requestAnimationFrame(this.renderLoop);
-  }
-
   drawEdge(edge) {
       const src = this.graphData.nodes.find(n => n.id === edge.source);
       const trg = this.graphData.nodes.find(n => n.id === edge.target);
@@ -229,7 +282,7 @@ export default class Renderer {
       const arrowSize = 6 + edgeLineWidth * 2.5;
       const controlPoints = edge.controlPoints || [];
       
-      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
+      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
       
       const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
       const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
@@ -266,12 +319,8 @@ export default class Renderer {
   }
   
   _fitText(text, maxWidth) {
-      if (this.ctx.measureText(text).width <= maxWidth) {
-          return text;
-      }
-      while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) {
-          text = text.slice(0, -1);
-      }
+      if(this.ctx.measureText(text).width <= maxWidth) return text;
+      while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) text = text.slice(0, -1);
       return text + '...';
   }
 
@@ -281,49 +330,53 @@ export default class Renderer {
     
     ctx.save();
     
-    // Node Body
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
     ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
     ctx.fill();
     
-    // Border
     if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
     else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
     else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
     ctx.stroke();
 
-    // Content Area
     if (!node.isCollapsed) {
-        const coverUrl = this.getSourceUrl(node.coverSources?.[0]);
-        const contentHeight = 150;
-        if (coverUrl && this.images[coverUrl]) {
-            ctx.drawImage(this.images[coverUrl], rect.x + 10, rect.y + 10, NODE_WIDTH - 20, contentHeight);
-        } else {
-            ctx.fillStyle = '#1e1e1e';
-            ctx.fillRect(rect.x + 10, rect.y + 10, NODE_WIDTH - 20, contentHeight);
+        const contentAreaX = rect.x + NODE_PADDING;
+        const contentAreaY = rect.y + NODE_PADDING;
+        const contentAreaWidth = NODE_WIDTH - NODE_PADDING * 2;
+
+        if (node.sourceType === 'audio') {
+            const coverUrl = node.coverUrl;
+            if (coverUrl && this.images[coverUrl]) {
+                ctx.drawImage(this.images[coverUrl], contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+            } else {
+                ctx.fillStyle = '#1e1e1e';
+                ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+            }
+        } else if (node.sourceType === 'iframe') {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+            ctx.font = '12px Segoe UI';
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            ctx.fillText('Loading Video...', rect.x + NODE_WIDTH / 2, rect.y + NODE_PADDING + NODE_CONTENT_HEIGHT / 2);
         }
     }
     
-    // Title
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px Segoe UI';
     ctx.textAlign = 'center';
-    const titleMaxWidth = NODE_WIDTH - 30;
-    const fittedTitle = this._fitText(node.title, titleMaxWidth);
+    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 30);
     
     const titleY = node.isCollapsed 
         ? rect.y + rect.height / 2
-        : rect.y + 175;
-    ctx.textBaseline = node.isCollapsed ? 'middle' : 'top';
+        : rect.y + NODE_HEIGHT_EXPANDED - 40;
+    ctx.textBaseline = 'middle';
     ctx.fillText(fittedTitle, rect.x + NODE_WIDTH / 2, titleY);
 
-    // Toggle Icon
     const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
     const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
-    ctx.strokeStyle = '#9e9e9e';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 2; ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
     ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
@@ -332,7 +385,6 @@ export default class Renderer {
       ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
     }
     ctx.stroke();
-
     ctx.restore();
   }
   
@@ -369,8 +421,9 @@ export default class Renderer {
   
   drawTemporaryEdge() {
     const ctx = this.ctx;
-    const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
-    const startY = this.edgeCreationSource.y + NODE_HEIGHT_COLLAPSED / 2;
+    const startNodeRect = this._getNodeVisualRect(this.edgeCreationSource);
+    const startX = this.edgeCreationSource.x + startNodeRect.width / 2;
+    const startY = this.edgeCreationSource.y + startNodeRect.height / 2;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
   }
@@ -444,44 +497,42 @@ export default class Renderer {
         const mousePos = this.getCanvasCoords(e);
         this.dragged = false;
 
-        if (!isEditor) {
-            if (e.button === 0) {
-                this.dragging = true;
-                this.dragStart.x = e.clientX - this.offset.x;
-                this.dragStart.y = e.clientY - this.offset.y;
-                this.canvas.style.cursor = 'grabbing';
-            }
-            return;
-        }
-        
-        if (e.button === 1) {
+        const handlePanStart = () => {
             this.dragging = true;
             this.dragStart.x = e.clientX - this.offset.x;
             this.dragStart.y = e.clientY - this.offset.y;
             this.canvas.style.cursor = 'grabbing';
+            document.body.classList.add('is-dragging');
+        };
+
+        if (!isEditor) {
+            if (e.button === 0) handlePanStart();
+            return;
+        }
+        
+        if (e.button === 1) { // Middle mouse pan
+            handlePanStart();
             return;
         }
 
-        if (e.button === 0) {
+        if (e.button === 0) { // Left mouse
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
-            if (cp) { this.draggingControlPoint = cp; return; }
+            if (cp) { this.draggingControlPoint = cp; document.body.classList.add('is-dragging'); return; }
             
-            const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y);
-            if (clicked && clicked.type === 'node') {
-                const node = clicked.entity;
-                if (node.selected) this.isDraggingSelection = true;
-                this.draggingNode = node;
-                this.dragNodeOffset.x = mousePos.x - node.x;
-                this.dragNodeOffset.y = mousePos.y - node.y;
+            const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+            if (clickedNode) {
+                if (clickedNode.selected) this.isDraggingSelection = true;
+                this.draggingNode = clickedNode;
+                this.dragNodeOffset.x = mousePos.x - clickedNode.x;
+                this.dragNodeOffset.y = mousePos.y - clickedNode.y;
+                document.body.classList.add('is-dragging');
                 return;
             }
-
-            if (!clicked) {
-                this.isMarqueeSelecting = true;
-                this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
-            }
-
-        } else if (e.button === 2) {
+            
+            // If no entity clicked, start marquee selection
+            this.isMarqueeSelecting = true;
+            this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
+        } else if (e.button === 2) { // Right mouse
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
             else { const node = this.getNodeAt(mousePos.x, mousePos.y); if (node) { this.isCreatingEdge = true; this.edgeCreationSource = node; } }
@@ -493,6 +544,7 @@ export default class Renderer {
         if (e.buttons === 0) {
              this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
              this.canvas.style.cursor = 'grab'; this.snapLines = [];
+             document.body.classList.remove('is-dragging');
              return;
         }
         this.dragged = true;
@@ -502,29 +554,21 @@ export default class Renderer {
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.isDraggingSelection) {
             const primaryNode = this.draggingNode;
-            const primaryNodeCenter = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + NODE_HEIGHT_COLLAPSED / 2 };
+            const primaryNodeCenter = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + this._getNodeVisualRect(primaryNode).height / 2 };
             const snappedCenter = this._getSnappedPosition(primaryNodeCenter, primaryNode);
-            const snappedX = snappedCenter.x - NODE_WIDTH / 2;
-            const snappedY = snappedCenter.y - NODE_HEIGHT_COLLAPSED / 2;
-            const dx = snappedX - primaryNode.x;
-            const dy = snappedY - primaryNode.y;
+            const dx = (snappedCenter.x - NODE_WIDTH / 2) - primaryNode.x;
+            const dy = (snappedCenter.y - this._getNodeVisualRect(primaryNode).height / 2) - primaryNode.y;
 
             getSelection().forEach(entity => {
-                if (entity.x !== undefined) {
-                    entity.x += dx;
-                    entity.y += dy;
-                } else if (entity.controlPoints) {
-                    entity.controlPoints.forEach(point => {
-                        point.x += dx;
-                        point.y += dy;
-                    });
-                }
+                if (entity.x !== undefined) { entity.x += dx; entity.y += dy; }
+                else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
             });
         } else if (this.draggingNode) {
-            const centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + NODE_HEIGHT_COLLAPSED / 2 };
+            const nodeRect = this._getNodeVisualRect(this.draggingNode);
+            const centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + nodeRect.width / 2, y: this.mousePos.y - this.dragNodeOffset.y + nodeRect.height / 2 };
             const snappedCenter = this._getSnappedPosition(centerPos, this.draggingNode);
-            this.draggingNode.x = snappedCenter.x - NODE_WIDTH / 2;
-            this.draggingNode.y = snappedCenter.y - NODE_HEIGHT_COLLAPSED / 2;
+            this.draggingNode.x = snappedCenter.x - nodeRect.width / 2;
+            this.draggingNode.y = snappedCenter.y - nodeRect.height / 2;
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);
@@ -550,6 +594,7 @@ export default class Renderer {
         }
         this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab'; this.snapLines = [];
+        document.body.classList.remove('is-dragging');
         setTimeout(() => { this.dragged = false; }, 0);
     });
 
@@ -558,6 +603,7 @@ export default class Renderer {
             this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
             this.canvas.style.cursor = 'grab';
             this.snapLines = [];
+            document.body.classList.remove('is-dragging');
         }
     });
     
@@ -567,8 +613,11 @@ export default class Renderer {
         const wheel = e.deltaY < 0 ? 1 : -1;
         const zoom = Math.exp(wheel * zoomIntensity);
         const rect = this.canvas.getBoundingClientRect();
-        this.offset.x -= (e.clientX - rect.left - this.offset.x) * (zoom - 1);
-        this.offset.y -= (e.clientY - rect.top - this.offset.y) * (zoom - 1);
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
+        this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
         this.scale *= zoom;
         this.scale = Math.max(0.1, Math.min(5, this.scale));
     });

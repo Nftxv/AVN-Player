@@ -12,20 +12,19 @@ export default class Navigation {
   reset() {
     this.currentNode = null;
     this.history = [];
-    // Clear all highlights
     this.graphData.nodes.forEach(n => n.highlighted = false);
     this.graphData.edges.forEach(e => e.highlighted = false);
   }
 
   startFromNode(nodeId) {
-    if(this.currentNode?.id === nodeId) return; // Don't restart if clicking the same node
+    if(this.currentNode?.id === nodeId) return;
     
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
     
     const prevNodeId = this.currentNode?.id;
     this.currentNode = node;
-    this.history = [nodeId]; // Start new history path
+    this.history = [nodeId];
     
     this.renderer.highlight(nodeId, prevNodeId);
     this.player.play(node);
@@ -48,22 +47,21 @@ export default class Navigation {
       nextEdge = options[0];
     } else {
       nextEdge = await this.promptForChoice(options);
-      if (!nextEdge) return; // User canceled the choice
+      if (!nextEdge) return;
     }
     this.transitionToEdge(nextEdge);
   }
   
   goBack() {
-    if (this.history.length < 2) return; // Can't go back from the first node
+    if (this.history.length < 2) return;
     
-    this.history.pop(); // Remove current node
-    const prevNodeId = this.history[this.history.length - 1]; // Get the new last node
+    this.history.pop();
+    const prevNodeId = this.history[this.history.length - 1];
     const prevNode = this.graphData.getNodeById(prevNodeId);
 
     if (prevNode) {
         const oldNodeId = this.currentNode.id;
         this.currentNode = prevNode;
-        // Find the edge that led to the old node to highlight it
         const edge = this.graphData.getEdgesFromNode(prevNodeId).find(e => e.target === oldNodeId);
         this.renderer.highlight(prevNodeId, oldNodeId, edge);
         this.player.play(prevNode);
@@ -85,7 +83,7 @@ export default class Navigation {
       const modal = document.getElementById('choiceModal');
       const optionsContainer = document.getElementById('choiceOptions');
       const closeModalBtn = document.getElementById('closeModalBtn');
-      optionsContainer.innerHTML = ''; // Clear previous options
+      optionsContainer.innerHTML = '';
 
       const onChoose = (edge) => {
         cleanup();
@@ -94,13 +92,12 @@ export default class Navigation {
       
       const closeHandler = () => {
         cleanup();
-        resolve(null); // Resolve with null if closed/canceled
+        resolve(null);
       };
 
       const cleanup = () => {
           modal.classList.add('hidden');
           closeModalBtn.removeEventListener('click', closeHandler);
-          // Remove all created buttons and their listeners
           while (optionsContainer.firstChild) {
               optionsContainer.removeChild(optionsContainer.firstChild);
           }

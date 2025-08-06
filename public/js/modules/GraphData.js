@@ -24,7 +24,7 @@ export default class GraphData {
    * @param {object} data - The raw data object from the JSON file.
    */
   parseData(data) {
-    this.meta = data.meta || { gateways: ['https://cloudflare-ipfs.com/ipfs/'] };
+    this.meta = data.meta || {};
     const graph = data['@graph'] || [];
 
     this.nodes = graph
@@ -32,12 +32,14 @@ export default class GraphData {
       .map(node => ({
         id: node['@id'],
         title: node.name || 'Untitled',
-        audioSources: node.audioSources || [],
-        coverSources: node.coverSources || [],
-        lyricsSource: node.lyricsSource,
         x: node.position?.x || Math.random() * 800,
         y: node.position?.y || Math.random() * 600,
-        isCollapsed: node.isCollapsed === true, // Explicitly check for true
+        isCollapsed: node.isCollapsed === true,
+        sourceType: node.sourceType || 'audio', // 'audio' or 'iframe'
+        audioUrl: node.audioUrl || null,
+        coverUrl: node.coverUrl || null,
+        lyricsUrl: node.lyricsUrl || null,
+        iframeUrl: node.iframeUrl || null,
       }));
 
     this.edges = graph
@@ -63,10 +65,12 @@ export default class GraphData {
         '@type': 'MusicRecording',
         name: n.title,
         position: { x: n.x, y: n.y },
-        isCollapsed: n.isCollapsed, // Save collapsed state
-        audioSources: n.audioSources,
-        coverSources: n.coverSources,
-        lyricsSource: n.lyricsSource,
+        isCollapsed: n.isCollapsed,
+        sourceType: n.sourceType,
+        audioUrl: n.audioUrl,
+        coverUrl: n.coverUrl,
+        lyricsUrl: n.lyricsUrl,
+        iframeUrl: n.iframeUrl,
       })),
       ...this.edges.map(e => ({
         '@type': 'Path',
@@ -80,18 +84,9 @@ export default class GraphData {
     ];
     return {
       '@context': 'https://schema.org/',
-      meta: this.meta,
+      ...(Object.keys(this.meta).length > 0 && { meta: this.meta }),
       '@graph': graph,
     };
-  }
-
-  getSourceUrl(source) {
-    if (!source) return null;
-    if (source.type === 'ipfs') {
-      const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-      return `${gateway}${source.value}`;
-    }
-    return source.value;
   }
 
   getNodeById(id) {

@@ -2,8 +2,6 @@
   --player-height: 80px;
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
-  
-  /* Цвета для темной темы */
   --dark-bg: #1e1e1e;
   --dark-surface: #2d2d2d;
   --dark-text: #e0e0e0;
@@ -15,16 +13,66 @@ body {
   margin: 0;
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: var(--dark-bg); /* ИСПОЛЬЗУЕМ НОВЫЙ ФОН */
-  color: var(--dark-text); /* Ставим светлый текст по умолчанию */
+  background-color: var(--dark-bg);
+  color: var(--dark-text);
 }
 
 canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1; /* Canvas is the base layer */
   display: block;
   cursor: grab;
 }
 canvas:active {
   cursor: grabbing;
+}
+
+/* NEW: Iframe container sits on top of the canvas */
+#iframe-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2; /* Higher than canvas */
+  pointer-events: none; /* Click-through by default */
+  overflow: hidden;
+}
+
+/* NEW: Wrapper for each individual iframe */
+.iframe-wrapper {
+  position: absolute;
+  box-sizing: border-box;
+  background-color: #000;
+  border: 1px solid #444;
+  /* width, height, and transform are set by JS */
+}
+
+/* NEW: The actual iframe element */
+.iframe-wrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  pointer-events: auto; /* Iframes are clickable */
+}
+
+/* NEW: Drag overlay to intercept clicks on iframe while dragging */
+.iframe-wrapper .drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: none; /* Hidden by default */
+}
+
+/* NEW: When dragging, show the overlay */
+body.is-dragging .drag-overlay {
+  display: block;
+  pointer-events: auto; /* It catches the click */
 }
 
 button, .button-like {
@@ -50,7 +98,7 @@ button:hover, .button-like:hover {
   left: 0;
   right: 0;
   height: var(--player-height);
-  background: rgba(45, 45, 45, 0.9); /* Темный фон для плеера */
+  background: rgba(45, 45, 45, 0.9);
   border-top: 1px solid var(--dark-border);
   padding: 10px 20px;
   display: flex;
@@ -83,7 +131,7 @@ button:hover, .button-like:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--dark-text); /* Светлый текст */
+  color: var(--dark-text);
 }
 
 #playerControls {
@@ -101,14 +149,14 @@ button:hover, .button-like:hover {
   left: 10px;
   right: 10px;
   max-height: 40vh;
-  background: var(--dark-surface); /* Темный фон */
+  background: var(--dark-surface);
   border: 1px solid var(--dark-border);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   z-index: 300;
   overflow-y: auto;
   padding: 20px;
-  color: var(--dark-text); /* Светлый текст */
+  color: var(--dark-text);
 }
 #closeLyricsBtn { color: var(--dark-text); }
 #closeLyricsBtn:hover { color: #e74c3c; }
@@ -116,7 +164,6 @@ button:hover, .button-like:hover {
 
 .hidden { display: none !important; }
 
-/* Modal windows styling */
 .modal-content {
   background: var(--dark-surface);
   padding: 25px;
@@ -134,7 +181,6 @@ button:hover, .button-like:hover {
   background-color: #4f4f4f;
 }
 
-/* Mobile responsiveness */
 @media (max-width: 768px) {
   #player { height: auto; flex-direction: column; padding: 10px; gap: 10px; }
   #playerContent { width: 100%; }
@@ -152,12 +198,11 @@ button:hover, .button-like:hover {
 #copyright a { color: var(--primary-color); text-decoration: none; }
 #copyright a:hover { text-decoration: underline; }
 
-/* Editor UI & Toolbar */
 #topToolbar {
   position: fixed;
   top: 10px;
   left: 10px;
-  background: rgba(45, 45, 45, 0.9); /* Темный фон */
+  background: rgba(45, 45, 45, 0.9);
   border: 1px solid var(--dark-border);
   padding: 8px;
   border-radius: 8px;
@@ -171,7 +216,6 @@ button:hover, .button-like:hover {
 .editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
 .divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
-/* Switch Toggle */
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .4s; border-radius: 24px; }
@@ -179,7 +223,6 @@ button:hover, .button-like:hover {
 input:checked + .slider { background-color: var(--primary-color); }
 input:checked + .slider:before { transform: translateX(20px); }
 
-/* Properties Inspector Panel */
 #inspectorPanel {
   position: fixed; top: 60px; right: 10px; width: 300px;
   max-height: calc(100vh - 80px); background: var(--dark-surface);
@@ -197,18 +240,32 @@ input:checked + .slider:before { transform: translateX(20px); }
   border: 1px solid #555;
   color: var(--dark-text);
 }
+/* Inspector Toggle Switch */
+.toggle-switch {
+    display: flex;
+    border: 1px solid #555;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+.toggle-switch button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 8px;
+}
+.toggle-switch button.active {
+    background: var(--primary-color);
+    color: white;
+}
 
-/* Settings & Choice Modals */
 #settingsModal, #choiceModal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.6); z-index: 400; display: flex;
   justify-content: center; align-items: center; padding: 15px;
 }
-.modal-content {
-  background: var(--dark-surface); padding: 25px; border-radius: 8px;
-  border: 1px solid var(--dark-border);
-  width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.3);
-}
+
 .modal-content label { display: block; margin-bottom: 5px; }
 .modal-content input {
   width: 95%; padding: 8px; margin-bottom: 15px;
@@ -216,7 +273,6 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 
-/* Editor Mode Visibility Toggle LOGIC */
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
-body.editor-mode #player { opacity: 0.5; pointer-events: none; }
+body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }

@@ -1,9 +1,9 @@
 /**
- * AVN Player v1.5.01 - Editor Tools Module with Collapse/Expand
+ * AVN Player - Editor Tools Module
  * by Nftxv
  */
-const NODE_WIDTH = 160;
-const NODE_HEIGHT_EXPANDED = 180;
+const NODE_WIDTH = 200;
+const NODE_HEIGHT_EXPANDED = 225;
 
 export default class EditorTools {
   constructor(graphData, renderer) {
@@ -27,9 +27,10 @@ export default class EditorTools {
       id: `node-${Date.now()}`,
       title: 'New Node',
       x: center.x - NODE_WIDTH / 2,
-      y: center.y - NODE_HEIGHT_EXPANDED / 2,
-      isCollapsed: false, // Default to expanded
-      audioSources: [], coverSources: [], lyricsSource: null,
+      y: center.y - (NODE_HEIGHT_EXPANDED / 2),
+      isCollapsed: false,
+      sourceType: 'audio',
+      audioUrl: '', coverUrl: '', lyricsUrl: '', iframeUrl: '',
     };
     this.graphData.nodes.push(newNode);
     return newNode;
@@ -52,27 +53,16 @@ export default class EditorTools {
     if (this.selectedEntities.length === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.length} item(s)?`)) {
         return;
     }
-    
     this.closeInspector();
-
-    const nodesToDelete = new Set();
+    const nodesToDelete = new Set(this.selectedEntities.filter(e => e.id).map(n => n.id));
     const edgesToDelete = new Set(this.selectedEntities.filter(e => e.source));
-
-    this.selectedEntities.forEach(entity => {
-        if (!entity.source) { // It's a node
-            nodesToDelete.add(entity.id);
-        }
-    });
-
     this.graphData.edges.forEach(edge => {
         if (nodesToDelete.has(edge.source) || nodesToDelete.has(edge.target)) {
             edgesToDelete.add(edge);
         }
     });
-
     this.graphData.nodes = this.graphData.nodes.filter(n => !nodesToDelete.has(n.id));
     this.graphData.edges = this.graphData.edges.filter(e => !edgesToDelete.has(e));
-    
     this.updateSelection([], 'set');
   }
   
@@ -83,39 +73,30 @@ export default class EditorTools {
   updateSelection(entities, mode = 'set') {
       const entityToId = (e) => e.source ? `${e.source}->${e.target}` : e.id;
       const newSelection = new Map(entities.map(e => [entityToId(e), e]));
-
       let finalSelection;
-
       if (mode === 'set') {
           finalSelection = Array.from(newSelection.values());
       } else {
           const currentSelection = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
           if (mode === 'add') {
               newSelection.forEach((value, key) => {
-                if (currentSelection.has(key)) { // If ctrl-clicking an already selected item, deselect it
-                    currentSelection.delete(key);
-                } else {
-                    currentSelection.set(key, value);
-                }
+                if (currentSelection.has(key)) { currentSelection.delete(key); } 
+                else { currentSelection.set(key, value); }
               });
-          } else if (mode === 'remove') { // SHIFT
+          } else if (mode === 'remove') {
               newSelection.forEach((value, key) => currentSelection.delete(key));
           }
           finalSelection = Array.from(currentSelection.values());
       }
-      
       this.selectedEntities = finalSelection;
-
       const selectedIds = new Set(this.selectedEntities.map(e => entityToId(e)));
       this.graphData.nodes.forEach(n => n.selected = selectedIds.has(entityToId(n)));
       this.graphData.edges.forEach(e => e.selected = selectedIds.has(entityToId(e)));
-      
       this.updateUIState();
   }
   
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
-
       if (this.selectedEntities.length === 1) {
           this.openInspector(this.selectedEntities[0]);
       } else {
@@ -123,9 +104,7 @@ export default class EditorTools {
       }
   }
 
-  getSelection() {
-      return this.selectedEntities;
-  }
+  getSelection() { return this.selectedEntities; }
 
   openInspector(entity) {
     this.inspectedEntity = entity;
@@ -133,7 +112,7 @@ export default class EditorTools {
     const content = document.getElementById('inspectorContent');
     const title = panel.querySelector('h4');
 
-    if (entity.source && entity.target) {
+    if (entity.source) { // Is an Edge
       title.textContent = 'Edge Properties';
       content.innerHTML = `
         <label for="edgeLabel">Label:</label>
@@ -142,42 +121,100 @@ export default class EditorTools {
         <input type="color" id="edgeColor" value="${entity.color || '#888888'}">
         <label for="edgeWidth">Line Width:</label>
         <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
-        <label>Control Points: ${(entity.controlPoints || []).length}</label>
-        <small>Double-click edge to add a point. Right-click a point to delete.</small>
       `;
-    } else {
+    } else { // Is a Node
       title.textContent = 'Node Properties';
       content.innerHTML = `
         <label for="nodeTitle">Title:</label>
         <input type="text" id="nodeTitle" value="${entity.title || ''}">
-        <label for="audioSource">Audio (URL or IPFS):</label>
-        <input type="text" id="audioSource" value="${entity.audioSources?.[0]?.value || ''}">
-        <label for="coverSource">Cover (URL or IPFS):</label>
-        <input type="text" id="coverSource" value="${entity.coverSources?.[0]?.value || ''}">
-        <label for="lyricsSource">Lyrics (URL or IPFS):</label>
-        <input type="text" id="lyricsSource" value="${entity.lyricsSource?.value || ''}">
+        
+        <label>Source Type:</label>
+        <div class="toggle-switch">
+            <button id="type-audio" class="${entity.sourceType === 'audio' ? 'active' : ''}">Audio File</button>
+            <button id="type-iframe" class="${entity.sourceType === 'iframe' ? 'active' : ''}">YouTube</button>
+        </div>
+
+        <div id="audio-fields" class="inspector-group ${entity.sourceType === 'audio' ? '' : 'hidden'}">
+            <label for="audioUrl">Audio URL:</label>
+            <input type="text" id="audioUrl" value="${entity.audioUrl || ''}" placeholder="https://.../track.mp3">
+            <label for="coverUrl">Cover URL:</label>
+            <input type="text" id="coverUrl" value="${entity.coverUrl || ''}" placeholder="https://.../cover.jpg">
+            <label for="lyricsUrl">Lyrics URL:</label>
+            <input type="text" id="lyricsUrl" value="${entity.lyricsUrl || ''}" placeholder="https://.../lyrics.txt">
+        </div>
+
+        <div id="iframe-fields" class="inspector-group ${entity.sourceType === 'iframe' ? '' : 'hidden'}">
+            <label for="iframeUrl">YouTube URL or Video ID:</label>
+            <input type="text" id="iframeUrlInput" value="${entity.iframeUrl || ''}" placeholder="dQw4w9WgXcQ">
+        </div>
       `;
+      this._setupInspectorLogic(entity);
     }
     panel.classList.remove('hidden');
+  }
+
+  _setupInspectorLogic(node) {
+      const audioBtn = document.getElementById('type-audio');
+      const iframeBtn = document.getElementById('type-iframe');
+      const audioFields = document.getElementById('audio-fields');
+      const iframeFields = document.getElementById('iframe-fields');
+
+      const setSourceType = (type) => {
+          node.sourceType = type;
+          audioBtn.classList.toggle('active', type === 'audio');
+          iframeBtn.classList.toggle('active', type === 'iframe');
+          audioFields.classList.toggle('hidden', type !== 'audio');
+          iframeFields.classList.toggle('hidden', type !== 'iframe');
+      }
+
+      audioBtn.addEventListener('click', () => setSourceType('audio'));
+      iframeBtn.addEventListener('click', () => setSourceType('iframe'));
+  }
+  
+  _parseYoutubeUrl(input) {
+      if (!input || typeof input !== 'string') return '';
+      if (input.includes('youtube.com/embed/')) {
+        return input;
+      }
+      let videoId = '';
+      try {
+        const url = new URL(input);
+        if (url.hostname.includes('youtube.com')) {
+          videoId = url.searchParams.get('v');
+        } else if (url.hostname.includes('youtu.be')) {
+          videoId = url.pathname.slice(1);
+        }
+      } catch (e) {
+        videoId = input.trim();
+      }
+      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+      console.warn("Could not parse YouTube URL/ID:", input);
+      return input;
   }
 
   saveInspectorChanges() {
     if (!this.inspectedEntity) return;
     const entity = this.inspectedEntity;
-    if (entity.source && entity.target) {
+    if (entity.source) { // Is Edge
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
         entity.lineWidth = parseInt(document.getElementById('edgeWidth').value, 10);
-    } else {
+    } else { // Is Node
         entity.title = document.getElementById('nodeTitle').value;
-        const parseSource = (url) => {
-            if (!url || url.trim() === '') return null;
-            if (url.startsWith('Qm') || url.startsWith('bafy')) return { type: 'ipfs', value: url };
-            return { type: 'url', value: url };
-        };
-        entity.audioSources = [parseSource(document.getElementById('audioSource').value)].filter(Boolean);
-        entity.coverSources = [parseSource(document.getElementById('coverSource').value)].filter(Boolean);
-        entity.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
+        if (entity.sourceType === 'audio') {
+            entity.audioUrl = document.getElementById('audioUrl').value || null;
+            entity.coverUrl = document.getElementById('coverUrl').value || null;
+            entity.lyricsUrl = document.getElementById('lyricsUrl').value || null;
+            entity.iframeUrl = null;
+        } else if (entity.sourceType === 'iframe') {
+            const userInput = document.getElementById('iframeUrlInput').value;
+            entity.iframeUrl = this._parseYoutubeUrl(userInput) || null;
+            entity.audioUrl = null;
+            entity.coverUrl = null;
+            entity.lyricsUrl = null;
+        }
         this.renderer.loadAndRenderAll();
     }
   }
@@ -192,7 +229,7 @@ export default class EditorTools {
       if (!edge.controlPoints) edge.controlPoints = [];
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
-      const pathPoints = [ { x: startNode.x + 80, y: startNode.y + 45 }, ...edge.controlPoints, { x: endNode.x + 80, y: endNode.y + 45 } ];
+      const pathPoints = [ { x: startNode.x + NODE_WIDTH/2, y: startNode.y + 45/2 }, ...edge.controlPoints, { x: endNode.x + NODE_WIDTH/2, y: endNode.y + 45/2 } ];
       let closestSegmentIndex = 0; let minDistance = Infinity;
       for (let i = 0; i < pathPoints.length - 1; i++) {
           const p1 = pathPoints[i], p2 = pathPoints[i+1];
@@ -209,14 +246,12 @@ export default class EditorTools {
   }
 
   openSettings() {
-    const gateway = this.graphData.meta.gateways?.[0] || '';
-    document.getElementById('ipfsGatewayInput').value = gateway;
+    document.getElementById('ipfsGatewayInput').value = ''; // Deprecated
     document.getElementById('settingsModal').classList.remove('hidden');
   }
 
   saveSettings() {
-    const gateway = document.getElementById('ipfsGatewayInput').value;
-    this.graphData.meta.gateways = gateway ? [gateway] : [];
+    // Deprecated
     this.closeSettings();
   }
 
