@@ -179,4 +179,4 @@ export default class GraphData {
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }
-}
+} 
