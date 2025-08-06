@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.4 - Editor Tools Module
+ * AVN Player v2.5 - Editor Tools Module
  * by Nftxv
  */
 export default class EditorTools {
@@ -10,6 +10,8 @@ export default class EditorTools {
     this.selectedEntity = null;
   }
 
+  // --- Core Editor Functions (createNode, deleteEntity, selectEntity are mostly unchanged) ---
+
   createNode() {
     const newNode = {
       id: `node-${Date.now()}`,
@@ -18,23 +20,23 @@ export default class EditorTools {
       audioSources: [], coverSources: [], lyricsSource: null,
     };
     this.graphData.nodes.push(newNode);
-    this.renderer.loadAndRenderAll(); // Refresh images if needed
+    this.renderer.loadAndRenderAll();
     return newNode;
   }
-
+  
   createEdge(sourceNode, targetNode) {
     if (sourceNode.id === targetNode.id) return;
     const newEdge = {
       source: sourceNode.id,
       target: targetNode.id,
-      color: '#888888', // Default color is now grey
+      color: '#888888',
       lineWidth: 2,
       label: '',
       controlPoints: [],
     };
     this.graphData.edges.push(newEdge);
   }
-  
+
   deleteEntity(entity) {
     if (!entity || !confirm('Are you sure you want to delete this item?')) return;
     
@@ -57,13 +59,11 @@ export default class EditorTools {
 
   selectEntity(entity) {
     if (this.selectedEntity === entity) {
-      // If clicking the same entity, open inspector if it's not already open for it
       if (entity && this.editingEntity !== entity) {
         this.openInspector(entity);
       }
       return;
     }
-
     if (this.selectedEntity) this.selectedEntity.selected = false;
     this.selectedEntity = entity;
     if (this.selectedEntity) this.selectedEntity.selected = true;
@@ -76,6 +76,9 @@ export default class EditorTools {
       this.closeInspector();
     }
   }
+
+
+  // --- Inspector Panel Logic ---
 
   openInspector(entity) {
     this.editingEntity = entity;
@@ -95,13 +98,10 @@ export default class EditorTools {
         <label for="edgeWidth">Line Width:</label>
         <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
         
-        <label>Control Points: ${(entity.controlPoints || []).length} (Right-click a point to delete)</label>
-        <button id="addControlPointBtn">Add Control Point</button>
+        <label>Control Points: ${(entity.controlPoints || []).length}</label>
+        <small>Double-click edge to add a point. Right-click a point to delete.</small>
       `;
-      document.getElementById('addControlPointBtn').onclick = () => {
-          this.addControlPoint();
-          this.openInspector(this.editingEntity);
-      };
+      // REMOVED BUTTON AND ONCLICK HANDLER
     } else {
       title.textContent = 'Node Properties';
       content.innerHTML = `
@@ -132,29 +132,16 @@ export default class EditorTools {
         entity.lineWidth = parseInt(document.getElementById('edgeWidth').value, 10);
     } else {
         entity.title = document.getElementById('nodeTitle').value;
-
         const parseSource = (url) => {
             if (!url || url.trim() === '') return null;
-            if (url.startsWith('Qm') || url.startsWith('bafy')) {
-                return { type: 'ipfs', value: url };
-            }
+            if (url.startsWith('Qm') || url.startsWith('bafy')) return { type: 'ipfs', value: url };
             return { type: 'url', value: url };
         };
-
-        const audioSource = parseSource(document.getElementById('audioSource').value);
-        entity.audioSources = audioSource ? [audioSource] : [];
-        
-        const coverSource = parseSource(document.getElementById('coverSource').value);
-        entity.coverSources = coverSource ? [coverSource] : [];
-
+        entity.audioSources = [parseSource(document.getElementById('audioSource').value)].filter(Boolean);
+        entity.coverSources = [parseSource(document.getElementById('coverSource').value)].filter(Boolean);
         entity.lyricsSource = parseSource(document.getElementById('lyricsSource').value);
-        
-        // Reload image if source changed
         this.renderer.loadAndRenderAll();
     }
-
-    // Do not close inspector on save, allow for multiple edits.
-    // this.closeInspector(); 
   }
 
   closeInspector() {
@@ -169,55 +156,61 @@ export default class EditorTools {
     }
   }
   
-  addControlPoint() {
-      if (!this.editingEntity || !this.editingEntity.source) return;
+  // --- Edge Control Points ---
 
-      const edge = this.editingEntity;
+  addControlPointAt(edge, position) {
+      if (!edge || !position) return;
       if (!edge.controlPoints) edge.controlPoints = [];
 
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
 
-      const points = [
+      const pathPoints = [
           { x: startNode.x + 80, y: startNode.y + 45 },
           ...edge.controlPoints,
           { x: endNode.x + 80, y: endNode.y + 45 }
       ];
 
-      let maxDist = -1;
-      let splitIndex = 0;
-      for (let i = 0; i < points.length - 1; i++) {
-          const dist = Math.hypot(points[i+1].x - points[i].x, points[i+1].y - points[i].y);
-          if (dist > maxDist) {
-              maxDist = dist;
-              splitIndex = i;
+      // Find the closest segment to the clicked position
+      let closestSegmentIndex = 0;
+      let minDistance = Infinity;
+
+      for (let i = 0; i < pathPoints.length - 1; i++) {
+          const p1 = pathPoints[i];
+          const p2 = pathPoints[i+1];
+          const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          if (len === 0) continue;
+          const dot = (((position.x - p1.x) * (p2.x - p1.x)) + ((position.y - p1.y) * (p2.y - p1.y))) / (len * len);
+          const closestX = p1.x + (dot * (p2.x - p1.x));
+          const closestY = p1.y + (dot * (p2.y - p1.y));
+          
+          if (dot >= 0 && dot <= 1) { // Is the projection on the segment?
+            const dist = Math.hypot(position.x - closestX, position.y - closestY);
+            if (dist < minDistance) {
+                minDistance = dist;
+                closestSegmentIndex = i;
+            }
           }
       }
 
-      const newPoint = {
-          x: (points[splitIndex].x + points[splitIndex+1].x) / 2,
-          y: (points[splitIndex].y + points[splitIndex+1].y) / 2
-      };
-
-      edge.controlPoints.splice(splitIndex, 0, newPoint);
+      // Insert the new point into the controlPoints array at the correct position
+      edge.controlPoints.splice(closestSegmentIndex, 0, position);
   }
 
+  // --- Settings & Graph Management (no changes) ---
   openSettings() {
     const gateway = this.graphData.meta.gateways?.[0] || '';
     document.getElementById('ipfsGatewayInput').value = gateway;
     document.getElementById('settingsModal').classList.remove('hidden');
   }
-  
   saveSettings() {
     const gateway = document.getElementById('ipfsGatewayInput').value;
     this.graphData.meta.gateways = gateway ? [gateway] : [];
     this.closeSettings();
   }
-  
   closeSettings() {
     document.getElementById('settingsModal').classList.add('hidden');
   }
-
   exportGraph() {
     const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
@@ -228,7 +221,6 @@ export default class EditorTools {
     a.click();
     URL.revokeObjectURL(url);
   }
-
   resetGraph() {
     if (confirm('Are you sure you want to reset the graph to its default state? All local changes will be lost.')) {
       window.location.reload();
