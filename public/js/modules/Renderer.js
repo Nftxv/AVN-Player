@@ -292,7 +292,7 @@ export default class Renderer {
     ctx.restore();
   }
 
-    drawMarquee() {
+  drawMarquee() {
     const ctx = this.ctx;
     ctx.save();
     ctx.fillStyle = 'rgba(70, 130, 180, 0.2)';
@@ -623,10 +623,14 @@ export default class Renderer {
 
       const isPoint = !movingEntity.sourceType && !movingEntity.type;
       
-      const movingBounds = isPoint ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
-                                   : this._getDecorationBounds(movingEntity) || this._getNodeVisualRect(movingEntity);
-      movingBounds.x = pos.x;
-      movingBounds.y = pos.y;
+      const movingBounds = isPoint 
+          ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
+          : (this._getDecorationBounds(movingEntity) || this._getNodeVisualRect(movingEntity));
+      
+      if (!isPoint) {
+        movingBounds.x = pos.x;
+        movingBounds.y = pos.y;
+      }
       
       const threshold = this.snapThreshold / this.scale;
       let bestSnapX = { delta: Infinity };
@@ -635,30 +639,44 @@ export default class Renderer {
       const movingPointsX = [movingBounds.x, movingBounds.x + movingBounds.width / 2, movingBounds.x + movingBounds.width];
       const movingPointsY = [movingBounds.y, movingBounds.y + movingBounds.height / 2, movingBounds.y + movingBounds.height];
 
+      const snapTargets = [];
       this.graphData.nodes.forEach(n => {
-          if (n === movingEntity || n.selected) return;
+          if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
+          snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
+      });
+      // NEW: Add other control points as snap targets
+      this.graphData.edges.forEach(e => {
+        (e.controlPoints || []).forEach(p => {
+            if (p !== movingEntity) {
+                snapTargets.push({ type: 'point', bounds: { x: p.x, y: p.y, width: 0, height: 0 }});
+            }
+        });
+      });
 
-          const targetBounds = this._getNodeVisualRect(n);
+      for (const target of snapTargets) {
+          const targetBounds = target.bounds;
           const targetPointsX = [targetBounds.x, targetBounds.x + targetBounds.width / 2, targetBounds.x + targetBounds.width];
           const targetPointsY = [targetBounds.y, targetBounds.y + targetBounds.height / 2, targetBounds.y + targetBounds.height];
 
-          for (let i = 0; i < 3; i++) {
-              for (let j = 0; j < 3; j++) {
+          for (let i = 0; i < movingPointsX.length; i++) {
+              if (movingPointsX[i] === undefined) continue;
+              for (let j = 0; j < targetPointsX.length; j++) {
                   const delta = targetPointsX[j] - movingPointsX[i];
                   if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapX.delta)) {
                       bestSnapX = { delta, pos: targetPointsX[j] };
                   }
               }
           }
-          for (let i = 0; i < 3; i++) {
-              for (let j = 0; j < 3; j++) {
+          for (let i = 0; i < movingPointsY.length; i++) {
+              if (movingPointsY[i] === undefined) continue;
+              for (let j = 0; j < targetPointsY.length; j++) {
                   const delta = targetPointsY[j] - movingPointsY[i];
                   if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapY.delta)) {
                       bestSnapY = { delta, pos: targetPointsY[j] };
                   }
               }
           }
-      });
+      }
       
       if (Math.abs(bestSnapX.delta) < threshold) {
           snappedPos.x += bestSnapX.delta;
