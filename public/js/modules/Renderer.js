@@ -74,20 +74,34 @@ export default class Renderer {
     this.ctx.save();
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
-    
+
+    // Layer 1: Decorations
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
-    this.graphData.edges.forEach(edge => this.drawEdge(edge));
-    this.graphData.nodes.forEach(node => this.drawNode(node));
     
+    // Layer 2: Node bodies (shape + content)
+    this.graphData.nodes.forEach(node => {
+      this._drawNodeShape(node);
+      this._drawNodeContent(node);
+    });
+    
+    // Layer 3: Edges
+    this.graphData.edges.forEach(edge => this.drawEdge(edge));
+
+    // Layer 4: Node headers (text + icons)
+    this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
+
+    // Overlays for editor tools
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
-    
     this._drawSnapGuides();
+    
     this.ctx.restore();
     
     this.updateIframes();
     requestAnimationFrame(this.renderLoop);
   }
+
+  // --- START Drawing Methods ---
 
   drawDecoration(deco) {
     if (deco.type === 'rectangle') {
@@ -111,54 +125,6 @@ export default class Renderer {
         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
     }
     ctx.restore();
-  }
-
-  _getWrappedLines(textObj) {
-      const { ctx } = this;
-      const { textContent, fontSize, width } = textObj;
-      ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-
-      const paragraphs = textContent.split('\n');
-      const allLines = [];
-
-      for (const paragraph of paragraphs) {
-          if (!width || width <= 0) {
-              allLines.push(paragraph);
-          } else {
-              const words = paragraph.split(' ');
-              let currentLine = '';
-              for (const word of words) {
-                  const testLine = currentLine ? `${currentLine} ${word}` : word;
-                  if (ctx.measureText(testLine).width > width && currentLine) {
-                      allLines.push(currentLine);
-                      currentLine = word;
-                  } else {
-                      currentLine = testLine;
-                  }
-              }
-              allLines.push(currentLine);
-          }
-      }
-      return allLines;
-  }
-  
-  _getTextBounds(textObj, renderedLines) {
-      const { fontSize, width, lineHeight } = textObj;
-      let maxWidth = 0;
-      if (width > 0) {
-        maxWidth = width;
-      } else {
-        this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-        renderedLines.forEach(line => {
-            maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width);
-        });
-      }
-      
-      const totalHeight = (renderedLines.length > 0) 
-        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1))
-        : 0;
-
-      return { width: maxWidth, height: totalHeight };
   }
 
   drawText(text) {
@@ -198,6 +164,138 @@ export default class Renderer {
       ctx.restore();
   }
 
+  drawEdge(edge) {
+      const src = this.graphData.getNodeById(edge.source);
+      const trg = this.graphData.getNodeById(edge.target);
+      if (!src || !trg) return;
+
+      const controlPoints = edge.controlPoints || [];
+      
+      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trg.x + NODE_WIDTH / 2, y: trg.y + this._getNodeVisualRect(trg).height / 2 };
+      const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
+
+      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
+      const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
+
+      const pathPoints = [startPoint, ...controlPoints, endPoint];
+      
+      const ctx = this.ctx; ctx.save();
+      let color = edge.color || '#888888';
+      if (edge.selected) color = '#e74c3c';
+      if (edge.highlighted) color = '#FFD700';
+      const edgeLineWidth = edge.lineWidth || 2;
+      const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
+      const arrowSize = 6 + edgeLineWidth * 2.5;
+
+      ctx.beginPath();
+      ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+      for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+      ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
+      
+      const pForArrow = pathPoints.at(-1);
+      const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
+      const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
+      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
+
+      controlPoints.forEach(point => {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+          ctx.fillStyle = color;
+          ctx.fill();
+      });
+      if (edge.label) {
+        const midIndex = Math.floor((pathPoints.length - 2) / 2);
+        const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
+        ctx.font = '12px Segoe UI'; ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.save();
+        ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
+        const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        if (rotationAngle > Math.PI / 2 || rotationAngle < -Math.PI / 2) ctx.rotate(rotationAngle + Math.PI); else ctx.rotate(rotationAngle);
+        ctx.fillText(edge.label, 0, -8);
+        ctx.restore();
+      }
+      ctx.restore();
+  }
+
+  _drawNodeShape(node) {
+    const ctx = this.ctx;
+    const rect = this._getNodeVisualRect(node);
+    
+    ctx.save();
+    
+    ctx.fillStyle = '#2d2d2d';
+    ctx.beginPath();
+    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
+    ctx.fill();
+    
+    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
+    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
+    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  _drawNodeContent(node) {
+    if (node.isCollapsed) return;
+    const ctx = this.ctx;
+    const rect = this._getNodeVisualRect(node);
+
+    const contentAreaX = rect.x + NODE_PADDING;
+    const contentAreaY = rect.y + NODE_PADDING;
+    const contentAreaWidth = NODE_WIDTH - NODE_PADDING * 2;
+
+    if (node.sourceType === 'audio') {
+        const coverUrl = node.coverUrl;
+        if (coverUrl && this.images[coverUrl]) {
+            ctx.drawImage(this.images[coverUrl], contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+        } else {
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+        }
+    } else if (node.sourceType === 'iframe') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+        ctx.font = '12px Segoe UI';
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'center';
+        ctx.fillText('Loading Video...', rect.x + NODE_WIDTH / 2, rect.y + NODE_PADDING + NODE_CONTENT_HEIGHT / 2);
+    }
+  }
+
+  _drawNodeHeader(node) {
+    const ctx = this.ctx;
+    const rect = this._getNodeVisualRect(node);
+    ctx.save();
+
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = '14px Segoe UI';
+    ctx.textAlign = 'center';
+    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 30);
+    
+    const titleY = node.isCollapsed 
+        ? rect.y + rect.height / 2
+        : rect.y + NODE_HEIGHT_EXPANDED - 40;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(fittedTitle, rect.x + NODE_WIDTH / 2, titleY);
+
+    const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
+    const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
+    ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
+    ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
+    if (node.isCollapsed) {
+      ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 4);
+      ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // --- END Drawing Methods ---
+
+  // --- START Helper & Interaction Methods ---
+  
   updateIframes() {
     const visibleNodeIds = new Set();
     
@@ -252,6 +350,60 @@ export default class Renderer {
       wrapper.appendChild(iframe);
       wrapper.appendChild(dragOverlay);
       return wrapper;
+  }
+
+  _getWrappedLines(textObj) {
+      const { ctx } = this;
+      const { textContent, fontSize, width } = textObj;
+      ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+
+      const paragraphs = (textContent || "").split('\n');
+      const allLines = [];
+
+      for (const paragraph of paragraphs) {
+          if (!width || width <= 0) {
+              allLines.push(paragraph);
+          } else {
+              const words = paragraph.split(' ');
+              let currentLine = '';
+              for (const word of words) {
+                  const testLine = currentLine ? `${currentLine} ${word}` : word;
+                  if (ctx.measureText(testLine).width > width && currentLine) {
+                      allLines.push(currentLine);
+                      currentLine = word;
+                  } else {
+                      currentLine = testLine;
+                  }
+              }
+              allLines.push(currentLine);
+          }
+      }
+      return allLines;
+  }
+  
+  _getTextBounds(textObj, renderedLines) {
+      const { fontSize, width, lineHeight } = textObj;
+      let maxWidth = 0;
+      if (width > 0) {
+        maxWidth = width;
+      } else {
+        this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+        renderedLines.forEach(line => {
+            maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width);
+        });
+      }
+      
+      const totalHeight = (renderedLines.length > 0) 
+        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1))
+        : 0;
+
+      return { width: maxWidth, height: totalHeight };
+  }
+
+  _fitText(text, maxWidth) {
+      if(this.ctx.measureText(text).width <= maxWidth) return text;
+      while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) text = text.slice(0, -1);
+      return text + '...';
   }
   
   _isNodeInView(node) {
@@ -385,12 +537,13 @@ export default class Renderer {
         const trg = this.graphData.nodes.find(n => n.id === edge.target);
         if (!src || !trg) continue;
         
-        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
-
         const controlPoints = edge.controlPoints || [];
-        const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
-        const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
-        const pathPoints = [startPoint, ...controlPoints, intersection];
+        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trg.x + NODE_WIDTH / 2, y: trg.y + this._getNodeVisualRect(trg).height / 2 };
+        const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
+        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
+        const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
+        const pathPoints = [startPoint, ...controlPoints, endPoint];
+
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i], p2 = pathPoints[i + 1];
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -405,138 +558,7 @@ export default class Renderer {
     }
     return null;
   }
-
-  drawEdge(edge) {
-      const src = this.graphData.nodes.find(n => n.id === edge.source);
-      const trg = this.graphData.nodes.find(n => n.id === edge.target);
-      if (!src || !trg) return;
-      const ctx = this.ctx; ctx.save();
-      let color = edge.color || '#888888';
-      if (edge.selected) color = '#e74c3c';
-      if (edge.highlighted) color = '#FFD700';
-      const edgeLineWidth = edge.lineWidth || 2;
-      const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
-      const arrowSize = 6 + edgeLineWidth * 2.5;
-      const controlPoints = edge.controlPoints || [];
-      
-      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
-      
-      const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
-      const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
-      const pathPoints = [startPoint, ...controlPoints, intersection];
-      
-      ctx.beginPath();
-      ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
-      for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
-      ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
-      
-      const midPointForArrow = pathPoints[pathPoints.length-1];
-      const secondLastPoint = pathPoints.length > 1 ? pathPoints[pathPoints.length-2] : startPoint;
-      const angle = Math.atan2(midPointForArrow.y - secondLastPoint.y, midPointForArrow.x - secondLastPoint.x);
-      this._drawArrow(midPointForArrow.x, midPointForArrow.y, angle, color, arrowSize);
-
-      controlPoints.forEach(point => {
-          ctx.beginPath();
-          ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = color;
-          ctx.fill();
-      });
-      if (edge.label) {
-        const midIndex = Math.floor((pathPoints.length - 2) / 2);
-        const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = '12px Segoe UI'; ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.save();
-        ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
-        const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-        if (rotationAngle > Math.PI / 2 || rotationAngle < -Math.PI / 2) ctx.rotate(rotationAngle + Math.PI); else ctx.rotate(rotationAngle);
-        ctx.fillText(edge.label, 0, -8);
-        ctx.restore();
-      }
-      ctx.restore();
-  }
   
-  _fitText(text, maxWidth) {
-      if(this.ctx.measureText(text).width <= maxWidth) return text;
-      while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) text = text.slice(0, -1);
-      return text + '...';
-  }
-
-  drawNode(node) {
-    const ctx = this.ctx;
-    const rect = this._getNodeVisualRect(node);
-    
-    ctx.save();
-    
-    ctx.fillStyle = '#2d2d2d';
-    ctx.beginPath();
-    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
-    ctx.fill();
-    
-    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
-    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
-    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
-    ctx.stroke();
-
-    if (!node.isCollapsed) {
-        const contentAreaX = rect.x + NODE_PADDING;
-        const contentAreaY = rect.y + NODE_PADDING;
-        const contentAreaWidth = NODE_WIDTH - NODE_PADDING * 2;
-
-        if (node.sourceType === 'audio') {
-            const coverUrl = node.coverUrl;
-            if (coverUrl && this.images[coverUrl]) {
-                ctx.drawImage(this.images[coverUrl], contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
-            } else {
-                ctx.fillStyle = '#1e1e1e';
-                ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
-            }
-        } else if (node.sourceType === 'iframe') {
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
-            ctx.font = '12px Segoe UI';
-            ctx.fillStyle = '#666';
-            ctx.textAlign = 'center';
-            ctx.fillText('Loading Video...', rect.x + NODE_WIDTH / 2, rect.y + NODE_PADDING + NODE_CONTENT_HEIGHT / 2);
-        }
-    }
-    
-    ctx.fillStyle = '#e0e0e0';
-    ctx.font = '14px Segoe UI';
-    ctx.textAlign = 'center';
-    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 30);
-    
-    const titleY = node.isCollapsed 
-        ? rect.y + rect.height / 2
-        : rect.y + NODE_HEIGHT_EXPANDED - 40;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(fittedTitle, rect.x + NODE_WIDTH / 2, titleY);
-
-    const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
-    const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
-    ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
-    ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
-    if (node.isCollapsed) {
-      ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 4);
-      ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  
-  drawMarquee() {
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.fillStyle = 'rgba(70, 130, 180, 0.2)';
-    ctx.fillRect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.w, this.marqueeRect.h);
-    ctx.strokeStyle = 'rgba(70, 130, 180, 0.8)';
-    ctx.lineWidth = 1 / this.scale;
-    ctx.setLineDash([5 / this.scale, 3 / this.scale]);
-    ctx.strokeRect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.w, this.marqueeRect.h);
-    ctx.restore();
-  }
-
   _drawArrow(x, y, angle, color, size) {
       this.ctx.save(); this.ctx.translate(x, y); this.ctx.rotate(angle);
       this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(-size, -size * 0.4);
@@ -544,12 +566,7 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-      const rect = { 
-          x: node.x, 
-          y: node.y, 
-          width: NODE_WIDTH, 
-          height: NODE_HEIGHT_COLLAPSED 
-      };
+      const rect = this._getNodeVisualRect(node);
       const halfW = rect.width / 2, halfH = rect.height / 2;
       const cx = rect.x + halfW, cy = rect.y + halfH;
       const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
@@ -693,8 +710,9 @@ export default class Renderer {
                 const entity = clicked.entity;
                 if (entity.selected) this.isDraggingSelection = true;
                 this.draggingEntity = entity;
-                this.dragOffset.x = mousePos.x - (entity.type === 'rectangle' || entity.type === 'node' ? entity.x : this._getDecorationBounds(entity).x);
-                this.dragOffset.y = mousePos.y - (entity.type === 'rectangle' || entity.type === 'node' ? entity.y : this._getDecorationBounds(entity).y);
+                const bounds = this._getDecorationBounds(entity) || this._getNodeVisualRect(entity);
+                this.dragOffset.x = mousePos.x - bounds.x;
+                this.dragOffset.y = mousePos.y - bounds.y;
                 document.body.classList.add('is-dragging');
                 return;
             }
@@ -733,12 +751,13 @@ export default class Renderer {
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.isDraggingSelection) {
             const isLocked = getIsDecorationsLocked();
+            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
             const targetX = this.mousePos.x - this.dragOffset.x;
             const targetY = this.mousePos.y - this.dragOffset.y;
             
             const snappedPos = this._getSnappedPosition({ x: targetX, y: targetY }, this.draggingEntity);
-            const dx = snappedPos.x - (this.draggingEntity.type === 'rectangle' || this.draggingEntity.type === 'node' ? this.draggingEntity.x : this._getDecorationBounds(this.draggingEntity).x);
-            const dy = snappedPos.y - (this.draggingEntity.type === 'rectangle' || this.draggingEntity.type === 'node' ? this.draggingEntity.y : this._getDecorationBounds(this.draggingEntity).y);
+            const dx = snappedPos.x - originalBounds.x;
+            const dy = snappedPos.y - originalBounds.y;
 
             getSelection().forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
@@ -748,11 +767,17 @@ export default class Renderer {
             });
 
         } else if (this.draggingEntity) {
+            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
             const targetX = this.mousePos.x - this.dragOffset.x;
             const targetY = this.mousePos.y - this.dragOffset.y;
             const snappedPos = this._getSnappedPosition({x: targetX, y: targetY}, this.draggingEntity);
-            this.draggingEntity.x = snappedPos.x;
-            this.draggingEntity.y = snappedPos.y;
+            
+            const dx = snappedPos.x - originalBounds.x;
+            const dy = snappedPos.y - originalBounds.y;
+
+            this.draggingEntity.x += dx;
+            this.draggingEntity.y += dy;
+
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);
