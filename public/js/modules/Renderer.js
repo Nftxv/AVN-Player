@@ -228,11 +228,38 @@ export default class Renderer {
     ctx.restore();
   }
 
-  _drawArrow(x, y, angle, color, size) { /* Unchanged */ }
-  _getIntersectionWithNodeRect(node, externalPoint) { /* Unchanged */ }
-  drawTemporaryEdge() { /* Unchanged */ }
-  highlight(currentId, prevId = null, edge = null) { /* Unchanged */ }
-  getCanvasCoords({ clientX, clientY }) { /* Unchanged */ }
+  _drawArrow(x, y, angle, color, size) {
+      this.ctx.save(); this.ctx.translate(x, y); this.ctx.rotate(angle);
+      this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(-size, -size * 0.4);
+      this.ctx.lineTo(-size, size * 0.4); this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill(); this.ctx.restore();
+  }
+  _getIntersectionWithNodeRect(node, externalPoint) {
+      const w = 160, h = 90; const halfW = w / 2, halfH = h / 2;
+      const cx = node.x + halfW, cy = node.y + halfH;
+      const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
+      if (dx === 0 && dy === 0) return {x: cx, y: cy};
+      const angle = Math.atan2(dy, dx);
+      const tan = Math.tan(angle); let x, y;
+      if (Math.abs(halfH * dx) > Math.abs(halfW * dy)) { x = cx + Math.sign(dx) * halfW; y = cy + Math.sign(dx) * halfW * tan; }
+      else { y = cy + Math.sign(dy) * halfH; x = cx + Math.sign(dy) * halfH / tan; }
+      return { x, y };
+  }
+  drawTemporaryEdge() {
+    const ctx = this.ctx; const startX = this.edgeCreationSource.x + 80; const startY = this.edgeCreationSource.y + 45;
+    ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
+    ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
+  }
+  highlight(currentId, prevId = null, edge = null) {
+      this.graphData.nodes.forEach(n => n.highlighted = false); this.graphData.edges.forEach(e => e.highlighted = false);
+      if (currentId) { const node = this.graphData.nodes.find(n => n.id === currentId); if (node) node.highlighted = true; }
+      if (edge) { const e = this.graphData.edges.find(i => i === edge); if (e) e.highlighted = true; }
+  }
+  getCanvasCoords({ clientX, clientY }) {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = (clientX - rect.left - this.offset.x) / this.scale;
+      const y = (clientY - rect.top - this.offset.y) / this.scale;
+      return { x, y };
+  }
   resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
   wasDragged() { return this.dragged; }
 
@@ -365,8 +392,28 @@ export default class Renderer {
         setTimeout(() => { this.dragged = false; }, 0);
     });
 
-    this.canvas.addEventListener('mouseleave', () => { /* Unchanged */ });
-    this.canvas.addEventListener('wheel', (e) => { /* Unchanged */ });
+    this.canvas.addEventListener('mouseleave', () => {
+        if (this.dragging || this.draggingNode || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
+            this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+            this.canvas.style.cursor = 'grab';
+            this.snapLines = [];
+        }
+    });
+    
+
+
+    
+    this.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomIntensity = 0.1;
+        const wheel = e.deltaY < 0 ? 1 : -1;
+        const zoom = Math.exp(wheel * zoomIntensity);
+        const rect = this.canvas.getBoundingClientRect();
+        this.offset.x -= (e.clientX - rect.left - this.offset.x) * (zoom - 1);
+        this.offset.y -= (e.clientY - rect.top - this.offset.y) * (zoom - 1);
+        this.scale *= zoom;
+        this.scale = Math.max(0.1, Math.min(5, this.scale));
+    });
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
   }
