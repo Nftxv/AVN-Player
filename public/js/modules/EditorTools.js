@@ -3,6 +3,7 @@
  * by Nftxv
  */
 const NODE_WIDTH = 200;
+const NODE_HEIGHT_COLLAPSED = 45;
 const NODE_HEIGHT_EXPANDED = 225;
 
 export default class EditorTools {
@@ -80,8 +81,8 @@ export default class EditorTools {
         fontSize: 16,
         color: '#ecf0f1',
         textAlign: 'center',
-        width: 250, // NEW
-        lineHeight: 1.2, // NEW
+        width: 250,
+        lineHeight: 1.2,
     };
     this.graphData.decorations.push(newText);
     this.selectEntity(newText);
@@ -327,35 +328,35 @@ export default class EditorTools {
   addControlPointAt(edge, position) {
       if (!edge || !position) return;
       if (!edge.controlPoints) edge.controlPoints = [];
+
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
-      const pathPoints = [ { x: startNode.x + NODE_WIDTH/2, y: startNode.y + this.renderer._getNodeVisualRect(startNode).height/2 }, ...edge.controlPoints, { x: endNode.x + NODE_WIDTH/2, y: endNode.y + this.renderer._getNodeVisualRect(endNode).height/2 } ];
-      let closestSegmentIndex = 0; let minDistance = Infinity;
+      
+      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEIGHT_COLLAPSED / 2 };
+      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEIGHT_COLLAPSED / 2 };
+
+      const pathPoints = [ startPoint, ...edge.controlPoints, endPoint ];
+      
+      let closestSegmentIndex = 0; 
+      let minDistance = Infinity;
+
       for (let i = 0; i < pathPoints.length - 1; i++) {
           const p1 = pathPoints[i], p2 = pathPoints[i+1];
           const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
           if (len === 0) continue;
           const dot = (((position.x - p1.x) * (p2.x - p1.x)) + ((position.y - p1.y) * (p2.y - p1.y))) / (len * len);
+          
           if (dot >= 0 && dot <= 1) {
-            const closestX = p1.x + (dot * (p2.x - p1.x)); const closestY = p1.y + (dot * (p2.y - p1.y));
+            const closestX = p1.x + (dot * (p2.x - p1.x)); 
+            const closestY = p1.y + (dot * (p2.y - p1.y));
             const dist = Math.hypot(position.x - closestX, position.y - closestY);
-            if (dist < minDistance) { minDistance = dist; closestSegmentIndex = i; }
+            if (dist < minDistance) { 
+              minDistance = dist; 
+              closestSegmentIndex = i; 
+            }
           }
       }
       edge.controlPoints.splice(closestSegmentIndex, 0, position);
-  }
-
-  openSettings() {
-    document.getElementById('ipfsGatewayInput').value = '';
-    document.getElementById('settingsModal').classList.remove('hidden');
-  }
-
-  saveSettings() {
-    this.closeSettings();
-  }
-
-  closeSettings() {
-    document.getElementById('settingsModal').classList.add('hidden');
   }
 
   exportGraph() {

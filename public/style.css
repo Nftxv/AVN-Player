@@ -88,6 +88,12 @@ button:hover, .button-like:hover {
   transform: translateY(-1px);
 }
 
+button:disabled {
+    background: #555;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* NEW: Style for the active lock button */
 button#lockDecorationsBtn.active {
     background-color: var(--danger-color);
@@ -168,6 +174,12 @@ button#lockDecorationsBtn.active:hover {
 
 .hidden { display: none !important; }
 
+#choiceModal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
+  justify-content: center; align-items: center; padding: 15px;
+}
+
 .modal-content {
   background: var(--dark-surface);
   padding: 25px;
@@ -238,7 +250,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input, #inspectorContent select {
+#inspectorContent input, #inspectorContent select, #inspectorContent textarea {
   width: 95%; padding: 8px; border-radius: 4px;
   background-color: #3c3c3c;
   border: 1px solid #555;
@@ -249,6 +261,10 @@ input:checked + .slider:before { transform: translateX(20px); }
     width: 100%;
     height: 30px;
     padding: 2px;
+}
+#inspectorContent textarea {
+    resize: vertical;
+    min-height: 60px;
 }
 .toggle-switch {
     display: flex;
@@ -268,19 +284,6 @@ input:checked + .slider:before { transform: translateX(20px); }
     background: var(--primary-color);
     color: white;
 }
-
-#settingsModal, #choiceModal {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
-  justify-content: center; align-items: center; padding: 15px;
-}
-
-.modal-content label { display: block; margin-bottom: 5px; }
-.modal-content input {
-  width: 95%; padding: 8px; margin-bottom: 15px;
-  background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text);
-}
-.modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }

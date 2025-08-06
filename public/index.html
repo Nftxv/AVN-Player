@@ -27,10 +27,8 @@
     <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
     <div class="divider"></div>
 
-    <!-- Player Mode Controls -->
+    <!-- Player Mode Controls (now empty) -->
     <div id="playerModeControls">
-      <button id="exportBtn">Export Graph</button>
-      <button id="resetBtn">Reset</button>
     </div>
 
     <!-- Editor Mode Controls (hidden by default) -->
@@ -41,8 +39,10 @@
       <button id="addTextBtn" title="Add Text Label">Add Text</button>
       <button id="lockDecorationsBtn" title="Lock/Unlock Decorations">🔓</button>
       <div class="divider"></div>
+      <button id="exportBtn">Export Graph</button>
+      <button id="resetBtn">Reset</button>
+      <div class="divider"></div>
       <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
-      <button id="settingsBtn" title="Global Settings">⚙️</button>
     </div>
   </div>
 
@@ -54,18 +54,7 @@
       <button id="closeInspectorBtn">Close</button>
   </div>
 
-  <!-- Остальной HTML без изменений -->
-  <div id="settingsModal" class="hidden">
-      <div class="modal-content">
-          <h3>Global Settings</h3>
-          <label for="ipfsGatewayInput">Default IPFS Gateway:</label>
-          <input type="text" id="ipfsGatewayInput" placeholder="https://gateway.pinata.cloud/ipfs/">
-          <div class="modal-buttons">
-            <button id="saveSettingsBtn">Save</button>
-            <button id="closeSettingsBtn">Cancel</button>
-          </div>
-      </div>
-  </div>
+  <!-- Player and other UI -->
   <div id="player">
     <img id="currentCover" src="placeholder.svg" alt="Album cover">
     <div id="playerContent">

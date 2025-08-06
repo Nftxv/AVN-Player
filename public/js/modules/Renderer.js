@@ -112,7 +112,7 @@ export default class Renderer {
     }
     ctx.restore();
   }
-  
+
   _wrapAndDrawText(textObj) {
       const { ctx } = this;
       const { textContent, x, y, fontSize, color, textAlign, width, lineHeight } = textObj;
@@ -123,48 +123,40 @@ export default class Renderer {
 
       const paragraphs = textContent.split('\n');
       let currentY = y;
-      const lines = [];
+      const allLines = [];
 
       for (const paragraph of paragraphs) {
-          if (!width || width <= 0) { // Auto-width
-              lines.push(paragraph);
-          } else { // Fixed-width, wrap text
+          if (!width || width <= 0) {
+              allLines.push(paragraph);
+          } else {
               const words = paragraph.split(' ');
               let currentLine = '';
               for (const word of words) {
                   const testLine = currentLine ? `${currentLine} ${word}` : word;
                   if (ctx.measureText(testLine).width > width && currentLine) {
-                      lines.push(currentLine);
+                      allLines.push(currentLine);
                       currentLine = word;
                   } else {
                       currentLine = testLine;
                   }
               }
-              lines.push(currentLine);
+              allLines.push(currentLine);
           }
       }
 
-      for (const line of lines) {
-          let drawX = x;
-          if (textAlign === 'center') {
-              drawX = x; // The full block is centered, so x is the center
-          } else if (textAlign === 'right') {
-              drawX = x + width / 2;
-          } else { // left
-              drawX = x - width / 2;
-          }
-          ctx.fillText(line, drawX, currentY);
+      for (const line of allLines) {
+          ctx.fillText(line, x, currentY);
           currentY += fontSize * lineHeight;
       }
       
-      return lines;
+      return allLines;
   }
   
   _getTextBounds(textObj, renderedLines) {
-      const { x, y, textAlign, fontSize } = textObj;
+      const { x, y, textAlign, fontSize, width, lineHeight } = textObj;
       let maxWidth = 0;
-      if (textObj.width > 0) {
-        maxWidth = textObj.width;
+      if (width > 0) {
+        maxWidth = width;
       } else {
         this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
         renderedLines.forEach(line => {
@@ -172,7 +164,7 @@ export default class Renderer {
         });
       }
       
-      const totalHeight = renderedLines.length * fontSize * textObj.lineHeight;
+      const totalHeight = (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1));
 
       let boundsX = x;
       if (textAlign === 'center') {
@@ -187,23 +179,32 @@ export default class Renderer {
   drawText(text) {
       const ctx = this.ctx;
       ctx.save();
-      // Adjust position based on text alignment for wrapping
+      
       let renderX = text.x;
-      if (text.width > 0) {
-        if (text.textAlign === 'center') renderX = text.x - text.width / 2;
-        else if (text.textAlign === 'right') renderX = text.x - text.width;
+      let renderY = text.y;
+
+      // Temporary context for measurement
+      ctx.font = `${text.fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+      const renderedLines = this._wrapAndDrawText({ ...text, textContent: text.textContent || '' });
+      const bounds = this._getTextBounds(text, renderedLines);
+
+      // Adjust starting point based on alignment and bounds
+      renderY = text.y - bounds.height / 2;
+      if (text.textAlign === 'left') {
+        renderX = text.x - bounds.width / 2;
+      } else if (text.textAlign === 'right') {
+        renderX = text.x + bounds.width / 2;
       }
-
-      const effectiveTextObj = { ...text, x: renderX };
-
-      // This call now handles all drawing logic
-      const renderedLines = this._wrapAndDrawText(effectiveTextObj);
+      
+      // Use adjusted coordinates for drawing
+      this._wrapAndDrawText({ ...text, x: renderX, y: renderY });
       
       if (text.selected) {
-          const bounds = this._getTextBounds(text, renderedLines);
+          // Recalculate bounds with the correct top-left corner
+          const finalBounds = this._getTextBounds({ ...text, x: renderX, y: renderY}, renderedLines);
           ctx.strokeStyle = '#e74c3c';
           ctx.lineWidth = 1 / this.scale;
-          ctx.strokeRect(bounds.x - 2, bounds.y - 2, bounds.width + 4, bounds.height + 4);
+          ctx.strokeRect(finalBounds.x - 2, finalBounds.y - 2, finalBounds.width + 4, finalBounds.height + 4);
       }
       ctx.restore();
   }
@@ -287,6 +288,18 @@ export default class Renderer {
       return { x: node.x, y: node.y, width: NODE_WIDTH, height: height };
   }
   
+  _getDecorationBounds(deco) {
+    if (deco.type === 'rectangle') {
+        return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
+    }
+    if (deco.type === 'text') {
+        // This is a simplified calculation for snapping, avoiding full render logic
+        const renderedLines = this._wrapAndDrawText({ ...deco, textContent: deco.textContent || '' });
+        return this._getTextBounds(deco, renderedLines);
+    }
+    return { x: deco.x, y: deco.y, width: 0, height: 0 };
+  }
+
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
     // Nodes are on top
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
@@ -308,16 +321,9 @@ export default class Renderer {
     if (!isDecorationsLocked) {
         for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
             const deco = this.graphData.decorations[i];
-            if (deco.type === 'rectangle' && x > deco.x && x < deco.x + deco.width && y > deco.y && y < deco.y + deco.height) {
+            const bounds = this._getDecorationBounds(deco);
+            if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
                 return { type: 'decoration', entity: deco };
-            }
-            if (deco.type === 'text') {
-                 // Pre-calculate lines and bounds for accurate hit detection
-                const renderedLines = this._wrapAndDrawText({ ...deco, textContent: deco.textContent || '' });
-                const bounds = this._getTextBounds(deco, renderedLines);
-                if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                    return { type: 'decoration', entity: deco };
-                }
             }
         }
     }
@@ -329,6 +335,7 @@ export default class Renderer {
     const normalizedRect = this.normalizeRect(rect);
     return this.graphData.nodes.filter(node => {
         const nodeRect = this._getNodeVisualRect(node);
+        // Check for complete inclusion
         return (
             nodeRect.x >= normalizedRect.x &&
             nodeRect.y >= normalizedRect.y &&
@@ -348,14 +355,7 @@ export default class Renderer {
   getDecorationsInRect(rect) {
       const normalizedRect = this.normalizeRect(rect);
       return this.graphData.decorations.filter(deco => {
-          let decoBounds;
-          if (deco.type === 'rectangle') {
-            decoBounds = { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
-          } else if (deco.type === 'text') {
-            const renderedLines = this._wrapAndDrawText({ ...deco, textContent: deco.textContent || '' });
-            decoBounds = this._getTextBounds(deco, renderedLines);
-          }
-          if (!decoBounds) return false;
+          const decoBounds = this._getDecorationBounds(deco);
           // Check for intersection
           return normalizedRect.x < decoBounds.x + decoBounds.width && normalizedRect.x + normalizedRect.w > decoBounds.x &&
                  normalizedRect.y < decoBounds.y + decoBounds.height && normalizedRect.y + normalizedRect.h > decoBounds.y;
@@ -391,7 +391,7 @@ export default class Renderer {
         const trg = this.graphData.nodes.find(n => n.id === edge.target);
         if (!src || !trg) continue;
         
-        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
+        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
 
         const controlPoints = edge.controlPoints || [];
         const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
@@ -425,7 +425,7 @@ export default class Renderer {
       const arrowSize = 6 + edgeLineWidth * 2.5;
       const controlPoints = edge.controlPoints || [];
       
-      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
+      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
       
       const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
       const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
@@ -564,9 +564,8 @@ export default class Renderer {
   
   drawTemporaryEdge() {
     const ctx = this.ctx;
-    const startNodeRect = this._getNodeVisualRect(this.edgeCreationSource);
-    const startX = this.edgeCreationSource.x + startNodeRect.width / 2;
-    const startY = this.edgeCreationSource.y + startNodeRect.height / 2;
+    const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
+    const startY = this.edgeCreationSource.y + NODE_HEIGHT_COLLAPSED / 2;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
   }
@@ -589,32 +588,58 @@ export default class Renderer {
   
   wasDragged() { return this.dragged; }
   
-  _getSnappedPosition(pos, ignoredEntity = null) {
-      let snappedPos = { ...pos }; this.snapLines = []; const threshold = this.snapThreshold / this.scale;
-      const snapTargets = [];
+  _getSnappedPosition(pos, movingEntity) {
+      let snappedPos = { ...pos };
+      this.snapLines = [];
+      if (!movingEntity) return pos;
+
+      const isPoint = !movingEntity.sourceType && !movingEntity.type;
+      
+      const movingBounds = isPoint ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
+                                   : this._getDecorationBounds(movingEntity) || this._getNodeVisualRect(movingEntity);
+      movingBounds.x = pos.x;
+      movingBounds.y = pos.y;
+      
+      const threshold = this.snapThreshold / this.scale;
+      let bestSnapX = { delta: Infinity };
+      let bestSnapY = { delta: Infinity };
+
+      const movingPointsX = [movingBounds.x, movingBounds.x + movingBounds.width / 2, movingBounds.x + movingBounds.width];
+      const movingPointsY = [movingBounds.y, movingBounds.y + movingBounds.height / 2, movingBounds.y + movingBounds.height];
+
       this.graphData.nodes.forEach(n => {
-          if (n !== ignoredEntity && !n.selected) {
-            const rect = this._getNodeVisualRect(n);
-            snapTargets.push({ x: rect.x, y: rect.y, w: rect.width, h: rect.height, type: 'node' });
+          if (n === movingEntity || n.selected) return;
+
+          const targetBounds = this._getNodeVisualRect(n);
+          const targetPointsX = [targetBounds.x, targetBounds.x + targetBounds.width / 2, targetBounds.x + targetBounds.width];
+          const targetPointsY = [targetBounds.y, targetBounds.y + targetBounds.height / 2, targetBounds.y + targetBounds.height];
+
+          for (let i = 0; i < 3; i++) {
+              for (let j = 0; j < 3; j++) {
+                  const delta = targetPointsX[j] - movingPointsX[i];
+                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapX.delta)) {
+                      bestSnapX = { delta, pos: targetPointsX[j] };
+                  }
+              }
+          }
+          for (let i = 0; i < 3; i++) {
+              for (let j = 0; j < 3; j++) {
+                  const delta = targetPointsY[j] - movingPointsY[i];
+                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapY.delta)) {
+                      bestSnapY = { delta, pos: targetPointsY[j] };
+                  }
+              }
           }
       });
-      this.graphData.edges.forEach(e => {
-          (e.controlPoints || []).forEach(p => { if (p !== ignoredEntity) snapTargets.push({ x: p.x, y: p.y, type: 'point' }); });
-      });
-      let snapX = false, snapY = false;
-      for (const target of snapTargets) {
-          if (target.type === 'node') {
-              const targetCenterX = target.x + target.w / 2;
-              const targetCenterY = target.y + target.h / 2;
-              if (Math.abs(pos.x - targetCenterX) < threshold) { snappedPos.x = targetCenterX; snapX = true; }
-              if (Math.abs(pos.y - targetCenterY) < threshold) { snappedPos.y = targetCenterY; snapY = true; }
-          } else {
-              if (Math.abs(pos.x - target.x) < threshold) { snappedPos.x = target.x; snapX = true; }
-              if (Math.abs(pos.y - target.y) < threshold) { snappedPos.y = target.y; snapY = true; }
-          }
+      
+      if (Math.abs(bestSnapX.delta) < threshold) {
+          snappedPos.x += bestSnapX.delta;
+          this.snapLines.push({ type: 'v', pos: bestSnapX.pos });
       }
-      if (snapX) this.snapLines.push({ type: 'v', pos: snappedPos.x });
-      if (snapY) this.snapLines.push({ type: 'h', pos: snappedPos.y });
+      if (Math.abs(bestSnapY.delta) < threshold) {
+          snappedPos.y += bestSnapY.delta;
+          this.snapLines.push({ type: 'h', pos: bestSnapY.pos });
+      }
       return snappedPos;
   }
   
@@ -654,12 +679,12 @@ export default class Renderer {
             return;
         }
         
-        if (e.button === 1) {
+        if (e.button === 1) { // Middle mouse button pan
             handlePanStart();
             return;
         }
 
-        if (e.button === 0) {
+        if (e.button === 0) { // Left mouse button
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { this.draggingControlPoint = cp; document.body.classList.add('is-dragging'); return; }
             
@@ -675,15 +700,22 @@ export default class Renderer {
                 return;
             }
             
-            if (!clicked) {
+            if (!clicked) { // Start marquee selection
                 this.isMarqueeSelecting = true;
                 this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
             }
 
-        } else if (e.button === 2) {
+        } else if (e.button === 2) { // Right mouse button
+            e.preventDefault();
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
-            else { const node = this.getClickableEntityAt(mousePos.x, mousePos.y)?.entity; if (node && node.sourceType) { this.isCreatingEdge = true; this.edgeCreationSource = node; } }
+            else { 
+              const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true }); // Ignore decorations for edge creation
+              if (clickedNode && clickedNode.type === 'node') { 
+                this.isCreatingEdge = true; 
+                this.edgeCreationSource = clickedNode.entity; 
+              } 
+            }
         }
     });
 
@@ -701,20 +733,27 @@ export default class Renderer {
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.isDraggingSelection) {
+            const isLocked = getIsDecorationsLocked();
             const targetX = this.mousePos.x - this.dragOffset.x;
             const targetY = this.mousePos.y - this.dragOffset.y;
-            const dx = targetX - this.draggingEntity.x;
-            const dy = targetY - this.draggingEntity.y;
+            
+            const snappedPos = this._getSnappedPosition({ x: targetX, y: targetY }, this.draggingEntity);
+            const dx = snappedPos.x - this.draggingEntity.x;
+            const dy = snappedPos.y - this.draggingEntity.y;
 
             getSelection().forEach(entity => {
+                if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
+
                 if ('x' in entity) { entity.x += dx; entity.y += dy; }
                 else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
             });
+
         } else if (this.draggingEntity) {
             const targetX = this.mousePos.x - this.dragOffset.x;
             const targetY = this.mousePos.y - this.dragOffset.y;
-            this.draggingEntity.x = targetX;
-            this.draggingEntity.y = targetY;
+            const snappedPos = this._getSnappedPosition({x: targetX, y: targetY}, this.draggingEntity);
+            this.draggingEntity.x = snappedPos.x;
+            this.draggingEntity.y = snappedPos.y;
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);
@@ -733,9 +772,9 @@ export default class Renderer {
             }
         }
         if (this.isCreatingEdge && e.button === 2) {
-            const targetNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y)?.entity;
-            if (targetNode && targetNode.sourceType && this.edgeCreationSource && targetNode.id !== this.edgeCreationSource.id) {
-                onEdgeCreated(this.edgeCreationSource, targetNode);
+            const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+            if (targetClick && targetClick.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) {
+                onEdgeCreated(this.edgeCreationSource, targetClick.entity);
             }
         }
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
