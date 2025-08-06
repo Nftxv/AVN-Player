@@ -7,6 +7,8 @@
   --dark-text: #e0e0e0;
   --dark-subtle-text: #9e9e9e;
   --dark-border: #424242;
+  --danger-color: #e74c3c;
+  --danger-hover: #c0392b;
 }
 
 body {
@@ -29,7 +31,6 @@ canvas:active {
   cursor: grabbing;
 }
 
-/* NEW: Iframe container sits on top of the canvas */
 #iframe-container {
   position: absolute;
   top: 0;
@@ -41,16 +42,13 @@ canvas:active {
   overflow: hidden;
 }
 
-/* NEW: Wrapper for each individual iframe */
 .iframe-wrapper {
   position: absolute;
   box-sizing: border-box;
   background-color: #000;
   border: 1px solid #444;
-  /* width, height, and transform are set by JS */
 }
 
-/* NEW: The actual iframe element */
 .iframe-wrapper iframe {
   width: 100%;
   height: 100%;
@@ -58,7 +56,6 @@ canvas:active {
   pointer-events: auto; /* Iframes are clickable */
 }
 
-/* NEW: Drag overlay to intercept clicks on iframe while dragging */
 .iframe-wrapper .drag-overlay {
   position: absolute;
   top: 0;
@@ -69,7 +66,6 @@ canvas:active {
   display: none; /* Hidden by default */
 }
 
-/* NEW: When dragging, show the overlay */
 body.is-dragging .drag-overlay {
   display: block;
   pointer-events: auto; /* It catches the click */
@@ -90,6 +86,14 @@ button, .button-like {
 button:hover, .button-like:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
+}
+
+/* NEW: Style for the active lock button */
+button#lockDecorationsBtn.active {
+    background-color: var(--danger-color);
+}
+button#lockDecorationsBtn.active:hover {
+    background-color: var(--danger-hover);
 }
 
 #player {
@@ -234,13 +238,18 @@ input:checked + .slider:before { transform: translateX(20px); }
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input {
+#inspectorContent input, #inspectorContent select {
   width: 95%; padding: 8px; border-radius: 4px;
   background-color: #3c3c3c;
   border: 1px solid #555;
   color: var(--dark-text);
+  margin-top: 2px;
 }
-/* Inspector Toggle Switch */
+#inspectorContent input[type="color"]{
+    width: 100%;
+    height: 30px;
+    padding: 2px;
+}
 .toggle-switch {
     display: flex;
     border: 1px solid #555;

@@ -1,5 +1,5 @@
 /**
- * AVN Player v1.5.03 - Main Application
+ * AVN Player - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -47,6 +47,7 @@ class GraphApp {
   setupEventListeners() {
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
+        getIsDecorationsLocked: () => this.editorTools.decorationsLocked, // NEW
         onClick: (e) => this.handleCanvasClick(e),
         onDblClick: (e) => this.handleCanvasDblClick(e),
         onEdgeCreated: (source, target) => {
@@ -56,8 +57,9 @@ class GraphApp {
             if (!this.isEditorMode) return;
             const nodes = this.renderer.getNodesInRect(rect);
             const edges = this.renderer.getEdgesInRect(rect, nodes);
+            const decorations = this.renderer.getDecorationsInRect(rect);
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
-            this.editorTools.updateSelection([...nodes, ...edges], mode);
+            this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
         getSelection: () => this.editorTools.getSelection()
     });
@@ -70,13 +72,12 @@ class GraphApp {
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
     
-    document.getElementById('addNodeBtn').addEventListener('click', () => {
-        const newNode = this.editorTools.createNode();
-        this.editorTools.selectEntity(newNode);
-    });
-    document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
-        this.editorTools.deleteSelection();
-    });
+    document.getElementById('addNodeBtn').addEventListener('click', () => this.editorTools.createNode());
+    document.getElementById('addRectBtn').addEventListener('click', () => this.editorTools.createRectangle());
+    document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
+    document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock()); // NEW
+
+    document.getElementById('deleteSelectionBtn').addEventListener('click', () => this.editorTools.deleteSelection());
     
     document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
@@ -102,11 +103,9 @@ class GraphApp {
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
-      if (event.ctrlKey) {
-          mode = 'add';
-      } else if (event.shiftKey) {
-          mode = 'remove';
-      }
+      if (event.ctrlKey) mode = 'add';
+      else if (event.shiftKey) mode = 'remove';
+      
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
     } else { // Player mode

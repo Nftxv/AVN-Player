@@ -1,5 +1,5 @@
 /**
- * AVN Player - Renderer Module with Decorative Layers
+ * AVN Player - Renderer Module with Editable & Lockable Decorative Layers
  * by Nftxv
  */
 const NODE_WIDTH = 200;
@@ -23,8 +23,10 @@ export default class Renderer {
     this.dragStart = { x: 0, y: 0 };
     this.dragged = false;
     this.dragging = false;
-    this.draggingNode = null;
-    this.dragNodeOffset = { x: 0, y: 0 };
+    this.draggingEntity = null; // Generic dragging target
+    this.dragOffset = { x: 0, y: 0 };
+    this.isDraggingSelection = false;
+    
     this.draggingControlPoint = null;
     this.isCreatingEdge = false;
     this.edgeCreationSource = null;
@@ -32,7 +34,6 @@ export default class Renderer {
     this.snapThreshold = 10;
     this.snapLines = [];
     this.isMarqueeSelecting = false;
-    this.isDraggingSelection = false;
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
@@ -74,9 +75,7 @@ export default class Renderer {
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
     
-    // NEW: Render decorations first, so they are in the background
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
-    
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
     this.graphData.nodes.forEach(node => this.drawNode(node));
     
@@ -87,11 +86,9 @@ export default class Renderer {
     this.ctx.restore();
     
     this.updateIframes();
-    
     requestAnimationFrame(this.renderLoop);
   }
 
-  // NEW: Main dispatcher for drawing decorations
   drawDecoration(deco) {
     if (deco.type === 'rectangle') {
       this.drawRectangle(deco);
@@ -100,25 +97,44 @@ export default class Renderer {
     }
   }
 
-  // NEW: Draws a rectangle decoration
   drawRectangle(rect) {
     const ctx = this.ctx;
     ctx.save();
+    ctx.globalAlpha = 0.5;
     ctx.fillStyle = rect.backgroundColor;
-    ctx.globalAlpha = 0.5; // Make them slightly transparent
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+    
+    if (rect.selected) {
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 2 / this.scale;
+        ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    }
     ctx.restore();
   }
 
-  // NEW: Draws a text decoration
   drawText(text) {
     const ctx = this.ctx;
     ctx.save();
-    ctx.font = `${text.fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+    const font = `${text.fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+    ctx.font = font;
     ctx.fillStyle = text.color;
     ctx.textAlign = text.textAlign;
     ctx.textBaseline = 'middle';
     ctx.fillText(text.textContent, text.x, text.y);
+    
+    if (text.selected) {
+        const metrics = ctx.measureText(text.textContent);
+        const w = metrics.width;
+        const h = text.fontSize;
+        let x = text.x;
+        if(text.textAlign === 'center') x -= w/2;
+        else if (text.textAlign === 'right') x -= w;
+        
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 1 / this.scale;
+        ctx.strokeRect(x - 2, text.y - h/2 - 2, w + 4, h + 4);
+    }
     ctx.restore();
   }
 
@@ -190,8 +206,6 @@ export default class Renderer {
              screenRect.y < this.canvas.height && screenRect.y + screenRect.height > 0;
   }
 
-  // --- UNCHANGED METHODS BELOW ---
-
   getViewportCenter() {
       const worldX = (this.canvas.width / 2 - this.offset.x) / this.scale;
       const worldY = (this.canvas.height / 2 - this.offset.y) / this.scale;
@@ -203,37 +217,44 @@ export default class Renderer {
       return { x: node.x, y: node.y, width: NODE_WIDTH, height: height };
   }
   
-  getClickableEntityAt(x, y) {
-    // For now, decorations are not clickable. This will change in Step 2.
+  getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
+    // Nodes are on top
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
-        
-        const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 4;
-        const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 4;
-        if (x > iconX && x < iconX + TOGGLE_ICON_SIZE && y > iconY && y < iconY + TOGGLE_ICON_SIZE) {
-            return { type: 'collapse_toggle', entity: node };
-        }
-
         if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
+            const iconX = rect.x + rect.width - TOGGLE_ICON_SIZE - 6;
+            const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
+            if (x > iconX && y > iconY) return { type: 'collapse_toggle', entity: node };
             return { type: 'node', entity: node };
         }
     }
-
+    
+    // Edges are in the middle
     const edge = this.getEdgeAt(x, y);
-    if (edge) {
-      return { type: 'edge', entity: edge };
+    if (edge) return { type: 'edge', entity: edge };
+
+    // Decorations are at the bottom and can be locked
+    if (!isDecorationsLocked) {
+        for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
+            const deco = this.graphData.decorations[i];
+            if (deco.type === 'rectangle' && x > deco.x && x < deco.x + deco.width && y > deco.y && y < deco.y + deco.height) {
+                return { type: 'decoration', entity: deco };
+            }
+            if (deco.type === 'text') {
+                const h = deco.fontSize;
+                this.ctx.font = `${h}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+                const w = this.ctx.measureText(deco.textContent).width;
+                let textX = deco.x;
+                if (deco.textAlign === 'center') textX -= w / 2;
+                else if (deco.textAlign === 'right') textX -= w;
+                if (x > textX && x < textX + w && y > deco.y - h / 2 && y < deco.y + h / 2) {
+                    return { type: 'decoration', entity: deco };
+                }
+            }
+        }
     }
 
-    return null;
-  }
-  
-  getNodeAt(x, y) {
-    for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
-        const node = this.graphData.nodes[i];
-        const rect = this._getNodeVisualRect(node);
-        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) return node;
-    }
     return null;
   }
   
@@ -254,6 +275,28 @@ export default class Renderer {
       const nodeIdsInRect = new Set(nodesInRect.map(n => n.id));
       return this.graphData.edges.filter(edge => {
           return nodeIdsInRect.has(edge.source) && nodeIdsInRect.has(edge.target);
+      });
+  }
+  
+  getDecorationsInRect(rect) {
+      const normalizedRect = this.normalizeRect(rect);
+      return this.graphData.decorations.filter(deco => {
+          let decoBounds;
+          if (deco.type === 'rectangle') {
+            decoBounds = { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
+          } else if (deco.type === 'text') {
+            const h = deco.fontSize;
+            this.ctx.font = `${h}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+            const w = this.ctx.measureText(deco.textContent).width;
+            let textX = deco.x;
+            if(deco.textAlign === 'center') textX -= w/2;
+            else if (deco.textAlign === 'right') textX -= w;
+            decoBounds = { x: textX, y: deco.y - h/2, width: w, height: h };
+          }
+          if (!decoBounds) return false;
+          // Check for intersection
+          return normalizedRect.x < decoBounds.x + decoBounds.width && normalizedRect.x + normalizedRect.w > decoBounds.x &&
+                 normalizedRect.y < decoBounds.y + decoBounds.height && normalizedRect.y + normalizedRect.h > decoBounds.y;
       });
   }
   
@@ -467,9 +510,10 @@ export default class Renderer {
   }
   
   highlight(currentId, prevId = null, edge = null) {
-      this.graphData.nodes.forEach(n => n.highlighted = false); this.graphData.edges.forEach(e => e.highlighted = false);
+      this.graphData.nodes.forEach(n => n.highlighted = false);
+      this.graphData.edges.forEach(e => e.highlighted = false);
       if (currentId) { const node = this.graphData.nodes.find(n => n.id === currentId); if (node) node.highlighted = true; }
-      if (edge) { const e = this.graphData.edges.find(i => i === edge); if (e) e.highlighted = true; }
+      if (edge) { const e = this.graphData.edges.find(i => i.id === edge.id); if (e) e.highlighted = true; }
   }
   
   getCanvasCoords({ clientX, clientY }) {
@@ -525,7 +569,7 @@ export default class Renderer {
   }
   
   setupCanvasInteraction(callbacks) {
-    const { getIsEditorMode, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
+    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
 
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -548,38 +592,43 @@ export default class Renderer {
             return;
         }
         
-        if (e.button === 1) { // Middle mouse pan
+        if (e.button === 1) {
             handlePanStart();
             return;
         }
 
-        if (e.button === 0) { // Left mouse
+        if (e.button === 0) {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { this.draggingControlPoint = cp; document.body.classList.add('is-dragging'); return; }
             
-            const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-            if (clickedNode) {
-                if (clickedNode.selected) this.isDraggingSelection = true;
-                this.draggingNode = clickedNode;
-                this.dragNodeOffset.x = mousePos.x - clickedNode.x;
-                this.dragNodeOffset.y = mousePos.y - clickedNode.y;
+            const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
+            
+            if (clicked && (clicked.type === 'node' || clicked.type === 'decoration')) {
+                const entity = clicked.entity;
+                if (entity.selected) this.isDraggingSelection = true;
+                this.draggingEntity = entity;
+                this.dragOffset.x = mousePos.x - entity.x;
+                this.dragOffset.y = mousePos.y - entity.y;
                 document.body.classList.add('is-dragging');
                 return;
             }
             
-            this.isMarqueeSelecting = true;
-            this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
-        } else if (e.button === 2) { // Right mouse
+            if (!clicked) {
+                this.isMarqueeSelecting = true;
+                this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
+            }
+
+        } else if (e.button === 2) {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
-            else { const node = this.getNodeAt(mousePos.x, mousePos.y); if (node) { this.isCreatingEdge = true; this.edgeCreationSource = node; } }
+            else { const node = this.getClickableEntityAt(mousePos.x, mousePos.y)?.entity; if (node && node.sourceType) { this.isCreatingEdge = true; this.edgeCreationSource = node; } }
         }
     });
 
     this.canvas.addEventListener('mousemove', (e) => {
         this.mousePos = this.getCanvasCoords(e);
         if (e.buttons === 0) {
-             this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+             this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
              this.canvas.style.cursor = 'grab'; this.snapLines = [];
              document.body.classList.remove('is-dragging');
              return;
@@ -590,22 +639,20 @@ export default class Renderer {
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.isDraggingSelection) {
-            const primaryNode = this.draggingNode;
-            const primaryNodeCenter = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + this._getNodeVisualRect(primaryNode).height / 2 };
-            const snappedCenter = this._getSnappedPosition(primaryNodeCenter, primaryNode);
-            const dx = (snappedCenter.x - NODE_WIDTH / 2) - primaryNode.x;
-            const dy = (snappedCenter.y - this._getNodeVisualRect(primaryNode).height / 2) - primaryNode.y;
+            const targetX = this.mousePos.x - this.dragOffset.x;
+            const targetY = this.mousePos.y - this.dragOffset.y;
+            const dx = targetX - this.draggingEntity.x;
+            const dy = targetY - this.draggingEntity.y;
 
             getSelection().forEach(entity => {
                 if ('x' in entity) { entity.x += dx; entity.y += dy; }
                 else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
             });
-        } else if (this.draggingNode) {
-            const nodeRect = this._getNodeVisualRect(this.draggingNode);
-            const centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + nodeRect.width / 2, y: this.mousePos.y - this.dragNodeOffset.y + nodeRect.height / 2 };
-            const snappedCenter = this._getSnappedPosition(centerPos, this.draggingNode);
-            this.draggingNode.x = snappedCenter.x - nodeRect.width / 2;
-            this.draggingNode.y = snappedCenter.y - nodeRect.height / 2;
+        } else if (this.draggingEntity) {
+            const targetX = this.mousePos.x - this.dragOffset.x;
+            const targetY = this.mousePos.y - this.dragOffset.y;
+            this.draggingEntity.x = targetX;
+            this.draggingEntity.y = targetY;
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);
@@ -620,25 +667,24 @@ export default class Renderer {
         if (this.isMarqueeSelecting) {
             const normalizedRect = this.normalizeRect(this.marqueeRect);
             if (normalizedRect.w > 5 || normalizedRect.h > 5) {
-                // For now, marquee select only targets nodes and edges
-                // onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
+                onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
             }
         }
         if (this.isCreatingEdge && e.button === 2) {
-            const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
-            if (targetNode && this.edgeCreationSource && targetNode.id !== this.edgeCreationSource.id) {
+            const targetNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y)?.entity;
+            if (targetNode && targetNode.sourceType && this.edgeCreationSource && targetNode.id !== this.edgeCreationSource.id) {
                 onEdgeCreated(this.edgeCreationSource, targetNode);
             }
         }
-        this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+        this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab'; this.snapLines = [];
         document.body.classList.remove('is-dragging');
         setTimeout(() => { this.dragged = false; }, 0);
     });
 
     this.canvas.addEventListener('mouseleave', () => {
-        if (this.dragging || this.draggingNode || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
-            this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+        if (this.dragging || this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
+            this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
             this.canvas.style.cursor = 'grab';
             this.snapLines = [];
             document.body.classList.remove('is-dragging');
