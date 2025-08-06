@@ -1,18 +1,6 @@
 /**
- * AVN Player v1.4
+ * AVN Player v1.5.04
  * by Nftxv
- *
- * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
- *
- * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
- * International License (CC BY-NC-SA 4.0).
- *
- * You can find the full license text at:
- * https://creativecommons.org/licenses/by-nc-sa/4.0/
- */
-
-/**
- * Manages audio playback, player UI updates, and lyrics loading.
  */
 export default class Player {
   constructor(graphData) {
@@ -25,48 +13,27 @@ export default class Player {
 
   setNavigation(navigation) { this.navigation = navigation; }
 
-  /**
-   * Finds the first available URL from a list of sources.
-   * @param {Array<object>} sources - Array of source objects ({type, value}).
-   * @returns {Promise<string|null>} - A playable URL or null.
-   */
-  async findPlayableUrl(sources) {
-    if (!sources || sources.length === 0) return null;
-    for (const source of sources) {
-      let url;
-      if (source.type === 'ipfs') {
-        const gateway = this.graphData.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
-        url = `${gateway}${source.value}`;
-      } else if (source.type === 'url') {
-        url = source.value;
-      } else continue;
-      
-      try {
-        // Use a HEAD request to quickly check if the resource is available
-        const response = await fetch(url, { method: 'HEAD', mode: 'cors' });
-        if (response.ok) {
-          console.log(`Source available: ${url}`);
-          return url;
-        }
-      } catch (e) {
-        console.warn(`Source failed: ${url}`, e.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Plays a given node.
-   * @param {object} node - The graph node to play.
-   */
   async play(node) {
     if (!node) return;
     this.currentNode = node;
 
-    const audioUrl = await this.findPlayableUrl(node.audioSources);
-    const coverUrl = await this.findPlayableUrl(node.coverSources);
-
     document.getElementById('songTitle').textContent = node.title;
+
+    if (node.sourceType === 'iframe') {
+        this.audio.pause();
+        document.getElementById('currentCover').src = 'placeholder-youtube.svg'; // Or a generic video icon
+        document.getElementById('playBtn').textContent = '▶';
+        document.getElementById('playBtn').disabled = true; // Disable our controls for iframes
+        document.getElementById('progress').value = 0;
+        document.getElementById('currentTime').textContent = '0:00';
+        return;
+    }
+    
+    // Logic for 'audio' type
+    document.getElementById('playBtn').disabled = false;
+    const audioUrl = this.graphData.getSourceUrl(node.audioUrl);
+    const coverUrl = this.graphData.getSourceUrl(node.coverUrl);
+
     document.getElementById('currentCover').src = coverUrl || 'placeholder.svg';
     
     if (!audioUrl) {
@@ -79,12 +46,11 @@ export default class Player {
     if (this.audio.src !== audioUrl) this.audio.src = audioUrl;
     this.audio.play().catch(e => console.error("Playback error:", e));
     
-    // Asynchronously load lyrics
-    this.loadAndShowLyrics(node.lyricsSource);
+    this.loadAndShowLyrics(node.lyricsUrl);
   }
 
   togglePlay() {
-    if (!this.currentNode) return; // Don't do anything if no track is loaded
+    if (!this.currentNode || this.currentNode.sourceType === 'iframe') return;
     if (this.audio.paused) {
       this.audio.play();
       document.getElementById('playBtn').textContent = '⏸';
@@ -98,6 +64,7 @@ export default class Player {
     this.audio.pause();
     this.audio.currentTime = 0;
     this.currentNode = null;
+    document.getElementById('playBtn').disabled = false;
     document.getElementById('playBtn').textContent = '▶';
     document.getElementById('songTitle').textContent = 'Select a node to begin...';
     document.getElementById('currentCover').src = 'placeholder.svg';
@@ -105,22 +72,15 @@ export default class Player {
     document.getElementById('currentTime').textContent = '0:00';
   }
 
-  /**
-   * Loads lyrics from a source and populates the lyrics container.
-   * @param {object} source - The source object for the lyrics file.
-   */
-  async loadAndShowLyrics(source) {
+  async loadAndShowLyrics(lyricsUrl) {
       const lyricsTextElem = document.getElementById('lyricsText');
-      lyricsTextElem.textContent = 'Loading lyrics...'; // Reset text
-      if (!source || !source.value) {
+      lyricsTextElem.textContent = 'Loading lyrics...';
+      if (!lyricsUrl) {
           lyricsTextElem.textContent = 'No lyrics available for this track.';
           return;
       }
       
-      // We don't need findPlayableUrl here as it's just a text file
-      const url = source.type === 'ipfs' 
-        ? `${this.graphData.meta.gateways[0]}${source.value}` 
-        : source.value;
+      const url = this.graphData.getSourceUrl(lyricsUrl);
 
       try {
           const response = await fetch(url);
@@ -140,7 +100,7 @@ export default class Player {
     });
     
     document.getElementById('progress').addEventListener('input', e => {
-        if (this.audio.duration) {
+        if (this.audio.duration && this.currentNode?.sourceType === 'audio') {
             this.audio.currentTime = (e.target.value / 100) * this.audio.duration;
         }
     });

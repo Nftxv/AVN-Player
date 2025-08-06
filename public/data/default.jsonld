@@ -9,54 +9,47 @@
     {
       "@id": "node-1",
       "@type": "MusicRecording",
-      "name": "Chapter 1: The Beginning",
+      "name": "Chapter 1: Audio",
       "position": { "x": 100, "y": 250 },
-      "audioSources": [
-        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
-      ],
-      "coverSources": [
-        { "type": "url", "value": "placeholder.svg" }
-      ],
-      "lyricsSource": { "type": "ipfs", "value": "bafkreifzjut3a2u7gy2g2l2ctrqkfdv3u4b2qkjk22p32d2c3k32y2y2yq" }
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
+      "coverUrl": null,
+      "lyricsUrl": "bafkreifzjut3a2u7gy2g2l2ctrqkfdv3u4b2qkjk22p32d2c3k32y2y2yq"
     },
     {
       "@id": "node-2",
       "@type": "MusicRecording",
-      "name": "Chapter 2: The Choice",
+      "name": "Chapter 2: Video",
       "position": { "x": 400, "y": 250 },
-      "audioSources": [
-        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
-      ],
-      "coverSources": [
-        { "type": "url", "value": "placeholder.svg" }
-      ],
-      "lyricsSource": null
+      "isCollapsed": true,
+      "sourceType": "iframe",
+      "iframeUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "audioUrl": null,
+      "coverUrl": null,
+      "lyricsUrl": null
     },
     {
       "@id": "node-3a",
       "@type": "MusicRecording",
       "name": "Ending A: The Bright Path",
       "position": { "x": 700, "y": 150 },
-      "audioSources": [
-        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
-      ],
-      "coverSources": [
-        { "type": "url", "value": "placeholder.svg" }
-      ],
-      "lyricsSource": null
+      "isCollapsed": true,
+      "sourceType": "audio",
+      "audioUrl": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
+      "coverUrl": null,
+      "lyricsUrl": null
     },
     {
       "@id": "node-3b",
       "@type": "MusicRecording",
       "name": "Ending B: The Dark Path",
       "position": { "x": 700, "y": 350 },
-      "audioSources": [
-        { "type": "ipfs", "value": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4" }
-      ],
-      "coverSources": [
-        { "type": "url", "value": "placeholder.svg" }
-      ],
-      "lyricsSource": null
+      "isCollapsed": true,
+      "sourceType": "audio",
+      "audioUrl": "bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
+      "coverUrl": null,
+      "lyricsUrl": null
     },
     {
       "@type": "Path",
