@@ -1,11 +1,11 @@
 /**
- * AVN Player v1.5.03 - Renderer Module with UI/UX updates
+ * AVN Player v1.5.03 - Renderer Module with Anchor Fixes
  * by Nftxv
  */
 const NODE_WIDTH = 200;
 const NODE_HEIGHT_COLLAPSED = 45;
 const NODE_HEIGHT_EXPANDED = 225;
-const TOGGLE_ICON_SIZE = 16; // Slightly larger for easier clicking
+const TOGGLE_ICON_SIZE = 16;
 
 export default class Renderer {
   constructor(canvasId) {
@@ -76,19 +76,38 @@ export default class Renderer {
       const worldY = (this.canvas.height / 2 - this.offset.y) / this.scale;
       return { x: worldX, y: worldY };
   }
+
+  _getNodeVisualRect(node) {
+      if (node.isCollapsed) {
+          return {
+              x: node.x,
+              y: node.y,
+              width: NODE_WIDTH,
+              height: NODE_HEIGHT_COLLAPSED
+          };
+      } else {
+          const y = node.y - (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2;
+          return {
+              x: node.x,
+              y: y,
+              width: NODE_WIDTH,
+              height: NODE_HEIGHT_EXPANDED
+          };
+      }
+  }
   
   getClickableEntityAt(x, y) {
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
-        const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
+        const rect = this._getNodeVisualRect(node);
         
-        const iconX = node.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 4;
-        const iconY = node.y + height - TOGGLE_ICON_SIZE - 4;
+        const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 4;
+        const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 4;
         if (x > iconX && x < iconX + TOGGLE_ICON_SIZE && y > iconY && y < iconY + TOGGLE_ICON_SIZE) {
             return { type: 'collapse_toggle', entity: node };
         }
 
-        if (x > node.x && x < node.x + NODE_WIDTH && y > node.y && y < node.y + height) {
+        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
             return { type: 'node', entity: node };
         }
     }
@@ -104,8 +123,8 @@ export default class Renderer {
   getNodeAt(x, y) {
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
-        const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-        if (x > node.x && x < node.x + NODE_WIDTH && y > node.y && y < node.y + height) return node;
+        const rect = this._getNodeVisualRect(node);
+        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) return node;
     }
     return null;
   }
@@ -113,12 +132,12 @@ export default class Renderer {
   getNodesInRect(rect) {
     const normalizedRect = this.normalizeRect(rect);
     return this.graphData.nodes.filter(node => {
-        const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
+        const nodeRect = this._getNodeVisualRect(node);
         return (
-            node.x >= normalizedRect.x &&
-            node.y >= normalizedRect.y &&
-            node.x + NODE_WIDTH <= normalizedRect.x + normalizedRect.w &&
-            node.y + height <= normalizedRect.y + normalizedRect.h
+            nodeRect.x >= normalizedRect.x &&
+            nodeRect.y >= normalizedRect.y &&
+            nodeRect.x + nodeRect.width <= normalizedRect.x + normalizedRect.w &&
+            nodeRect.y + nodeRect.height <= normalizedRect.y + normalizedRect.h
         );
     });
   }
@@ -159,7 +178,6 @@ export default class Renderer {
         const trg = this.graphData.nodes.find(n => n.id === edge.target);
         if (!src || !trg) continue;
         
-        // Use fixed anchor point for source
         const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
 
         const controlPoints = edge.controlPoints || [];
@@ -211,7 +229,6 @@ export default class Renderer {
       const arrowSize = 6 + edgeLineWidth * 2.5;
       const controlPoints = edge.controlPoints || [];
       
-      // Use fixed anchor point based on collapsed state size
       const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
       
       const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
@@ -260,22 +277,14 @@ export default class Renderer {
 
   drawNode(node) {
     const ctx = this.ctx;
-    const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-    
-    // The node's (x,y) is always the top-left of the expanded state.
-    // When collapsed, we draw it centered vertically.
-    const drawY = node.isCollapsed ? node.y + (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2 : node.y;
+    const rect = this._getNodeVisualRect(node);
     
     ctx.save();
     
     // Node Body
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    ctx.roundRect(node.x, drawY, NODE_WIDTH, NODE_HEIGHT_COLLAPSED, 8);
-    // If expanded, draw the larger background part
-    if (!node.isCollapsed) {
-        ctx.roundRect(node.x, node.y, NODE_WIDTH, height, 8);
-    }
+    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
     ctx.fill();
     
     // Border
@@ -289,10 +298,10 @@ export default class Renderer {
         const coverUrl = this.getSourceUrl(node.coverSources?.[0]);
         const contentHeight = 150;
         if (coverUrl && this.images[coverUrl]) {
-            ctx.drawImage(this.images[coverUrl], node.x + 10, node.y + 10, NODE_WIDTH - 20, contentHeight);
+            ctx.drawImage(this.images[coverUrl], rect.x + 10, rect.y + 10, NODE_WIDTH - 20, contentHeight);
         } else {
             ctx.fillStyle = '#1e1e1e';
-            ctx.fillRect(node.x + 10, node.y + 10, NODE_WIDTH - 20, contentHeight);
+            ctx.fillRect(rect.x + 10, rect.y + 10, NODE_WIDTH - 20, contentHeight);
         }
     }
     
@@ -304,22 +313,21 @@ export default class Renderer {
     const fittedTitle = this._fitText(node.title, titleMaxWidth);
     
     const titleY = node.isCollapsed 
-        ? drawY + NODE_HEIGHT_COLLAPSED / 2
-        : node.y + 175; // Position under the content area
+        ? rect.y + rect.height / 2
+        : rect.y + 175;
     ctx.textBaseline = node.isCollapsed ? 'middle' : 'top';
-    ctx.fillText(fittedTitle, node.x + NODE_WIDTH / 2, titleY);
+    ctx.fillText(fittedTitle, rect.x + NODE_WIDTH / 2, titleY);
 
     // Toggle Icon
-    const iconX = node.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
-    const iconY = drawY + NODE_HEIGHT_COLLAPSED - TOGGLE_ICON_SIZE - 6;
+    const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
+    const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
     ctx.strokeStyle = '#9e9e9e';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    // Horizontal line for '-'
     ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
     ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
-    if (node.isCollapsed) { // Vertical line for '+'
+    if (node.isCollapsed) {
       ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 4);
       ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
     }
@@ -347,12 +355,9 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-      // The visual representation of the node changes, so intersection must adapt.
-      const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-      const nodeY = node.isCollapsed ? node.y + (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2 : node.y;
-      
-      const halfW = NODE_WIDTH / 2, halfH = height / 2;
-      const cx = node.x + halfW, cy = nodeY + halfH;
+      const rect = this._getNodeVisualRect(node);
+      const halfW = rect.width / 2, halfH = rect.height / 2;
+      const cx = rect.x + halfW, cy = rect.y + halfH;
       const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
       if (dx === 0 && dy === 0) return {x: cx, y: cy};
       const angle = Math.atan2(dy, dx);
@@ -364,7 +369,6 @@ export default class Renderer {
   
   drawTemporaryEdge() {
     const ctx = this.ctx;
-    // Always connect from the fixed anchor point
     const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
     const startY = this.edgeCreationSource.y + NODE_HEIGHT_COLLAPSED / 2;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
@@ -393,8 +397,8 @@ export default class Renderer {
       const snapTargets = [];
       this.graphData.nodes.forEach(n => {
           if (n !== ignoredEntity && !n.selected) {
-            const height = NODE_HEIGHT_COLLAPSED; // Always snap to the anchor's size
-            snapTargets.push({ x: n.x, y: n.y, w: NODE_WIDTH, h: height, type: 'node' });
+            const rect = this._getNodeVisualRect(n);
+            snapTargets.push({ x: rect.x, y: rect.y, w: rect.width, h: rect.height, type: 'node' });
           }
       });
       this.graphData.edges.forEach(e => {
@@ -404,7 +408,7 @@ export default class Renderer {
       for (const target of snapTargets) {
           if (target.type === 'node') {
               const targetCenterX = target.x + target.w / 2;
-              const targetCenterY = target.y + target.h / 2; // Snap to center of anchor rect
+              const targetCenterY = target.y + target.h / 2;
               if (Math.abs(pos.x - targetCenterX) < threshold) { snappedPos.x = targetCenterX; snapX = true; }
               if (Math.abs(pos.y - targetCenterY) < threshold) { snappedPos.y = targetCenterY; snapY = true; }
           } else {
