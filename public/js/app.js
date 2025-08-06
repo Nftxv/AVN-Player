@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.7 - Main Application
+ * AVN Player v2.9 - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -37,22 +37,20 @@ class GraphApp {
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
-    this.renderer.setEditorMode(isEditor); // ** IMPORTANT: Tell the renderer the mode changed **
+    this.renderer.setEditorMode(isEditor);
     this.player.stop();
     this.navigation.reset();
-    this.editorTools.clearSelection(); // Clear selection on mode change
+    this.editorTools.clearSelection();
   }
 
   setupEventListeners() {
     this.renderer.setupCanvasInteraction(
-        (e) => this.handleCanvasClick(e),
-        (e) => this.handleCanvasDblClick(e),
-        (source, target) => { // onEdgeCreated
-            if (this.isEditorMode) this.editorTools.createEdge(source, target);
-        },
-        (items, event) => { // onBoxSelect
-            if (this.isEditorMode) this.editorTools.updateSelection(items, event.ctrlKey, event.shiftKey);
-        }
+        (event) => this.handleCanvasClick(event),
+        (event) => this.handleCanvasDblClick(event),
+        (source, target) => { if (this.isEditorMode) this.editorTools.createEdge(source, target); },
+        (items, event) => { if (this.isEditorMode) this.editorTools.updateSelection(items, event.ctrlKey, event.shiftKey); },
+        () => { if (this.isEditorMode) this.editorTools.startDragging(); }, // onDragStart
+        (dx, dy) => { if (this.isEditorMode) this.editorTools.dragSelection(dx, dy); } // onDrag
     );
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -60,9 +58,8 @@ class GraphApp {
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
     document.getElementById('addNodeBtn').addEventListener('click', () => {
         const newNode = this.editorTools.createNode();
-        this.editorTools.setSelection([newNode]); // Select the new node immediately
+        this.editorTools.setSelection([newNode]);
     });
-    // ** FIX: Button now calls deleteSelection **
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         this.editorTools.deleteSelection();
     });
@@ -84,8 +81,6 @@ class GraphApp {
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       const clickedEdge = !clickedNode ? this.renderer.getEdgeAt(coords.x, coords.y) : null;
       const clickedEntity = clickedNode || clickedEdge;
-
-      // Let EditorTools handle the complex logic of Ctrl/Shift clicks
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], event.ctrlKey, event.shiftKey);
     } else { // Player mode
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);

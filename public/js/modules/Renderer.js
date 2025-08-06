@@ -1,36 +1,23 @@
 /**
- * AVN Player v2.8 - Renderer Module (with Multi-Select)
+ * AVN Player v2.9 - Renderer Module (Multi-Select & Drag)
  * by Nftxv
  */
 export default class Renderer {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
-    
-    // Data source
-    this.graphData = null; 
-    this.images = {};
-
-    // View & camera state
-    this.offset = { x: 0, y: 0 }; 
-    this.scale = 1.0;
+    this.graphData = null; this.images = {};
+    this.offset = { x: 0, y: 0 }; this.scale = 1.0;
     
     // Interaction states
-    this.dragStart = { x: 0, y: 0 }; 
-    this.dragged = false; 
-    this.dragging = false; // For canvas panning
-    this.draggingNode = null; 
-    this.dragNodeOffset = { x: 0, y: 0 };
-    this.draggingControlPoint = null; 
+    this.dragStart = { x: 0, y: 0 }; this.absoluteDragStart = {x: 0, y: 0};
+    this.dragged = false;
+    this.panning = false;
+    this.isDraggingGroup = false;
+    this.draggingControlPoint = null;
     this.isCreatingEdge = false;
-    this.edgeCreationSource = null; 
+    this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
-    
-    // Snapping state
-    this.snapThreshold = 10; 
-    this.snapLines = [];
-    
-    // NEW: State for multi-select and mode awareness
     this.isEditorMode = false;
     this.isSelecting = false;
     this.selectionBox = {};
@@ -39,22 +26,10 @@ export default class Renderer {
     this.renderLoop = this.renderLoop.bind(this);
   }
 
-  // --- Setup & Data Handling ---
-
-  setData(graphData) {
-    this.graphData = graphData;
-  }
-
-  setEditorMode(isEditor) {
-    this.isEditorMode = isEditor;
-  }
-
-  async loadAndRenderAll() {
-    if (!this.graphData) return;
-    await this.loadImages();
-    this.renderLoop();
-  }
-
+  // --- Setup & Data ---
+  setData(graphData) { this.graphData = graphData; }
+  setEditorMode(isEditor) { this.isEditorMode = isEditor; }
+  async loadAndRenderAll() { if (!this.graphData) return; await this.loadImages(); this.renderLoop(); }
   async loadImages() {
     const promises = this.graphData.nodes.flatMap(node =>
       (node.coverSources || []).map(async source => {
@@ -70,8 +45,7 @@ export default class Renderer {
     await Promise.all(promises);
   }
 
-  // --- Coordinate & Helper Functions ---
-
+  // --- Helpers ---
   getSourceUrl(source) {
     if (!source) return null;
     if (source.type === 'ipfs') {
@@ -80,25 +54,21 @@ export default class Renderer {
     }
     return source.value;
   }
-  
   getViewportCenter() {
       const worldX = (this.canvas.width / 2 - this.offset.x) / this.scale;
       const worldY = (this.canvas.height / 2 - this.offset.y) / this.scale;
       return { x: worldX, y: worldY };
   }
-  
   getCanvasCoords({ clientX, clientY }) {
       const rect = this.canvas.getBoundingClientRect();
       const x = (clientX - rect.left - this.offset.x) / this.scale;
       const y = (clientY - rect.top - this.offset.y) / this.scale;
       return { x, y };
   }
-
   resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
   wasDragged() { return this.dragged; }
 
-  // --- Hit-testing Methods ---
-
+  // --- Hit-testing ---
   getNodeAt(x, y) {
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
@@ -106,7 +76,6 @@ export default class Renderer {
     }
     return null;
   }
-
   getControlPointAt(x, y) {
       const tolerance = 8 / this.scale;
       for (const edge of this.graphData.edges) {
@@ -117,7 +86,6 @@ export default class Renderer {
       }
       return null;
   }
-
   getEdgeAt(x, y) {
     const tolerance = 10 / this.scale;
     for (const edge of this.graphData.edges) {
@@ -143,9 +111,8 @@ export default class Renderer {
     }
     return null;
   }
-
-  // --- Rendering Methods ---
-
+  
+  // --- Rendering ---
   renderLoop() {
     if (!this.graphData) return;
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -156,7 +123,6 @@ export default class Renderer {
     this.graphData.nodes.forEach(node => this.drawNode(node));
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isSelecting) this._drawSelectionBox();
-    this._drawSnapGuides();
     this.ctx.restore();
     requestAnimationFrame(this.renderLoop);
   }
@@ -173,7 +139,6 @@ export default class Renderer {
     ctx.fillStyle = '#000000'; ctx.font = '14px Segoe UI';
     ctx.fillText(node.title, node.x + height, node.y + 25, width - height - 10); ctx.restore();
   }
-
   drawEdge(edge) {
       const src = this.graphData.nodes.find(n => n.id === edge.source);
       const trg = this.graphData.nodes.find(n => n.id === edge.target);
@@ -216,14 +181,12 @@ export default class Renderer {
       }
       ctx.restore();
   }
-      
   _drawArrow(x, y, angle, color, size) {
       this.ctx.save(); this.ctx.translate(x, y); this.ctx.rotate(angle);
       this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(-size, -size * 0.4);
       this.ctx.lineTo(-size, size * 0.4); this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill();
       this.ctx.restore();
   }
-
   _getIntersectionWithNodeRect(node, externalPoint) {
       const w = 160, h = 90; const halfW = w / 2, halfH = h / 2;
       const cx = node.x + halfW, cy = node.y + halfH;
@@ -235,13 +198,11 @@ export default class Renderer {
       else { y = cy + Math.sign(dy) * halfH; x = cx + Math.sign(dy) * halfH / tan; }
       return { x, y };
   }
-  
   drawTemporaryEdge() {
     const ctx = this.ctx; const startX = this.edgeCreationSource.x + 80; const startY = this.edgeCreationSource.y + 45;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
   }
-
   _drawSelectionBox() {
     this.ctx.save();
     this.ctx.fillStyle = "rgba(66, 133, 244, 0.2)";
@@ -253,126 +214,92 @@ export default class Renderer {
     this.ctx.restore();
   }
 
-  // --- Unchanged Methods ---
-  highlight(currentId, prevId, edge) { /* ... */ }
-  _getSnappedPosition(pos, ignoredEntity) { /* ... */ }
-  _drawSnapGuides() { /* ... */ }
-  // ...
-
   // --- Interaction Handling ---
-  setupCanvasInteraction(onClick, onDblClick, onEdgeCreated, onBoxSelect) {
+  setupCanvasInteraction(onClick, onDblClick, onEdgeCreated, onBoxSelect, onDragStart, onDrag) {
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     this.canvas.addEventListener('mousedown', (e) => {
         const mousePos = this.getCanvasCoords(e);
         this.dragged = false;
+        this.dragStart = mousePos;
+        this.absoluteDragStart = mousePos;
 
+        const button = e.button;
         if (this.isEditorMode) {
-            // Middle mouse button for panning
-            if (e.button === 1) {
-                this.dragging = true;
-                this.dragStart.x = e.clientX - this.offset.x;
-                this.dragStart.y = e.clientY - this.offset.y;
-                return;
-            }
-            // Left mouse button
-            if (e.button === 0) {
+            if (button === 1) { this.panning = true; return; }
+            if (button === 0) {
+                const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+                if (clickedNode && clickedNode.selected) {
+                    this.isDraggingGroup = true;
+                    onDragStart();
+                    return;
+                }
                 const cp = this.getControlPointAt(mousePos.x, mousePos.y);
                 if (cp) { this.draggingControlPoint = cp; return; }
-                const node = this.getNodeAt(mousePos.x, mousePos.y);
-                const edge = this.getEdgeAt(mousePos.x, mousePos.y);
-                // If we click on something, we let the 'click' event handle selection logic.
-                // We only start a selection box if we click on an empty area.
-                if (node || edge) return; 
-
+                const clickedItem = clickedNode || this.getEdgeAt(mousePos.x, mousePos.y);
+                if (clickedItem) return; // Let click handler manage selection
                 this.isSelecting = true;
-                this.selectionBox.x1 = mousePos.x;
-                this.selectionBox.y1 = mousePos.y;
-                this.selectionBox.x2 = mousePos.x;
-                this.selectionBox.y2 = mousePos.y;
+                this.selectionBox = { x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
             }
-            // Right mouse button (for edge creation)
-            else if (e.button === 2) {
-                const cp = this.getControlPointAt(mousePos.x, mousePos.y);
-                if (cp) { if (!cp.edge.controlPoints) cp.edge.controlPoints = []; cp.edge.controlPoints.splice(cp.pointIndex, 1); }
-                else { const node = this.getNodeAt(mousePos.x, mousePos.y); if (node) { this.isCreatingEdge = true; this.edgeCreationSource = node; } }
-            }
-        } else { // Player mode
-            if (e.button === 0) { // Pan with left click
-                this.dragging = true;
-                this.dragStart.x = e.clientX - this.offset.x;
-                this.dragStart.y = e.clientY - this.offset.y;
-            }
+        } else { // Player Mode
+            if (button === 0) { this.panning = true; }
         }
     });
     
     this.canvas.addEventListener('mousemove', (e) => {
-        this.mousePos = this.getCanvasCoords(e);
-        if (e.buttons === 0) {
-             // Clean up all states if no button is pressed
-            this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isSelecting = false;
-            this.snapLines = [];
-            return;
+        if (e.buttons === 0) { this.panning = this.isDraggingGroup = this.draggingControlPoint = this.isSelecting = false; return; }
+        const currentPos = this.getCanvasCoords(e);
+        if(!this.dragged && Math.hypot(currentPos.x - this.dragStart.x, currentPos.y - this.dragStart.y) > 3) {
+            this.dragged = true;
         }
-        this.dragged = true;
 
-        if (this.isSelecting) {
-            this.selectionBox.x2 = this.mousePos.x;
-            this.selectionBox.y2 = this.mousePos.y;
-        } else if (this.dragging) {
-            this.offset.x = e.clientX - this.dragStart.x;
-            this.offset.y = e.clientY - this.dragStart.y;
+        if (this.panning) {
+            const dx = currentPos.x - this.dragStart.x;
+            const dy = currentPos.y - this.dragStart.y;
+            this.offset.x += dx * this.scale;
+            this.offset.y += dy * this.scale;
+        } else if (this.isDraggingGroup) {
+            const dx = currentPos.x - this.absoluteDragStart.x;
+            const dy = currentPos.y - this.absoluteDragStart.y;
+            onDrag(dx, dy);
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
-            const snappedPos = this._getSnappedPosition(this.mousePos, point);
-            point.x = snappedPos.x; point.y = snappedPos.y;
+            point.x = currentPos.x; point.y = currentPos.y;
+        } else if (this.isSelecting) {
+            this.selectionBox.x2 = currentPos.x;
+            this.selectionBox.y2 = currentPos.y;
         }
     });
 
     this.canvas.addEventListener('mouseup', (e) => {
+        const mousePos = this.getCanvasCoords(e);
         if (this.isSelecting) {
             this.isSelecting = false;
-            // Normalize box coordinates
             const box = {
                 x: Math.min(this.selectionBox.x1, this.selectionBox.x2),
                 y: Math.min(this.selectionBox.y1, this.selectionBox.y2),
                 w: Math.abs(this.selectionBox.x1 - this.selectionBox.x2),
                 h: Math.abs(this.selectionBox.y1 - this.selectionBox.y2),
             };
-            
-            if (box.w > 5 || box.h > 5) { // Avoid triggering on simple clicks
-                const nodesInBox = this.graphData.nodes.filter(n => 
-                    (n.x + 160) > box.x && n.x < (box.x + box.w) &&
-                    (n.y + 90) > box.y && n.y < (box.y + box.h)
-                );
-                const edgesInBox = this.graphData.edges.filter(edge => {
-                    const src = this.graphData.nodes.find(n => n.id === edge.source);
-                    const trg = this.graphData.nodes.find(n => n.id === edge.target);
-                    if (!src || !trg) return false;
-                    // An edge is in the box if BOTH its start and end nodes are selected.
-                    // This is a common and intuitive behavior for graph editors.
-                    return nodesInBox.includes(src) && nodesInBox.includes(trg);
-                });
-                onBoxSelect([...nodesInBox, ...edgesInBox], e);
+            if (box.w > 5 || box.h > 5) {
+                const nodesInBox = this.graphData.nodes.filter(n => n.x >= box.x && (n.x + 160) <= (box.x + box.w) && n.y >= box.y && (n.y + 90) <= (box.y + box.h));
+                onBoxSelect(nodesInBox, e);
             }
         }
-        
-        // Finalize edge creation on right mouse up
-        if (this.isCreatingEdge && e.button === 2) {
-            const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
-            if (targetNode && this.edgeCreationSource && targetNode.id !== this.edgeCreationSource.id) {
-                onEdgeCreated(this.edgeCreationSource, targetNode);
+        if (this.isEditorMode && e.button === 2 && !this.dragged) {
+            const cp = this.getControlPointAt(mousePos.x, mousePos.y);
+            if(cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
+            else {
+                const node = this.getNodeAt(mousePos.x, mousePos.y);
+                if (node) onEdgeCreated(node, null);
             }
         }
-        
-        // Reset all interaction states
-        this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = false;
-        this.snapLines = [];
+
+        this.panning = this.isDraggingGroup = this.draggingControlPoint = false;
         setTimeout(() => { this.dragged = false; }, 0);
     });
-
-    // Pass original events for app logic
+    
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
     
@@ -382,21 +309,16 @@ export default class Renderer {
         const wheel = e.deltaY < 0 ? 1 : -1;
         const zoom = Math.exp(wheel * zoomIntensity);
         const rect = this.canvas.getBoundingClientRect();
-        this.offset.x -= (e.clientX - rect.left - this.offset.x) * (zoom - 1);
-        this.offset.y -= (e.clientY - rect.top - this.offset.y) * (zoom - 1);
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        this.offset.x -= (mouseX - this.offset.x) * (zoom - 1);
+        this.offset.y -= (mouseY - this.offset.y) * (zoom - 1);
         this.scale *= zoom;
         this.scale = Math.max(0.1, Math.min(5, this.scale));
     });
     
     this.canvas.addEventListener('mouseleave', () => {
-        if (this.dragging || this.draggingNode || this.draggingControlPoint || this.isCreatingEdge || this.isSelecting) {
-            this.dragging = false;
-            this.draggingNode = false;
-            this.draggingControlPoint = false;
-            this.isCreatingEdge = false;
-            this.isSelecting = false;
-            this.snapLines = [];
-        }
+        this.panning = this.isDraggingGroup = this.draggingControlPoint = this.isSelecting = false;
     });
   }
 }
