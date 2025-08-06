@@ -325,6 +325,9 @@ export default class Renderer {
             wrapper = this._createIframeWrapper(node);
             this.iframeContainer.appendChild(wrapper);
             this.player.createYtPlayer(node);
+        } else if (!this.player.ytPlayers.has(node.id)) {
+            // Re-create the player object if the wrapper exists but the player was destroyed
+            this.player.createYtPlayer(node);
         }
 
         const nodeRect = this._getNodeVisualRect(node);
