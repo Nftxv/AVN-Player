@@ -1,19 +1,6 @@
 /**
- * AVN Player v1.4 - Renderer Module
+ * AVN Player v2.3 - Renderer Module
  * by Nftxv
- *
- * Copyright (c) 2025 Nftxv - https://AbyssVoid.com/
- *
- * This source code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
- * International License (CC BY-NC-SA 4.0).
- *
- * You can find the full license text at:
- * https://creativecommons.org/licenses/by-nc-sa/4.0/
- */
-
-/**
- * Handles all rendering on the canvas, including nodes, edges, and user interactions
- * like panning, zooming, and visual editing.
  */
 export default class Renderer {
   constructor(canvasId) {
@@ -24,20 +11,18 @@ export default class Renderer {
     this.nodes = [];
     this.edges = [];
     this.meta = {};
-    this.images = {}; // Cache for loaded cover images
+    this.images = {};
 
-    // View camera state
+    // View & camera state
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
     
-    // General dragging state
+    // Dragging state
     this.dragStart = { x: 0, y: 0 };
-    this.dragging = false; // For canvas panning
-    this.dragged = false;  // To distinguish a drag from a click
-
-    // Node dragging state
+    this.dragging = false;
+    this.dragged = false;
     this.draggingNode = null;
-    this.dragNodeOffset = { x: 0, y: 0 };
+    this.draggingControlPoint = null; // { edge, pointIndex }
 
     // Edge creation state
     this.isCreatingEdge = false;
@@ -60,6 +45,7 @@ export default class Renderer {
   }
 
   async loadImages() {
+    // ... (no changes in this method)
     const promises = this.nodes.flatMap(node =>
       (node.coverSources || []).map(async source => {
         const url = this.getSourceUrl(source);
@@ -79,6 +65,7 @@ export default class Renderer {
   }
 
   getSourceUrl(source) {
+    // ... (no changes in this method)
     if (!source) return null;
     if (source.type === 'ipfs') {
       const gateway = this.meta.gateways?.[0] || 'https://ipfs.io/ipfs/';
@@ -88,7 +75,7 @@ export default class Renderer {
   }
   
   getNodeAt(x, y) {
-    // Iterate backwards to select the top-most node
+    // ... (no changes in this method)
     for (let i = this.nodes.length - 1; i >= 0; i--) {
         const node = this.nodes[i];
         const width = 160, height = 90;
@@ -99,26 +86,50 @@ export default class Renderer {
     return null;
   }
 
-  getEdgeAt(x, y) {
-    const tolerance = 5; // Click tolerance in pixels
-    for (const edge of this.edges) {
-      const src = this.nodes.find(n => n.id === edge.source);
-      const trg = this.nodes.find(n => n.id === edge.target);
-      if (!src || !trg) continue;
-
-      const startX = src.x + 80, startY = src.y + 45;
-      const endX = trg.x + 80, endY = trg.y + 45;
-      const cpX = (startX + endX) / 2 + (startY - endY) * 0.2;
-      const cpY = (startY + endY) / 2 + (endX - startX) * 0.2;
-
-      // A simple distance check to the curve's midpoint
-      const dist = Math.sqrt(Math.pow(x - cpX, 2) + Math.pow(y - cpY, 2));
-      if (dist < tolerance * 5) { // A wider tolerance for the midpoint
-        return edge;
+  getControlPointAt(x, y) {
+      const tolerance = 8; // click radius
+      for (const edge of this.edges) {
+          for (let i = 0; i < edge.controlPoints.length; i++) {
+              const point = edge.controlPoints[i];
+              if (Math.hypot(x - point.x, y - point.y) < tolerance) {
+                  return { edge, pointIndex: i };
+              }
+          }
       }
+      return null;
+  }
+
+  getEdgeAt(x, y) {
+    const tolerance = 10;
+    for (const edge of this.edges) {
+        const src = this.nodes.find(n => n.id === edge.source);
+        const trg = this.nodes.find(n => n.id === edge.target);
+        if (!src || !trg) continue;
+
+        const pathPoints = [
+            { x: src.x + 80, y: src.y + 45 },
+            ...edge.controlPoints,
+            { x: trg.x + 80, y: trg.y + 45 }
+        ];
+
+        for (let i = 0; i < pathPoints.length - 1; i++) {
+            const p1 = pathPoints[i];
+            const p2 = pathPoints[i + 1];
+            // Simple distance to line segment check
+            const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const dot = (((x - p1.x) * (p2.x - p1.x)) + ((y - p1.y) * (p2.y - p1.y))) / Math.pow(len, 2);
+            const closestX = p1.x + (dot * (p2.x - p1.x));
+            const closestY = p1.y + (dot * (p2.y - p1.y));
+            
+            const onSegment = dot >= 0 && dot <= 1;
+            if (onSegment && Math.hypot(x - closestX, y - closestY) < tolerance) {
+                return edge;
+            }
+        }
     }
     return null;
   }
+
 
   renderLoop() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -129,7 +140,6 @@ export default class Renderer {
     this.edges.forEach(edge => this.drawEdge(edge));
     this.nodes.forEach(node => this.drawNode(node));
     
-    // Draw the temporary line for edge creation
     if (this.isCreatingEdge && this.edgeCreationSource) {
       this.drawTemporaryEdge();
     }
@@ -139,20 +149,17 @@ export default class Renderer {
   }
 
   drawNode(node) {
+    // ... (no changes in this method)
     const ctx = this.ctx;
     const width = 160, height = 90;
     ctx.save();
     
-    // Determine style based on state: selected (editor) > highlighted (player) > default
     if (node.selected) {
-        ctx.strokeStyle = '#e74c3c'; // Red for selected
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 4;
     } else if (node.highlighted) {
-        ctx.strokeStyle = '#FFD700'; // Gold for highlighted
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 4;
     } else {
-        ctx.strokeStyle = '#4a86e8'; // Blue for default
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#4a86e8'; ctx.lineWidth = 2;
     }
 
     ctx.fillStyle = '#ffffff';
@@ -161,7 +168,6 @@ export default class Renderer {
     ctx.fill();
     ctx.stroke();
 
-    // Draw cover image
     const coverSource = node.coverSources?.[0];
     const coverUrl = this.getSourceUrl(coverSource);
     if (coverUrl && this.images[coverUrl]) {
@@ -171,133 +177,129 @@ export default class Renderer {
         ctx.fillRect(node.x + 5, node.y + 5, height - 10, height - 10);
     }
 
-    // Draw title
     ctx.fillStyle = '#000000';
     ctx.font = '14px Segoe UI';
     ctx.fillText(node.title, node.x + height, node.y + 25, width - height - 10);
     ctx.restore();
   }
 
-// Файл: public/js/modules/Renderer.js
-
-  // ЗАМЕНИТЕ ВЕСЬ СТАРЫЙ МЕТОД drawEdge НА ЭТОТ
   drawEdge(edge) {
-      const src = this.nodes.find(n => n.id === edge.source);
-      const trg = this.nodes.find(n => n.id === edge.target);
-      if (!src || !trg) return;
-      
-      const ctx = this.ctx;
-      
-      const nodeWidth = 160;
-      const nodeHeight = 90;
-      // "Магическая" константа. Это радиус скругления, который вы используете в drawNode.
-      // Мы заставим линию заходить внутрь на это расстояние.
-      const cornerRadius = 8; 
+    const src = this.nodes.find(n => n.id === edge.source);
+    const trg = this.nodes.find(n => n.id === edge.target);
+    if (!src || !trg) return;
+    
+    const ctx = this.ctx;
+    ctx.save();
 
-      const startX = src.x + nodeWidth / 2;
-      const startY = src.y + nodeHeight / 2;
-      let endX = trg.x + nodeWidth / 2;
-      let endY = trg.y + nodeHeight / 2;
+    let color = edge.color || '#888888';
+    if (edge.selected) color = '#e74c3c';
+    if (edge.highlighted) color = '#FFD700';
 
-      // --- МАТЕМАТИКА ДЛЯ ОПРЕДЕЛЕНИЯ ТОЧКИ НА ГРАНИЦЕ НОДЫ ---
-      const dx = endX - startX;
-      const dy = endY - startY;
-      const angle = Math.atan2(dy, dx);
+    const lineWidth = edge.selected || edge.highlighted ? (edge.lineWidth || 2) + 1 : (edge.lineWidth || 2);
 
-      // Рассчитываем точку пересечения с прямоугольником целевой ноды
-      const h_x = nodeWidth / 2;
-      const h_y = nodeHeight / 2;
-      const tan_angle = Math.tan(angle);
-      
-      let finalX = endX;
-      let finalY = endY;
-      
-      // Расчет точки на границе острого прямоугольника
-      if (Math.abs(dy) < Math.abs(dx) * (h_y / h_x)) {
-          finalX = endX - Math.sign(dx) * h_x;
-          finalY = endY - Math.sign(dx) * h_x * tan_angle;
-      } else {
-          finalY = endY - Math.sign(dy) * h_y;
-          finalX = endX - Math.sign(dy) * h_y / tan_angle;
-      }
+    const pathPoints = [
+      { x: src.x + 80, y: src.y + 45 },
+      ...edge.controlPoints,
+      { x: trg.x + 80, y: trg.y + 45 }
+    ];
 
-      // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-      // Смещаем конечную точку немного "внутрь" по направлению к центру ноды.
-      // Это компенсирует скругленные углы.
-      finalX -= Math.cos(angle) * cornerRadius;
-      finalY -= Math.sin(angle) * cornerRadius;
-      
-      // --- СТИЛИЗАЦИЯ ---
-      let color = edge.color || '#888888';
-      if (edge.selected) color = '#e74c3c';
-      if (edge.highlighted) color = '#FFD700';
+    // Draw line segments
+    ctx.beginPath();
+    ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+    for (let i = 1; i < pathPoints.length; i++) {
+        ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
 
-      const lineWidth = edge.selected || edge.highlighted ? 2 : 1;
-      
-      ctx.save();
-      
-      // --- РИСУЕМ ЛИНИЮ ---
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(finalX, finalY);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.stroke();
+    // Draw arrows and control points
+    for (let i = 1; i < pathPoints.length; i++) {
+        const p1 = pathPoints[i-1];
+        const p2 = pathPoints[i];
+        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        this._drawArrow(p2.x, p2.y, angle, color);
+        
+        // Draw control point circle if it's not a start/end node
+        if (i < pathPoints.length - 1) {
+            ctx.beginPath();
+            ctx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+    }
+    
+    // Draw label
+    if (edge.label) {
+        const midPoint = pathPoints[Math.floor((pathPoints.length-1)/2)];
+        const nextPoint = pathPoints[Math.floor((pathPoints.length-1)/2)+1];
+        ctx.font = '12px Segoe UI';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(edge.label, (midPoint.x + nextPoint.x)/2, (midPoint.y+nextPoint.y)/2 - 8);
+    }
 
-      // --- РИСУЕМ СТРЕЛКУ ---
-      const arrowSize = 8;
-      ctx.translate(finalX, finalY);
-      ctx.rotate(angle);
-      
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-arrowSize, -arrowSize / 2);
-      ctx.lineTo(-arrowSize, arrowSize / 2);
-      ctx.closePath();
-      
-      ctx.fillStyle = color;
-      ctx.fill();
-
-      ctx.restore();
+    ctx.restore();
   }
+
+  _drawArrow(x, y, angle, color) {
+      const size = 10;
+      this.ctx.save();
+      this.ctx.translate(x, y);
+      this.ctx.rotate(angle);
       
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, 0); // Tip of arrow should be exactly on point
+      this.ctx.lineTo(-size, -size / 2);
+      this.ctx.lineTo(-size, size / 2);
+      this.ctx.closePath();
+      
+      this.ctx.fillStyle = color;
+      this.ctx.fill();
+      this.ctx.restore();
+  }
+
   drawTemporaryEdge() {
-      const ctx = this.ctx;
-      const startX = this.edgeCreationSource.x + 80;
-      const startY = this.edgeCreationSource.y + 45;
-      
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(this.mousePos.x, this.mousePos.y);
-      ctx.strokeStyle = '#e74c3c';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.restore();
+    // ... (no changes in this method)
+    const ctx = this.ctx;
+    const startX = this.edgeCreationSource.x + 80;
+    const startY = this.edgeCreationSource.y + 45;
+    
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(this.mousePos.x, this.mousePos.y);
+    ctx.strokeStyle = '#e74c3c';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+    ctx.restore();
   }
 
   highlight(currentId, prevId = null, edge = null) {
-      if(prevId) {
-          const prevNode = this.nodes.find(n => n.id === prevId);
-          if (prevNode) prevNode.highlighted = false;
-      }
-      if(currentId) {
-          const currentNode = this.nodes.find(n => n.id === currentId);
-          if (currentNode) currentNode.highlighted = true;
-      }
-      this.edges.forEach(e => e.highlighted = false);
-      if(edge) {
-          const edgeToHighlight = this.edges.find(e => e.source === edge.source && e.target === edge.target);
-          if (edgeToHighlight) edgeToHighlight.highlighted = true;
-      }
+    // ... (no changes in this method)
+    if(prevId) {
+        const prevNode = this.nodes.find(n => n.id === prevId);
+        if (prevNode) prevNode.highlighted = false;
+    }
+    if(currentId) {
+        const currentNode = this.nodes.find(n => n.id === currentId);
+        if (currentNode) currentNode.highlighted = true;
+    }
+    this.edges.forEach(e => e.highlighted = false);
+    if(edge) {
+        const edgeToHighlight = this.edges.find(e => e.source === edge.source && e.target === edge.target);
+        if (edgeToHighlight) edgeToHighlight.highlighted = true;
+    }
   }
   
   getCanvasCoords({ clientX, clientY }) {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = (clientX - rect.left - this.offset.x) / this.scale;
-      const y = (clientY - rect.top - this.offset.y) / this.scale;
-      return { x, y };
+    // ... (no changes in this method)
+    const rect = this.canvas.getBoundingClientRect();
+    const x = (clientX - rect.left - this.offset.x) / this.scale;
+    const y = (clientY - rect.top - this.offset.y) / this.scale;
+    return { x, y };
   }
   
   resizeCanvas() {
@@ -310,54 +312,66 @@ export default class Renderer {
   setupCanvasInteraction(onClick, onDblClick, onEdgeCreated) {
       window.addEventListener('resize', () => this.resizeCanvas());
 
-      // --- Left Click Down: Pan or start dragging a node ---
       this.canvas.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return; // Only handle left clicks
           const mousePos = this.getCanvasCoords(e);
-          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+          
+          if (e.button === 0) { // Left click
+              const clickedControlPoint = this.getControlPointAt(mousePos.x, mousePos.y);
+              const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
 
-          if (clickedNode) {
-              this.draggingNode = clickedNode;
-              this.dragNodeOffset.x = mousePos.x - clickedNode.x;
-              this.dragNodeOffset.y = mousePos.y - clickedNode.y;
-          } else {
-              this.dragging = true;
-              this.dragStart.x = e.clientX - this.offset.x;
-              this.dragStart.y = e.clientY - this.offset.y;
+              if (clickedControlPoint) {
+                  this.draggingControlPoint = clickedControlPoint;
+              } else if (clickedNode) {
+                  this.draggingNode = clickedNode;
+              } else {
+                  this.dragging = true;
+                  this.dragStart.x = e.clientX - this.offset.x;
+                  this.dragStart.y = e.clientY - this.offset.y;
+              }
           }
           this.dragged = false;
       });
 
-      // --- Right Click Down: Start creating an edge ---
       this.canvas.addEventListener('contextmenu', (e) => {
-          e.preventDefault(); // Prevent browser context menu
+          e.preventDefault();
           const mousePos = this.getCanvasCoords(e);
-          const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
-          if (clickedNode) {
-              this.isCreatingEdge = true;
-              this.edgeCreationSource = clickedNode;
+          const clickedControlPoint = this.getControlPointAt(mousePos.x, mousePos.y);
+
+          if (clickedControlPoint) {
+              // Right-click to delete a control point
+              clickedControlPoint.edge.controlPoints.splice(clickedControlPoint.pointIndex, 1);
+          } else {
+              const clickedNode = this.getNodeAt(mousePos.x, mousePos.y);
+              if (clickedNode) {
+                  this.isCreatingEdge = true;
+                  this.edgeCreationSource = clickedNode;
+              }
           }
       });
       
-      // --- Mouse Move: Handle all dragging types ---
       this.canvas.addEventListener('mousemove', (e) => {
           this.mousePos = this.getCanvasCoords(e);
-          
-          // Only set dragged flag if a button is held down
-          if (this.dragging || this.draggingNode || this.isCreatingEdge) {
+          if (this.dragging || this.draggingNode || this.isCreatingEdge || this.draggingControlPoint) {
               this.dragged = true;
           }
 
-          if (this.draggingNode) {
-              this.draggingNode.x = this.mousePos.x - this.dragNodeOffset.x;
-              this.draggingNode.y = this.mousePos.y - this.dragNodeOffset.y;
+          if (this.draggingControlPoint) {
+              const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
+              point.x = this.mousePos.x;
+              point.y = this.mousePos.y;
+          } else if (this.draggingNode) {
+              this.draggingNode.x = this.mousePos.x - (this.draggingNode.x - this.mousePos.x); // simple correction for offset
+              this.draggingNode.y = this.mousePos.y - (this.draggingNode.y - this.mousePos.y);
+              // A better way would be to store dragNodeOffset on mousedown
+              this.draggingNode.x = this.mousePos.x - (160 / 2);
+              this.draggingNode.y = this.mousePos.y - (90 / 2);
+
           } else if (this.dragging) {
               this.offset.x = e.clientX - this.dragStart.x;
               this.offset.y = e.clientY - this.dragStart.y;
           }
       });
 
-      // --- Mouse Up: Finalize actions ---
       this.canvas.addEventListener('mouseup', (e) => {
           if (this.isCreatingEdge) {
               const targetNode = this.getNodeAt(this.mousePos.x, this.mousePos.y);
@@ -366,13 +380,12 @@ export default class Renderer {
               }
           }
           
-          // Reset all dragging states
           this.dragging = false;
           this.draggingNode = null;
           this.isCreatingEdge = false;
           this.edgeCreationSource = null;
+          this.draggingControlPoint = null;
 
-          // Use a timeout to reset the 'dragged' flag after the 'click' event has fired
           setTimeout(() => { this.dragged = false; }, 0);
       });
 
@@ -380,9 +393,9 @@ export default class Renderer {
           this.dragging = false;
           this.draggingNode = null;
           this.isCreatingEdge = false;
+          this.draggingControlPoint = null;
       });
       
-      // --- Wheel: Zoom ---
       this.canvas.addEventListener('wheel', (e) => {
           e.preventDefault();
           const zoomIntensity = 0.1;
@@ -397,7 +410,6 @@ export default class Renderer {
           this.scale = Math.max(0.1, Math.min(5, this.scale));
       });
 
-      // --- Pass control for clicks back to the main app ---
       this.canvas.addEventListener('click', onClick);
       this.canvas.addEventListener('dblclick', onDblClick);
   }

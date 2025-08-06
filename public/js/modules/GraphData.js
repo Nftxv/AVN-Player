@@ -49,6 +49,8 @@ export default class GraphData {
         target: edge.target,
         color: edge.color || '#4a86e8', // Default edge color
         label: edge.label || '',
+        lineWidth: edge.lineWidth || 2, // Default line width
+        controlPoints: edge.controlPoints || [], // Support for control points
       }));
   }
 
@@ -73,6 +75,8 @@ export default class GraphData {
         target: e.target,
         color: e.color,
         label: e.label,
+        lineWidth: e.lineWidth,
+        controlPoints: e.controlPoints,
       }))
     ];
     return {
