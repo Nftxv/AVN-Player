@@ -1,5 +1,5 @@
 /**
- * AVN Player v1.5.04 - Main Application [FIXED]
+ * AVN Player v1.5.03 - Main Application [CORRECTED]
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';

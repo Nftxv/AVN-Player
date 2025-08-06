@@ -1,5 +1,5 @@
 /**
- * AVN Player v1.5.04 - Renderer Module with iframe support [FIXED]
+ * AVN Player v1.5.03 - Renderer Module with Anchor Fixes [CORRECTED]
  * by Nftxv
  */
 const NODE_WIDTH = 200;
@@ -14,7 +14,6 @@ export default class Renderer {
     
     this.graphData = null; 
     this.images = {};
-    this.iframeContainer = document.getElementById('iframe-container');
 
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
@@ -48,21 +47,21 @@ export default class Renderer {
   }
 
   async loadImages() {
-    const promises = this.graphData.nodes
-        .filter(node => node.sourceType === 'audio' && node.coverUrl)
-        .map(async node => {
-            const url = this.graphData.getSourceUrl(node.coverUrl);
-            if (url && !this.images[url]) {
-                try {
-                    const img = new Image();
-                    img.src = url;
-                    await img.decode();
-                    this.images[url] = img;
-                } catch (e) {
-                    console.warn(`Failed to load cover image: ${url}`, e);
-                }
-            }
-        });
+    const promises = this.graphData.nodes.flatMap(node =>
+      (node.coverSources || []).map(async source => {
+        const url = this.getSourceUrl(source);
+        if (url && !this.images[url]) {
+          try {
+            const img = new Image();
+            img.src = url;
+            await img.decode();
+            this.images[url] = img;
+          } catch (e) {
+            console.warn(`Failed to load cover image: ${url}`, e);
+          }
+        }
+      })
+    );
     await Promise.all(promises);
   }
 
@@ -79,9 +78,22 @@ export default class Renderer {
   }
 
   _getNodeVisualRect(node) {
-      const y = node.isCollapsed ? node.position.y : node.position.y - (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2;
-      const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-      return { x: node.position.x, y: y, width: NODE_WIDTH, height: height };
+      if (node.isCollapsed) {
+          return {
+              x: node.x,
+              y: node.y,
+              width: NODE_WIDTH,
+              height: NODE_HEIGHT_COLLAPSED
+          };
+      } else {
+          const y = node.y - (NODE_HEIGHT_EXPANDED - NODE_HEIGHT_COLLAPSED) / 2;
+          return {
+              x: node.x,
+              y: y,
+              width: NODE_WIDTH,
+              height: NODE_HEIGHT_EXPANDED
+          };
+      }
   }
   
   getClickableEntityAt(x, y) {
@@ -166,7 +178,7 @@ export default class Renderer {
         const trg = this.graphData.nodes.find(n => n.id === edge.target);
         if (!src || !trg) continue;
         
-        const startPoint = { x: src.position.x + NODE_WIDTH / 2, y: src.position.y + NODE_HEIGHT_COLLAPSED / 2 };
+        const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
 
         const controlPoints = edge.controlPoints || [];
         const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
@@ -202,57 +214,7 @@ export default class Renderer {
     this._drawSnapGuides();
     this.ctx.restore();
 
-    this.updateIframes();
-
     requestAnimationFrame(this.renderLoop);
-  }
-
-  updateIframes() {
-    const visibleNodeIds = new Set();
-    
-    this.graphData.nodes.forEach(node => {
-        if (node.sourceType === 'iframe' && !node.isCollapsed) {
-            const rect = this._getNodeVisualRect(node);
-            if (rect.x * this.scale + this.offset.x < this.canvas.width &&
-                (rect.x + rect.width) * this.scale + this.offset.x > 0 &&
-                rect.y * this.scale + this.offset.y < this.canvas.height &&
-                (rect.y + rect.height) * this.scale + this.offset.y > 0) {
-                
-                visibleNodeIds.add(node.id);
-                let iframeWrapper = document.getElementById(node.id);
-                if (!iframeWrapper) {
-                    iframeWrapper = document.createElement('div');
-                    iframeWrapper.id = node.id;
-                    iframeWrapper.className = 'video-iframe';
-                    if (node.iframeUrl) {
-                        iframeWrapper.innerHTML = `<iframe 
-                            width="100%" height="100%" 
-                            src="${node.iframeUrl}?enablejsapi=1&origin=${window.location.origin}"
-                            frameborder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen></iframe>
-                            <div class="drag-overlay"></div>`;
-                    }
-                    this.iframeContainer.appendChild(iframeWrapper);
-                }
-
-                const screenX = (rect.x + 10) * this.scale + this.offset.x;
-                const screenY = (rect.y + 10) * this.scale + this.offset.y;
-                const screenWidth = (NODE_WIDTH - 20) * this.scale;
-                const screenHeight = 150 * this.scale;
-
-                iframeWrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-                iframeWrapper.style.width = `${screenWidth}px`;
-                iframeWrapper.style.height = `${screenHeight}px`;
-            }
-        }
-    });
-
-    Array.from(this.iframeContainer.children).forEach(iframe => {
-        if (!visibleNodeIds.has(iframe.id)) {
-            this.iframeContainer.removeChild(iframe);
-        }
-    });
   }
 
   drawEdge(edge) {
@@ -268,7 +230,7 @@ export default class Renderer {
       const arrowSize = 6 + edgeLineWidth * 2.5;
       const controlPoints = edge.controlPoints || [];
       
-      const startPoint = { x: src.position.x + NODE_WIDTH / 2, y: src.position.y + NODE_HEIGHT_COLLAPSED / 2 };
+      const startPoint = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEIGHT_COLLAPSED / 2 };
       
       const lastPathPoint = controlPoints.length > 0 ? controlPoints.at(-1) : startPoint;
       const intersection = this._getIntersectionWithNodeRect(trg, lastPathPoint);
@@ -331,25 +293,15 @@ export default class Renderer {
     ctx.stroke();
 
     if (!node.isCollapsed) {
+        const coverUrl = this.graphData.getSourceUrl(node.coverSources?.[0]);
         const contentHeight = 150;
         const contentRect = { x: rect.x + 10, y: rect.y + 10, w: NODE_WIDTH - 20, h: contentHeight };
         
-        if (node.sourceType === 'audio') {
-            const coverUrl = this.graphData.getSourceUrl(node.coverUrl);
-            if (coverUrl && this.images[coverUrl]) {
-                ctx.drawImage(this.images[coverUrl], contentRect.x, contentRect.y, contentRect.w, contentRect.h);
-            } else {
-                ctx.fillStyle = '#1e1e1e';
-                ctx.fillRect(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
-            }
+        if (coverUrl && this.images[coverUrl]) {
+            ctx.drawImage(this.images[coverUrl], contentRect.x, contentRect.y, contentRect.w, contentRect.h);
         } else {
-            ctx.fillStyle = '#000000';
+            ctx.fillStyle = '#1e1e1e';
             ctx.fillRect(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.font = '50px Segoe UI Symbol';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('▶', contentRect.x + contentRect.w / 2, contentRect.y + contentRect.h / 2);
         }
     }
     
@@ -462,9 +414,8 @@ export default class Renderer {
                 const node = clicked.entity;
                 if (node.selected) this.isDraggingSelection = true;
                 this.draggingNode = node;
-                this.dragNodeOffset.x = mousePos.x - node.position.x;
-                this.dragNodeOffset.y = mousePos.y - node.position.y;
-                document.body.classList.add('is-dragging-node');
+                this.dragNodeOffset.x = mousePos.x - node.x;
+                this.dragNodeOffset.y = mousePos.y - node.y;
                 return;
             }
 
@@ -483,7 +434,6 @@ export default class Renderer {
     this.canvas.addEventListener('mousemove', (e) => {
         this.mousePos = this.getCanvasCoords(e);
         if (e.buttons === 0) {
-             if (this.draggingNode) document.body.classList.remove('is-dragging-node');
              this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
              this.canvas.style.cursor = 'grab'; this.snapLines = [];
              return;
@@ -499,13 +449,13 @@ export default class Renderer {
             const snappedCenter = this._getSnappedPosition(primaryNodeCenter, primaryNode);
             const snappedX = snappedCenter.x - NODE_WIDTH / 2;
             const snappedY = snappedCenter.y - NODE_HEIGHT_COLLAPSED / 2;
-            const dx = snappedX - primaryNode.position.x;
-            const dy = snappedY - primaryNode.position.y;
+            const dx = snappedX - primaryNode.x;
+            const dy = snappedY - primaryNode.y;
 
             getSelection().forEach(entity => {
-                if (entity.position) {
-                    entity.position.x += dx;
-                    entity.position.y += dy;
+                if (entity.x !== undefined) {
+                    entity.x += dx;
+                    entity.y += dy;
                 } else if (entity.controlPoints) {
                     entity.controlPoints.forEach(point => {
                         point.x += dx;
@@ -516,8 +466,8 @@ export default class Renderer {
         } else if (this.draggingNode) {
             const centerPos = { x: this.mousePos.x - this.dragNodeOffset.x + NODE_WIDTH / 2, y: this.mousePos.y - this.dragNodeOffset.y + NODE_HEIGHT_COLLAPSED / 2 };
             const snappedCenter = this._getSnappedPosition(centerPos, this.draggingNode);
-            this.draggingNode.position.x = snappedCenter.x - NODE_WIDTH / 2;
-            this.draggingNode.position.y = snappedCenter.y - NODE_HEIGHT_COLLAPSED / 2;
+            this.draggingNode.x = snappedCenter.x - NODE_WIDTH / 2;
+            this.draggingNode.y = snappedCenter.y - NODE_HEIGHT_COLLAPSED / 2;
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);
@@ -541,7 +491,6 @@ export default class Renderer {
                 onEdgeCreated(this.edgeCreationSource, targetNode);
             }
         }
-        if (this.draggingNode) document.body.classList.remove('is-dragging-node');
         this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab'; this.snapLines = [];
         setTimeout(() => { this.dragged = false; }, 0);
@@ -549,7 +498,6 @@ export default class Renderer {
 
     this.canvas.addEventListener('mouseleave', () => {
         if (this.dragging || this.draggingNode || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
-             if (this.draggingNode) document.body.classList.remove('is-dragging-node');
             this.dragging = this.draggingNode = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
             this.canvas.style.cursor = 'grab';
             this.snapLines = [];
@@ -601,8 +549,8 @@ export default class Renderer {
       ctx.restore();
   }
   drawTemporaryEdge() {
-    const startX = this.edgeCreationSource.position.x + NODE_WIDTH / 2;
-    const startY = this.edgeCreationSource.position.y + NODE_HEIGHT_COLLAPSED / 2;
+    const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
+    const startY = this.edgeCreationSource.y + NODE_HEIGHT_COLLAPSED / 2;
     this.ctx.save(); this.ctx.beginPath(); this.ctx.moveTo(startX, startY); this.ctx.lineTo(this.mousePos.x, this.mousePos.y);
     this.ctx.strokeStyle = '#e74c3c'; this.ctx.lineWidth = 3; this.ctx.setLineDash([5, 5]); this.ctx.stroke(); this.ctx.restore();
   }
@@ -617,5 +565,11 @@ export default class Renderer {
   }
   wasDragged() { 
     return this.dragged; 
+  }
+  getCanvasCoords({ clientX, clientY }) {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = (clientX - rect.left - this.offset.x) / this.scale;
+      const y = (clientY - rect.top - this.offset.y) / this.scale;
+      return { x, y };
   }
 }
