@@ -1,5 +1,5 @@
 /**
- * AVN Player v2.8 - Main Application with Multi-Select
+ * AVN Player v2.9 - Main Application with Mode-Aware Interaction
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -40,13 +40,13 @@ class GraphApp {
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
-      this.editorTools.updateSelection([], 'set');
+      this.editorTools.updateSelection([], 'set'); // Clear selection when leaving editor mode
     }
   }
 
-  // MODIFIED: setupEventListeners now passes more callbacks to the renderer
   setupEventListeners() {
     this.renderer.setupCanvasInteraction({
+        getIsEditorMode: () => this.isEditorMode,
         onClick: (e) => this.handleCanvasClick(e),
         onDblClick: (e) => this.handleCanvasDblClick(e),
         onEdgeCreated: (source, target) => {
@@ -69,7 +69,6 @@ class GraphApp {
         const newNode = this.editorTools.createNode();
         this.editorTools.selectEntity(newNode);
     });
-    // MODIFIED: Calls the new deleteSelection method
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         this.editorTools.deleteSelection();
     });
@@ -92,14 +91,16 @@ class GraphApp {
       const clickedEdge = this.renderer.getEdgeAt(coords.x, coords.y);
       const clickedEntity = clickedNode || clickedEdge;
       
-      // If clicking with CTRL, add/remove from selection
+      let mode = 'set';
       if (event.ctrlKey) {
-          this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], 'add');
-      } else {
-          // Otherwise, just select the clicked entity, or clear selection if background is clicked
-          this.editorTools.selectEntity(clickedEntity);
+          mode = 'add';
+      } else if (event.shiftKey) {
+          mode = 'remove';
       }
-    } else {
+      
+      this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
+
+    } else { // Player mode
       const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
       if (clickedNode) {
         this.navigation.startFromNode(clickedNode.id);
@@ -113,7 +114,7 @@ class GraphApp {
     const coords = this.renderer.getCanvasCoords(event);
     const clickedNode = this.renderer.getNodeAt(coords.x, coords.y);
     
-    // Double clicking should still only work on a single entity for inspector/control points
+    // Double click should only work on a single entity for inspector/control points
     if (this.editorTools.selectedEntities.length <= 1) {
         if (clickedNode) {
             this.editorTools.openInspector(clickedNode);
