@@ -2,10 +2,11 @@
  * AVN Player - Renderer Module with Editable & Lockable Decorative Layers
  * by Nftxv
  */
+// (Keep existing constants)
 const NODE_WIDTH = 200;
-const NODE_HEADER_HEIGHT = 45; // Was NODE_HEIGHT_COLLAPSED
-const NODE_CONTENT_ASPECT_RATIO = 9 / 16; // Standard 16:9 aspect ratio
-const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO; // Approx 112.5px
+const NODE_HEADER_HEIGHT = 45;
+const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
+const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
 
 export default class Renderer {
   constructor(canvasId, iframeContainer) {
@@ -21,7 +22,7 @@ export default class Renderer {
     this.dragStart = { x: 0, y: 0 };
     this.dragged = false;
     this.dragging = false;
-    this.draggingEntity = null; // Generic dragging target
+    this.draggingEntity = null;
     this.dragOffset = { x: 0, y: 0 };
     this.isDraggingSelection = false;
     
@@ -32,11 +33,19 @@ export default class Renderer {
     this.snapThreshold = 10;
     this.snapLines = [];
     this.isMarqueeSelecting = false;
+    
+    this.isAnimatingPan = false; // NEW flag for animation
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
   }
 
+  setData(graphData) { this.graphData = graphData; }
+  
+  async render() {
+    await this.loadImages();
+    this.renderLoop();
+  }
   setData(graphData) { this.graphData = graphData; }
   
   async render() {
@@ -708,18 +717,74 @@ export default class Renderer {
       ctx.restore();
   }
   
+  // <<< НАЧАЛО БЛОКА ДЛЯ ВСТАВКИ >>>
+
+  /**
+   * Smoothly pans the camera to center on a given node.
+   * @param {string} nodeId The ID of the node to center on.
+   */
+  centerOnNode(nodeId) {
+    if (!this.graphData) return;
+    const node = this.graphData.getNodeById(nodeId);
+    if (!node) return;
+
+    this.isAnimatingPan = true;
+
+    // We always center on the node's header for stability
+    const nodeCenterX = node.x + NODE_WIDTH / 2;
+    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
+    
+    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * this.scale);
+    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * this.scale);
+
+    const startOffsetX = this.offset.x;
+    const startOffsetY = this.offset.y;
+    const diffX = targetOffsetX - startOffsetX;
+    const diffY = targetOffsetY - startOffsetY;
+
+    const duration = 500; // ms
+    let startTime = null;
+
+    const animate = (timestamp) => {
+        if (!this.isAnimatingPan) return; // Allow animation to be cancelled
+        if (!startTime) startTime = timestamp;
+        
+        const elapsed = timestamp - startTime;
+        let progress = Math.min(elapsed / duration, 1);
+        
+        // Ease-out function for a smoother stop
+        progress = progress * (2 - progress);
+
+        this.offset.x = startOffsetX + diffX * progress;
+        this.offset.y = startOffsetY + diffY * progress;
+
+        if (elapsed < duration) {
+            requestAnimationFrame(animate);
+        } else {
+            this.offset.x = targetOffsetX;
+            this.offset.y = targetOffsetY;
+            this.isAnimatingPan = false;
+        }
+    };
+
+    requestAnimationFrame(animate);
+  }
+  
   setupCanvasInteraction(callbacks) {
-    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
+    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection, onManualPan } = callbacks;
 
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
     this.canvas.addEventListener('mousedown', (e) => {
+        this.isAnimatingPan = false; 
+
         const isEditor = getIsEditorMode();
         const mousePos = this.getCanvasCoords(e);
         this.dragged = false;
 
         const handlePanStart = () => {
+            if (onManualPan) onManualPan(); 
             this.dragging = true;
             this.dragStart.x = e.clientX - this.offset.x;
             this.dragStart.y = e.clientY - this.offset.y;
@@ -732,12 +797,12 @@ export default class Renderer {
             return;
         }
         
-        if (e.button === 1) { // Middle mouse button pan
+        if (e.button === 1) {
             handlePanStart();
             return;
         }
 
-        if (e.button === 0) { // Left mouse button
+        if (e.button === 0) {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { this.draggingControlPoint = cp; document.body.classList.add('is-dragging'); return; }
             
@@ -754,17 +819,17 @@ export default class Renderer {
                 return;
             }
             
-            if (!clicked) { // Start marquee selection
+            if (!clicked) {
                 this.isMarqueeSelecting = true;
                 this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
             }
 
-        } else if (e.button === 2) { // Right mouse button
+        } else if (e.button === 2) {
             e.preventDefault();
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
             else { 
-              const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true }); // Ignore decorations for edge creation
+              const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true });
               if (clickedNode && clickedNode.type === 'node') { 
                 this.isCreatingEdge = true; 
                 this.edgeCreationSource = clickedNode.entity; 
@@ -787,34 +852,25 @@ export default class Renderer {
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.draggingEntity) {
-            // Determine the potential new top-left corner of the visual bounds based on mouse movement
             const potentialNewPos = {
                 x: this.mousePos.x - this.dragOffset.x,
                 y: this.mousePos.y - this.dragOffset.y
             };
-            
-            // Get the final, snapped position for the top-left corner
             const snappedPos = this._getSnappedPosition(potentialNewPos, this.draggingEntity);
-            
-            // Get the visual bounds of the entity *before* the move
             const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
-            
-            // Calculate the total displacement (delta) needed
             const dx = snappedPos.x - originalBounds.x;
             const dy = snappedPos.y - originalBounds.y;
 
-            // Apply this displacement to all selected entities
             const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
             const isLocked = getIsDecorationsLocked();
 
             selection.forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
-
                 if ('x' in entity) { 
                     entity.x += dx; 
                     entity.y += dy; 
                 }
-                else if (entity.controlPoints) { // For edges that might be part of a selection
+                else if (entity.controlPoints) {
                     entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); 
                 }
             });
@@ -844,7 +900,6 @@ export default class Renderer {
         }
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab'; this.snapLines = [];
-        document.body.classList.remove('is-dragging');
         setTimeout(() => { this.dragged = false; }, 0);
     });
 
@@ -859,6 +914,7 @@ export default class Renderer {
     
     this.canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
+        this.isAnimatingPan = false;
         const zoomIntensity = 0.1;
         const wheel = e.deltaY < 0 ? 1 : -1;
         const zoom = Math.exp(wheel * zoomIntensity);
@@ -875,4 +931,5 @@ export default class Renderer {
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
   }
+
 }

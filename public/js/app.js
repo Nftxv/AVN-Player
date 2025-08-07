@@ -8,30 +8,19 @@ import Player from './modules/Player.js';
 import EditorTools from './modules/EditorTools.js';
 import Navigation from './modules/Navigation.js';
 
-/**
- * Programmatically loads the YouTube IFrame Player API.
- * This approach prevents race conditions on page refresh with cached scripts.
- * @returns {Promise<void>} A promise that resolves when the API is ready.
- */
 function loadYouTubeAPI() {
   return new Promise((resolve) => {
-    // If API is already loaded, resolve immediately.
     if (window.YT && window.YT.Player) {
       return resolve();
     }
-    
-    // Define the global callback function that the API will call.
     window.onYouTubeIframeAPIReady = () => {
       resolve();
     };
-
-    // Create and inject the script tag.
     const tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(tag);
   });
 }
-
 
 class GraphApp {
   constructor() {
@@ -39,20 +28,19 @@ class GraphApp {
     this.graphData = new GraphData();
     this.renderer = new Renderer('graphCanvas', this.iframeContainer);
     this.player = new Player(this.graphData, this.iframeContainer);
-    this.navigation = new Navigation(this.graphData, this.player, this.renderer);
+    this.navigation = new Navigation(this.graphData, this.player, this.renderer, this); // Pass app instance
     this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
+    this.isFollowing = false; // NEW STATE
   }
 
   async init() {
     try {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
-      
-      this.renderer.render(); // Start rendering loop
-      
+      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -60,6 +48,16 @@ class GraphApp {
       console.error('Initialization failed:', error);
       alert('Could not load the application.');
     }
+  }
+
+  // NEW: Method to control follow mode state
+  toggleFollowMode(forceState = null) {
+      this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
+      document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
+      // If we just enabled it, center on the current node immediately
+      if (this.isFollowing && this.navigation.currentNode) {
+          this.renderer.centerOnNode(this.navigation.currentNode.id);
+      }
   }
 
   toggleEditorMode(isEditor) {
@@ -89,7 +87,13 @@ class GraphApp {
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
-        getSelection: () => this.editorTools.getSelection()
+        getSelection: () => this.editorTools.getSelection(),
+        // NEW: Callback to disable follow mode on manual pan
+        onManualPan: () => {
+            if (this.isFollowing) {
+                this.toggleFollowMode(false);
+            }
+        }
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -107,7 +111,6 @@ class GraphApp {
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
-        // Notify player to destroy any YT players associated with deleted nodes
         selection.forEach(entity => {
             if (entity.sourceType === 'iframe') {
                 this.player.destroyYtPlayer(entity.id);
@@ -122,6 +125,9 @@ class GraphApp {
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
+    
+    // NEW: Event listener for our new button
+    document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
   handleCanvasClick(event) {
