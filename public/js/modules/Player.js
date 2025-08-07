@@ -14,11 +14,17 @@ export default class Player {
     // YouTube players
     this.ytPlayers = new Map();
     this.currentYtPlayer = null;
+    this.isYtApiReady = false; // Flag to check if the YT API has loaded
 
     this.setupEventListeners();
   }
 
   setNavigation(navigation) { this.navigation = navigation; }
+
+  // This method is called by app.js when the YouTube API is loaded.
+  setYtApiReady() {
+    this.isYtApiReady = true;
+  }
 
   play(node) {
     if (!node) return;
@@ -64,6 +70,8 @@ export default class Player {
         if (this.currentYtPlayer && typeof this.currentYtPlayer.playVideo === 'function') {
            this.currentYtPlayer.playVideo();
         } else {
+            // If player doesn't exist, it might be because the API wasn't ready during render.
+            // The renderer will call createYtPlayer on the next frame, so we just log a warning.
             console.warn(`YouTube player for node ${node.id} not ready yet.`);
         }
         this.loadAndShowLyrics(null);
@@ -118,6 +126,18 @@ export default class Player {
 
   createYtPlayer(node) {
       if (this.ytPlayers.has(node.id) || !node.iframeUrl) return;
+
+      // Do not attempt to create a player if the API is not ready.
+      if (!this.isYtApiReady) {
+          console.log(`YouTube API not ready. Deferring player creation for node ${node.id}.`);
+          return;
+      }
+      
+      // Prevent creating a player if the global YT object is still missing.
+      if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+          console.warn('YT.Player is not available yet.');
+          return;
+      }
 
       const player = new YT.Player(`yt-player-${node.id}`, {
           height: '100%',

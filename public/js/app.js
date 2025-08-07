@@ -126,8 +126,16 @@ class GraphApp {
   }
 }
 
-// Start the application only after the YouTube API is ready.
-window.addEventListener('youtubeApiReady', () => {
-  const app = new GraphApp();
-  app.init();
+// Start the application immediately when the DOM is ready.
+document.addEventListener('DOMContentLoaded', () => {
+    const app = new GraphApp();
+    app.init();
+
+    // Listen for the YouTube API separately and notify the player when it's ready.
+    window.addEventListener('youtubeApiReady', () => {
+        console.log("YouTube API is ready.");
+        if (app.player) {
+            app.player.setYtApiReady();
+        }
+    });
 });
