@@ -51,9 +51,6 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
-      // The line below was causing the error and has been removed.
-      // YouTube players are now initialized on-demand by the Player module itself.
-      
       this.renderer.render(); // Start rendering loop
       
       this.setupEventListeners();
@@ -143,7 +140,7 @@ class GraphApp {
       if (event.ctrlKey) mode = 'add';
       else if (event.shiftKey) mode = 'remove';
       
-      this.editorTools.updateSelection(clickedEntity ? [entity] : [], mode);
+      this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
     } else { // Player mode
       if (clicked && clicked.type === 'node') {
