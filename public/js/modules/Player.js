@@ -13,7 +13,10 @@ export default class Player {
     
     this.ytPlayers = new Map();
     this.currentYtPlayer = null;
+    
+    // Flags to prevent race conditions
     this.isYtApiReady = false;
+    this.isFirstRenderDone = false;
     this.pendingYtPlayerCreations = new Set();
 
     this.setupEventListeners();
@@ -21,10 +24,20 @@ export default class Player {
 
   setNavigation(navigation) { this.navigation = navigation; }
 
+  /**
+   * Called when the YouTube IFrame API is loaded and ready.
+   */
   setYtApiReady() {
     this.isYtApiReady = true;
-    this.pendingYtPlayerCreations.forEach(node => this.createYtPlayer(node));
-    this.pendingYtPlayerCreations.clear();
+    this._tryCreatePendingPlayers();
+  }
+
+  /**
+   * Called after the main renderer has completed its first paint.
+   */
+  onFirstRenderComplete() {
+    this.isFirstRenderDone = true;
+    this._tryCreatePendingPlayers();
   }
 
   play(node) {
@@ -117,11 +130,38 @@ export default class Player {
 
   // --- YouTube Player Management ---
 
-  createYtPlayer(node) {
+  /**
+   * Queues a node for YouTube player creation. The player will be constructed
+   * once all conditions (API ready, first render complete) are met.
+   */
+  queueYtPlayerCreation(node) {
       if (this.ytPlayers.has(node.id) || !node.iframeUrl) return;
+      this.pendingYtPlayerCreations.add(node);
+  }
 
-      if (!this.isYtApiReady || typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
-          this.pendingYtPlayerCreations.add(node);
+  /**
+   * Checks if both API and render flags are true, then creates all pending players.
+   * This is the core of the race-condition fix.
+   */
+  _tryCreatePendingPlayers() {
+      if (!this.isYtApiReady || !this.isFirstRenderDone) {
+          return; // Wait for both conditions to be true
+      }
+      
+      this.pendingYtPlayerCreations.forEach(node => {
+          if (!this.ytPlayers.has(node.id)) {
+              this._constructYtPlayer(node);
+          }
+      });
+      this.pendingYtPlayerCreations.clear();
+  }
+
+  /**
+   * The actual `new YT.Player()` call. Only invoked when it's safe.
+   */
+  _constructYtPlayer(node) {
+      if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+          console.warn('Attempted to construct YT Player, but API is not available.');
           return;
       }
 
@@ -133,13 +173,15 @@ export default class Player {
               'onStateChange': (event) => this.onPlayerStateChange(event, node)
           }
       });
-      // Store the player instance immediately.
-      // Don't set this.currentYtPlayer here.
       this.ytPlayers.set(node.id, player);
   }
   
   onPlayerReady(event, node) {
-      // If this node is the one we're supposed to be playing, update the current player and start it.
+      // Cueing the video loads the thumbnail and prepares the player without playing it.
+      // This solves the "black screen" issue for non-active players.
+      event.target.cueVideoById(node.iframeUrl);
+
+      // If this node was already selected by the user before its player was ready, play it now.
       if (this.currentNode && this.currentNode.id === node.id) {
           this.currentYtPlayer = event.target;
           event.target.playVideo();
@@ -149,6 +191,7 @@ export default class Player {
   pauseYtPlayer(nodeId) {
       const player = this.ytPlayers.get(nodeId);
       if (player && typeof player.pauseVideo === 'function' && typeof player.getPlayerState === 'function') {
+          // Check player state to avoid errors on unstarted players
           const state = player.getPlayerState();
           if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
               player.pauseVideo();

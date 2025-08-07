@@ -26,14 +26,21 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
-      // Create all iframe infrastructure upfront before the first render.
-      // This ensures YT.Player is constructed on valid, existing DOM elements.
+      // Create wrapper divs for all iframes immediately.
       this.renderer.ensureAllIframeWrappersExist();
+      // Queue all iframe nodes for player creation.
       this.graphData.nodes
           .filter(node => node.sourceType === 'iframe')
-          .forEach(node => this.player.createYtPlayer(node));
+          .forEach(node => this.player.queueYtPlayerCreation(node));
 
       await this.renderer.loadAndRenderAll();
+      
+      // Notify the Player module that the first render has completed.
+      // This ensures iframe containers are sized and visible before player construction.
+      requestAnimationFrame(() => {
+          this.player.onFirstRenderComplete();
+      });
+
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
