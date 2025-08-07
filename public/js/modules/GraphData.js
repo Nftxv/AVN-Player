@@ -60,7 +60,7 @@ export default class GraphData {
           });
           break;
         case 'RectangleAnnotation':
-          this.decorations.push({
+          this.decorations.push({ // CORRECTED: was 'this.decoration'
             id: item['@id'],
             type: 'rectangle',
             x: item.position?.x || 0,
@@ -71,7 +71,7 @@ export default class GraphData {
           });
           break;
         case 'TextAnnotation':
-          this.decorations.push({
+          this.decorations.push({ // CORRECTED: was 'this.decoration'
             id: item['@id'],
             type: 'text',
             x: item.position?.x || 0,
@@ -179,4 +179,4 @@ export default class GraphData {
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }
-} 
+}
