@@ -1,7 +1,6 @@
 /**
  * Manages audio playback, player UI updates, and lyrics loading.
- * Manages YouTube IFrame player instances with robust state management.
- * by Nftxv
+ * NEW: Also manages YouTube IFrame player instances with robust state management.
  */
 export default class Player {
   constructor(graphData) {
@@ -13,41 +12,30 @@ export default class Player {
     
     this.ytPlayers = new Map();
     this.currentYtPlayer = null;
-    
-    // Flags to prevent race conditions
     this.isYtApiReady = false;
-    this.isFirstRenderDone = false;
-    this.pendingYtPlayerCreations = new Set();
+    this.pendingYtPlayerCreations = new Set(); // Queue for nodes waiting for the API
 
     this.setupEventListeners();
   }
 
   setNavigation(navigation) { this.navigation = navigation; }
 
-  /**
-   * Called when the YouTube IFrame API is loaded and ready.
-   */
   setYtApiReady() {
     this.isYtApiReady = true;
-    this._tryCreatePendingPlayers();
-  }
-
-  /**
-   * Called after the main renderer has completed its first paint.
-   */
-  onFirstRenderComplete() {
-    this.isFirstRenderDone = true;
-    this._tryCreatePendingPlayers();
+    // Process any pending player creation requests
+    this.pendingYtPlayerCreations.forEach(node => this.createYtPlayer(node));
+    this.pendingYtPlayerCreations.clear();
   }
 
   play(node) {
     if (!node) return;
     this.currentNode = node;
 
+    // Stop all other active players (both audio and all YT videos)
     this.audio.pause();
     this.ytPlayers.forEach((player, playerId) => {
-        if (playerId !== node.id) {
-            this.pauseYtPlayer(playerId);
+        if (playerId !== node.id && player && typeof player.pauseVideo === 'function') {
+            player.pauseVideo();
         }
     });
     this.currentYtPlayer = null;
@@ -59,10 +47,12 @@ export default class Player {
     if (node.sourceType === 'audio') {
         document.getElementById('currentCover').src = node.coverUrl || 'placeholder.svg';
         if (!node.audioUrl) {
+          console.warn(`Audio URL is missing for "${node.title}".`);
           this.stop();
-          document.getElementById('songTitle').textContent = `Error: No audio source for "${node.title}"`;
+          document.getElementById('songTitle').textContent = node.title;
           return;
         }
+        
         playBtn.textContent = '⏸';
         playBtn.disabled = false;
         progress.disabled = false;
@@ -80,6 +70,9 @@ export default class Player {
         this.currentYtPlayer = this.ytPlayers.get(node.id);
         if (this.currentYtPlayer && typeof this.currentYtPlayer.playVideo === 'function') {
            this.currentYtPlayer.playVideo();
+        } else {
+           console.warn(`YouTube player for node ${node.id} not ready yet. Will play when ready.`);
+           // The renderer will keep calling createYtPlayer, it will eventually be created and played.
         }
         this.loadAndShowLyrics(null);
     }
@@ -97,15 +90,14 @@ export default class Player {
             this.audio.pause();
             playBtn.textContent = '▶';
         }
-    } else if (this.currentNode.sourceType === 'iframe') {
-        const player = this.ytPlayers.get(this.currentNode.id);
-        if (player && typeof player.getPlayerState === 'function') {
-            const state = player.getPlayerState();
-            if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
-                player.pauseVideo();
-            } else {
-                player.playVideo();
-            }
+    } else if (this.currentNode.sourceType === 'iframe' && this.currentYtPlayer) {
+        const state = this.currentYtPlayer.getPlayerState();
+        if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
+            this.currentYtPlayer.pauseVideo();
+            playBtn.textContent = '▶';
+        } else {
+            this.currentYtPlayer.playVideo();
+            playBtn.textContent = '⏸';
         }
     }
   }
@@ -115,7 +107,12 @@ export default class Player {
     this.audio.currentTime = 0;
     this.audio.src = '';
     
-    this.ytPlayers.forEach((player, playerId) => this.pauseYtPlayer(playerId));
+    // Stop ALL youtube players
+    this.ytPlayers.forEach(player => {
+        if (player && typeof player.stopVideo === 'function') {
+            player.stopVideo();
+        }
+    });
     this.currentYtPlayer = null;
 
     this.currentNode = null;
@@ -130,44 +127,23 @@ export default class Player {
 
   // --- YouTube Player Management ---
 
-  /**
-   * Queues a node for YouTube player creation. The player will be constructed
-   * once all conditions (API ready, first render complete) are met.
-   */
-  queueYtPlayerCreation(node) {
+  createYtPlayer(node) {
       if (this.ytPlayers.has(node.id) || !node.iframeUrl) return;
-      this.pendingYtPlayerCreations.add(node);
-  }
 
-  /**
-   * Checks if both API and render flags are true, then creates all pending players.
-   * This is the core of the race-condition fix.
-   */
-  _tryCreatePendingPlayers() {
-      if (!this.isYtApiReady || !this.isFirstRenderDone) {
-          return; // Wait for both conditions to be true
-      }
-      
-      this.pendingYtPlayerCreations.forEach(node => {
-          if (!this.ytPlayers.has(node.id)) {
-              this._constructYtPlayer(node);
-          }
-      });
-      this.pendingYtPlayerCreations.clear();
-  }
-
-  /**
-   * The actual `new YT.Player()` call. Only invoked when it's safe.
-   */
-  _constructYtPlayer(node) {
-      if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
-          console.warn('Attempted to construct YT Player, but API is not available.');
+      if (!this.isYtApiReady || typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+          this.pendingYtPlayerCreations.add(node);
           return;
       }
 
       const player = new YT.Player(`yt-player-${node.id}`, {
-          height: '100%', width: '100%', videoId: node.iframeUrl,
-          playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
+          height: '100%',
+          width: '100%',
+          videoId: node.iframeUrl,
+          playerVars: {
+              'playsinline': 1,
+              'controls': 0,
+              'disablekb': 1
+          },
           events: {
               'onReady': (event) => this.onPlayerReady(event, node),
               'onStateChange': (event) => this.onPlayerStateChange(event, node)
@@ -177,33 +153,20 @@ export default class Player {
   }
   
   onPlayerReady(event, node) {
-      // Cueing the video loads the thumbnail and prepares the player without playing it.
-      // This solves the "black screen" issue for non-active players.
-      event.target.cueVideoById(node.iframeUrl);
-
-      // If this node was already selected by the user before its player was ready, play it now.
+      // If this node is the one we're supposed to be playing right now, start it.
       if (this.currentNode && this.currentNode.id === node.id) {
-          this.currentYtPlayer = event.target;
           event.target.playVideo();
-      }
-  }
-  
-  pauseYtPlayer(nodeId) {
-      const player = this.ytPlayers.get(nodeId);
-      if (player && typeof player.pauseVideo === 'function' && typeof player.getPlayerState === 'function') {
-          // Check player state to avoid errors on unstarted players
-          const state = player.getPlayerState();
-          if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
-              player.pauseVideo();
-          }
+          this.currentYtPlayer = event.target;
       }
   }
 
   destroyYtPlayer(nodeId) {
-      const player = this.ytPlayers.get(nodeId);
-      if (player) {
-        if (typeof player.destroy === 'function') player.destroy();
-        this.ytPlayers.delete(nodeId);
+      if (this.ytPlayers.has(nodeId)) {
+          const player = this.ytPlayers.get(nodeId);
+          if (player && typeof player.destroy === 'function') {
+            player.destroy();
+          }
+          this.ytPlayers.delete(nodeId);
       }
   }
 

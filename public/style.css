@@ -23,10 +23,9 @@ canvas {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1; /* Canvas is the base layer */
   display: block;
   cursor: grab;
-  /* Canvas is the top interactive layer */
-  z-index: 2; 
 }
 canvas:active {
   cursor: grabbing;
@@ -38,17 +37,16 @@ canvas:active {
   left: 0;
   width: 100%;
   height: 100%;
+  z-index: 2; /* Higher than canvas */
   pointer-events: none; /* Click-through by default */
   overflow: hidden;
-  /* The container for iframes is the bottom layer */
-  z-index: 1; 
 }
 
 .iframe-wrapper {
   position: absolute;
   box-sizing: border-box;
   background-color: #000;
-  /* No border needed, it will be drawn on the canvas */
+  border: 1px solid #444;
 }
 
 .iframe-wrapper iframe {
@@ -96,6 +94,7 @@ button:disabled {
     transform: none;
 }
 
+/* NEW: Style for the active lock button */
 button#lockDecorationsBtn.active {
     background-color: var(--danger-color);
 }
