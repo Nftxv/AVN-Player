@@ -635,10 +635,17 @@ export default class Renderer {
       const movingPointsY = [movingBounds.y, movingBounds.y + movingBounds.height / 2, movingBounds.y + movingBounds.height];
 
       const snapTargets = [];
+      // Add nodes to snap targets
       this.graphData.nodes.forEach(n => {
           if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
           snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
       });
+      // Add decorations to snap targets
+      this.graphData.decorations.forEach(d => {
+          if (d === movingEntity || (movingEntity.id && d.id === movingEntity.id) || d.selected) return;
+          snapTargets.push({ type: 'decoration', bounds: this._getDecorationBounds(d) });
+      });
+      // Add other control points to snap targets
       this.graphData.edges.forEach(e => {
         (e.controlPoints || []).forEach(p => {
             if (p !== movingEntity) {
@@ -682,7 +689,7 @@ export default class Renderer {
       }
       return snappedPos;
   }
-  
+    
   _drawSnapGuides() {
       const ctx = this.ctx; ctx.save(); ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)'; ctx.lineWidth = 1 / this.scale;
       ctx.setLineDash([5 / this.scale, 5 / this.scale]);
