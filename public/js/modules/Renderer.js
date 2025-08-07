@@ -2,7 +2,6 @@
  * AVN Player - Renderer Module with Editable & Lockable Decorative Layers
  * by Nftxv
  */
-// (Keep existing constants)
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
 const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
@@ -34,18 +33,12 @@ export default class Renderer {
     this.snapLines = [];
     this.isMarqueeSelecting = false;
     
-    this.isAnimatingPan = false; // NEW flag for animation
+    this.isAnimatingPan = false;
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
   }
 
-  setData(graphData) { this.graphData = graphData; }
-  
-  async render() {
-    await this.loadImages();
-    this.renderLoop();
-  }
   setData(graphData) { this.graphData = graphData; }
   
   async render() {
@@ -80,19 +73,11 @@ export default class Renderer {
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
-    // Layer 1: Decorations
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
-    
-    // Layer 2: Node content (drawn first, to be under header if overlap occurs)
     this.graphData.nodes.forEach(node => this._drawNodeContent(node));
-    
-    // Layer 3: Edges
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
-    
-    // Layer 4: Node headers (shape + text)
     this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
 
-    // Overlays for editor tools
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
     this._drawSnapGuides();
@@ -100,17 +85,12 @@ export default class Renderer {
     this.ctx.restore();
     
     this.updateIframes();
-    requestAnimationFrame(this.renderLoop);
+    if(!this.isAnimatingPan) requestAnimationFrame(this.renderLoop);
   }
 
-  // --- START Drawing Methods ---
-
   drawDecoration(deco) {
-    if (deco.type === 'rectangle') {
-      this.drawRectangle(deco);
-    } else if (deco.type === 'text') {
-      this.drawText(deco);
-    }
+    if (deco.type === 'rectangle') this.drawRectangle(deco);
+    else if (deco.type === 'text') this.drawText(deco);
   }
 
   drawRectangle(rect) {
@@ -121,13 +101,13 @@ export default class Renderer {
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     
     if (rect.selected) {
-        ctx.restore(); // Restore from globalAlpha change
-        ctx.save(); // Save before clipping
+        ctx.restore();
+        ctx.save();
         ctx.beginPath();
         ctx.rect(rect.x, rect.y, rect.width, rect.height);
-        ctx.clip(); // Clip to the rect path
+        ctx.clip();
         ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = (2 / this.scale) * 2; // Double width for inside stroke
+        ctx.lineWidth = (2 / this.scale) * 2;
         ctx.stroke();
     }
     ctx.restore();
@@ -140,40 +120,27 @@ export default class Renderer {
       ctx.fillStyle = text.color;
       ctx.textAlign = text.textAlign;
       ctx.textBaseline = 'top';
-
       const lines = this._getWrappedLines(text);
       const bounds = this._getTextBounds(text, lines);
-
       const topLeftX = text.x - bounds.width / 2;
       const topLeftY = text.y - bounds.height / 2;
-
       let drawX;
-      if (text.textAlign === 'left') {
-          drawX = topLeftX;
-      } else if (text.textAlign === 'center') {
-          drawX = text.x;
-      } else { // right
-          drawX = topLeftX + bounds.width;
-      }
-
+      if (text.textAlign === 'left') drawX = topLeftX;
+      else if (text.textAlign === 'center') drawX = text.x;
+      else drawX = topLeftX + bounds.width;
       let currentY = topLeftY;
       for (const line of lines) {
           ctx.fillText(line, drawX, currentY);
           currentY += text.fontSize * text.lineHeight;
       }
-
       if (text.selected) {
-          const rectX = topLeftX - 2;
-          const rectY = topLeftY - 2;
-          const rectW = bounds.width + 4;
-          const rectH = bounds.height + 4;
-          
+          const rectX = topLeftX - 2, rectY = topLeftY - 2, rectW = bounds.width + 4, rectH = bounds.height + 4;
           ctx.save();
           ctx.beginPath();
           ctx.rect(rectX, rectY, rectW, rectH);
           ctx.clip();
           ctx.strokeStyle = '#e74c3c';
-          ctx.lineWidth = (1 / this.scale) * 2; // Double width
+          ctx.lineWidth = (1 / this.scale) * 2;
           ctx.stroke();
           ctx.restore();
       }
@@ -184,23 +151,14 @@ export default class Renderer {
       const src = this.graphData.getNodeById(edge.source);
       const trg = this.graphData.getNodeById(edge.target);
       if (!src || !trg) return;
-
       const controlPoints = edge.controlPoints || [];
-      
-      // NEW: Define static anchor points based on the header center
       const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
       const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
-
-      // Determine the angle of the edge based on the static header centers
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
-      // But calculate the intersection point using the node's full visual rectangle
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
-
       const pathPoints = [startPoint, ...controlPoints, endPoint];
-      
       const ctx = this.ctx; ctx.save();
       let color = edge.color || '#888888';
       if (edge.selected) color = '#e74c3c';
@@ -208,17 +166,14 @@ export default class Renderer {
       const edgeLineWidth = edge.lineWidth || 2;
       const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
       const arrowSize = 6 + edgeLineWidth * 2.5;
-
       ctx.beginPath();
       ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
       for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
-      
       const pForArrow = pathPoints.at(-1);
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
-
       controlPoints.forEach(point => {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
@@ -238,19 +193,16 @@ export default class Renderer {
       }
       ctx.restore();
   }
-
+  
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
-    
     const containerX = node.x;
     const containerY = node.y - NODE_CONTENT_HEIGHT;
     const containerW = NODE_WIDTH;
     const containerH = NODE_CONTENT_HEIGHT;
-
-    ctx.fillStyle = '#252525';
+    ctx.fillStyle = '#1e1e1e';
     ctx.fillRect(containerX, containerY, containerW, containerH);
-
     if (node.sourceType === 'audio') {
         const img = this.images[node.coverUrl];
         if (img) {
@@ -271,7 +223,6 @@ export default class Renderer {
             ctx.drawImage(img, drawX, drawY, drawW, drawH);
         }
     } else if (node.sourceType === 'iframe') {
-        // The iframe is handled by updateIframes(). We just draw a placeholder bg.
         ctx.fillStyle = '#000000';
         ctx.fillRect(containerX, containerY, containerW, containerH);
     }
@@ -280,12 +231,10 @@ export default class Renderer {
   _drawNodeHeader(node) {
     const ctx = this.ctx;
     ctx.save();
-
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 5, 5]);
+    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
     ctx.fill();
-    
     if (node.selected || node.highlighted) {
         ctx.save();
         ctx.clip();
@@ -298,7 +247,6 @@ export default class Renderer {
         ctx.lineWidth = 1;
         ctx.stroke();
     }
-
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px Segoe UI';
     ctx.textAlign = 'center';
@@ -307,7 +255,6 @@ export default class Renderer {
     const titleX = node.x + NODE_WIDTH / 2;
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
     ctx.fillText(fittedTitle, titleX, titleY);
-
     ctx.restore();
   }
 
@@ -323,33 +270,20 @@ export default class Renderer {
     ctx.restore();
   }
 
-  // --- END Drawing Methods ---
-
-  // --- START Helper & Interaction Methods ---
-  
-  /**
-   * Updates position, size, and visibility of all iframe wrappers.
-   * Does NOT create or destroy them.
-   */
   updateIframes() {
     if (!this.graphData) return;
     this.graphData.nodes.forEach(node => {
         if (node.sourceType !== 'iframe') return;
-
         const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
-        if (!wrapper) return; // Player module might still be creating it.
-
+        if (!wrapper) return;
         const isInView = this._isNodeInView(node);
         const shouldBeVisible = !node.isCollapsed && isInView;
-
         wrapper.style.display = shouldBeVisible ? 'block' : 'none';
-
         if (shouldBeVisible) {
             const screenX = (node.x) * this.scale + this.offset.x;
             const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
             const screenWidth = NODE_WIDTH * this.scale;
             const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
-
             wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
             wrapper.style.width = `${screenWidth}px`;
             wrapper.style.height = `${screenHeight}px`;
@@ -358,17 +292,13 @@ export default class Renderer {
   }
 
   _getWrappedLines(textObj) {
-      const { ctx } = this;
-      const { textContent, fontSize, width } = textObj;
+      const { ctx, textContent, fontSize, width } = textObj;
       ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-
       const paragraphs = (textContent || "").split('\n');
       const allLines = [];
-
       for (const paragraph of paragraphs) {
-          if (!width || width <= 0) {
-              allLines.push(paragraph);
-          } else {
+          if (!width || width <= 0) { allLines.push(paragraph); }
+          else {
               const words = paragraph.split(' ');
               let currentLine = '';
               for (const word of words) {
@@ -376,9 +306,7 @@ export default class Renderer {
                   if (ctx.measureText(testLine).width > width && currentLine) {
                       allLines.push(currentLine);
                       currentLine = word;
-                  } else {
-                      currentLine = testLine;
-                  }
+                  } else { currentLine = testLine; }
               }
               allLines.push(currentLine);
           }
@@ -389,19 +317,13 @@ export default class Renderer {
   _getTextBounds(textObj, renderedLines) {
       const { fontSize, width, lineHeight } = textObj;
       let maxWidth = 0;
-      if (width > 0) {
-        maxWidth = width;
-      } else {
+      if (width > 0) { maxWidth = width; }
+      else {
         this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-        renderedLines.forEach(line => {
-            maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width);
-        });
+        renderedLines.forEach(line => { maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width); });
       }
-      
       const totalHeight = (renderedLines.length > 0) 
-        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1))
-        : 0;
-
+        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1)) : 0;
       return { width: maxWidth, height: totalHeight };
   }
 
@@ -414,10 +336,8 @@ export default class Renderer {
   _isNodeInView(node) {
       const rect = this._getNodeVisualRect(node);
       const screenRect = {
-        x: rect.x * this.scale + this.offset.x,
-        y: rect.y * this.scale + this.offset.y,
-        width: rect.width * this.scale,
-        height: rect.height * this.scale
+        x: rect.x * this.scale + this.offset.x, y: rect.y * this.scale + this.offset.y,
+        width: rect.width * this.scale, height: rect.height * this.scale
       };
       return screenRect.x < this.canvas.width && screenRect.x + screenRect.width > 0 &&
              screenRect.y < this.canvas.height && screenRect.y + screenRect.height > 0;
@@ -432,27 +352,15 @@ export default class Renderer {
   _getNodeVisualRect(node) {
       const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
       const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
-      return { 
-        x: node.x, 
-        y: node.y - contentHeight, 
-        width: NODE_WIDTH, 
-        height: totalHeight 
-      };
+      return { x: node.x, y: node.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
   }
   
   _getDecorationBounds(deco) {
-    if (deco.type === 'rectangle') {
-        return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
-    }
+    if (deco.type === 'rectangle') return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
     if (deco.type === 'text') {
         const lines = this._getWrappedLines(deco);
         const bounds = this._getTextBounds(deco, lines);
-        return { 
-            x: deco.x - bounds.width / 2, 
-            y: deco.y - bounds.height / 2, 
-            width: bounds.width, 
-            height: bounds.height 
-        };
+        return { x: deco.x - bounds.width / 2, y: deco.y - bounds.height / 2, width: bounds.width, height: bounds.height };
     }
     return { x: deco.x, y: deco.y, width: 0, height: 0 };
   }
@@ -465,10 +373,8 @@ export default class Renderer {
             return { type: 'node', entity: node };
         }
     }
-    
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
-
     if (!isDecorationsLocked) {
         for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
             const deco = this.graphData.decorations[i];
@@ -478,7 +384,6 @@ export default class Renderer {
             }
         }
     }
-
     return null;
   }
   
@@ -486,20 +391,15 @@ export default class Renderer {
     const normalizedRect = this.normalizeRect(rect);
     return this.graphData.nodes.filter(node => {
         const nodeRect = this._getNodeVisualRect(node);
-        return (
-            nodeRect.x >= normalizedRect.x &&
-            nodeRect.y >= normalizedRect.y &&
-            nodeRect.x + nodeRect.width <= normalizedRect.x + normalizedRect.w &&
-            nodeRect.y + nodeRect.height <= normalizedRect.y + normalizedRect.h
-        );
+        return ( nodeRect.x >= normalizedRect.x && nodeRect.y >= normalizedRect.y &&
+                 nodeRect.x + nodeRect.width <= normalizedRect.x + normalizedRect.w &&
+                 nodeRect.y + nodeRect.height <= normalizedRect.y + normalizedRect.h );
     });
   }
 
   getEdgesInRect(rect, nodesInRect) {
       const nodeIdsInRect = new Set(nodesInRect.map(n => n.id));
-      return this.graphData.edges.filter(edge => {
-          return nodeIdsInRect.has(edge.source) && nodeIdsInRect.has(edge.target);
-      });
+      return this.graphData.edges.filter(edge => nodeIdsInRect.has(edge.source) && nodeIdsInRect.has(edge.target));
   }
   
   getDecorationsInRect(rect) {
@@ -513,10 +413,8 @@ export default class Renderer {
   
   normalizeRect(rect) {
       return {
-          x: rect.w < 0 ? rect.x + rect.w : rect.x,
-          y: rect.h < 0 ? rect.y + rect.h : rect.y,
-          w: Math.abs(rect.w),
-          h: Math.abs(rect.h)
+          x: rect.w < 0 ? rect.x + rect.w : rect.x, y: rect.h < 0 ? rect.y + rect.h : rect.y,
+          w: Math.abs(rect.w), h: Math.abs(rect.h)
       };
   }
 
@@ -525,9 +423,7 @@ export default class Renderer {
       for (const edge of this.graphData.edges) {
           for (let i = 0; i < (edge.controlPoints || []).length; i++) {
               const point = edge.controlPoints[i];
-              if (Math.hypot(x - point.x, y - point.y) < tolerance) {
-                  return { edge, pointIndex: i };
-              }
+              if (Math.hypot(x - point.x, y - point.y) < tolerance) return { edge, pointIndex: i };
           }
       }
       return null;
@@ -539,36 +435,28 @@ export default class Renderer {
         const src = this.graphData.getNodeById(edge.source);
         const trg = this.graphData.getNodeById(edge.target);
         if (!src || !trg) continue;
-        
         const controlPoints = edge.controlPoints || [];
-        
-        // NEW: Use the same static anchor logic as in drawEdge for consistency
         const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
         const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
-
         const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
         const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-        
         const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
         const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
-
         const pathPoints = [startPoint, ...controlPoints, endPoint];
-
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i], p2 = pathPoints[i + 1];
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
             if (len < 1) continue;
             const dot = (((x - p1.x) * (p2.x - p1.x)) + ((y - p1.y) * (p2.y - p1.y))) / (len * len);
             if (dot >= 0 && dot <= 1) {
-                const closestX = p1.x + (dot * (p2.x - p1.x));
-                const closestY = p1.y + (dot * (p2.y - p1.y));
+                const closestX = p1.x + (dot * (p2.x - p1.x)), closestY = p1.y + (dot * (p2.y - p1.y));
                 if (Math.hypot(x - closestX, y - closestY) < tolerance) return edge;
             }
         }
     }
     return null;
   }
-    
+  
   _drawArrow(x, y, angle, color, size) {
       this.ctx.save(); this.ctx.translate(x, y); this.ctx.rotate(angle);
       this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(-size, -size * 0.4);
@@ -597,24 +485,17 @@ export default class Renderer {
   }
   
   highlight(currentId, prevId = null, edge = null) {
-      // Reset all highlights first
       this.graphData.nodes.forEach(n => n.highlighted = false);
       this.graphData.edges.forEach(e => e.highlighted = false);
-
-      // Highlight the current node
       if (currentId) {
           const node = this.graphData.getNodeById(currentId);
-          if (node) {
-              node.highlighted = true;
-          }
+          if (node) node.highlighted = true;
       }
-      
-      // Highlight the edge that was traversed.
-      // The passed 'edge' object is the exact one to highlight. No need to find it again.
       if (edge && this.graphData.edges.includes(edge)) {
           edge.highlighted = true;
       }
-  }  
+  }
+  
   getCanvasCoords({ clientX, clientY }) {
       const rect = this.canvas.getBoundingClientRect();
       const x = (clientX - rect.left - this.offset.x) / this.scale;
@@ -630,70 +511,47 @@ export default class Renderer {
       let snappedPos = { ...pos };
       this.snapLines = [];
       if (!movingEntity) return pos;
-
       const isPoint = !movingEntity.sourceType && !movingEntity.type;
-      
-      const movingBounds = isPoint 
-          ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
+      const movingBounds = isPoint ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
           : (this._getDecorationBounds(movingEntity) || this._getNodeVisualRect(movingEntity));
-      
-      if (!isPoint) {
-        movingBounds.x = pos.x;
-        movingBounds.y = pos.y;
-      }
-      
+      if (!isPoint) { movingBounds.x = pos.x; movingBounds.y = pos.y; }
       const threshold = this.snapThreshold / this.scale;
-      let bestSnapX = { delta: Infinity };
-      let bestSnapY = { delta: Infinity };
-
+      let bestSnapX = { delta: Infinity }, bestSnapY = { delta: Infinity };
       const movingPointsX = [movingBounds.x, movingBounds.x + movingBounds.width / 2, movingBounds.x + movingBounds.width];
       const movingPointsY = [movingBounds.y, movingBounds.y + movingBounds.height / 2, movingBounds.y + movingBounds.height];
-
       const snapTargets = [];
-      // Add nodes to snap targets
       this.graphData.nodes.forEach(n => {
           if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
           snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
       });
-      // Add decorations to snap targets
       this.graphData.decorations.forEach(d => {
           if (d === movingEntity || (movingEntity.id && d.id === movingEntity.id) || d.selected) return;
           snapTargets.push({ type: 'decoration', bounds: this._getDecorationBounds(d) });
       });
-      // Add other control points to snap targets
       this.graphData.edges.forEach(e => {
         (e.controlPoints || []).forEach(p => {
-            if (p !== movingEntity) {
-                snapTargets.push({ type: 'point', bounds: { x: p.x, y: p.y, width: 0, height: 0 }});
-            }
+            if (p !== movingEntity) snapTargets.push({ type: 'point', bounds: { x: p.x, y: p.y, width: 0, height: 0 }});
         });
       });
-
       for (const target of snapTargets) {
           const targetBounds = target.bounds;
           const targetPointsX = [targetBounds.x, targetBounds.x + targetBounds.width / 2, targetBounds.x + targetBounds.width];
           const targetPointsY = [targetBounds.y, targetBounds.y + targetBounds.height / 2, targetBounds.y + targetBounds.height];
-
           for (let i = 0; i < movingPointsX.length; i++) {
               if (movingPointsX[i] === undefined) continue;
               for (let j = 0; j < targetPointsX.length; j++) {
                   const delta = targetPointsX[j] - movingPointsX[i];
-                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapX.delta)) {
-                      bestSnapX = { delta, pos: targetPointsX[j] };
-                  }
+                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapX.delta)) bestSnapX = { delta, pos: targetPointsX[j] };
               }
           }
           for (let i = 0; i < movingPointsY.length; i++) {
               if (movingPointsY[i] === undefined) continue;
               for (let j = 0; j < targetPointsY.length; j++) {
                   const delta = targetPointsY[j] - movingPointsY[i];
-                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapY.delta)) {
-                      bestSnapY = { delta, pos: targetPointsY[j] };
-                  }
+                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapY.delta)) bestSnapY = { delta, pos: targetPointsY[j] };
               }
           }
       }
-      
       if (Math.abs(bestSnapX.delta) < threshold) {
           snappedPos.x += bestSnapX.delta;
           this.snapLines.push({ type: 'v', pos: bestSnapX.pos });
@@ -704,7 +562,7 @@ export default class Renderer {
       }
       return snappedPos;
   }
-
+  
   _drawSnapGuides() {
       const ctx = this.ctx; ctx.save(); ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)'; ctx.lineWidth = 1 / this.scale;
       ctx.setLineDash([5 / this.scale, 5 / this.scale]);
@@ -716,47 +574,32 @@ export default class Renderer {
       });
       ctx.restore();
   }
-  
-  // <<< НАЧАЛО БЛОКА ДЛЯ ВСТАВКИ >>>
 
-  /**
-   * Smoothly pans the camera to center on a given node.
-   * @param {string} nodeId The ID of the node to center on.
-   */
   centerOnNode(nodeId) {
     if (!this.graphData) return;
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
 
     this.isAnimatingPan = true;
-
-    // We always center on the node's header for stability
     const nodeCenterX = node.x + NODE_WIDTH / 2;
     const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-    
     const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * this.scale);
     const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * this.scale);
-
-    const startOffsetX = this.offset.x;
-    const startOffsetY = this.offset.y;
-    const diffX = targetOffsetX - startOffsetX;
-    const diffY = targetOffsetY - startOffsetY;
-
-    const duration = 500; // ms
+    const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
+    const diffX = targetOffsetX - startOffsetX, diffY = targetOffsetY - startOffsetY;
+    const duration = 500;
     let startTime = null;
 
     const animate = (timestamp) => {
-        if (!this.isAnimatingPan) return; // Allow animation to be cancelled
+        if (!this.isAnimatingPan) return;
         if (!startTime) startTime = timestamp;
-        
         const elapsed = timestamp - startTime;
         let progress = Math.min(elapsed / duration, 1);
-        
-        // Ease-out function for a smoother stop
-        progress = progress * (2 - progress);
-
+        progress = progress * (2 - progress); // Ease-out
         this.offset.x = startOffsetX + diffX * progress;
         this.offset.y = startOffsetY + diffY * progress;
+        
+        this.renderLoop(); // Re-render on each animation frame
 
         if (elapsed < duration) {
             requestAnimationFrame(animate);
@@ -764,50 +607,36 @@ export default class Renderer {
             this.offset.x = targetOffsetX;
             this.offset.y = targetOffsetY;
             this.isAnimatingPan = false;
+            this.renderLoop(); // Final render
         }
     };
-
     requestAnimationFrame(animate);
   }
   
   setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection, onManualPan } = callbacks;
-
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
     this.canvas.addEventListener('mousedown', (e) => {
         this.isAnimatingPan = false; 
-
         const isEditor = getIsEditorMode();
         const mousePos = this.getCanvasCoords(e);
         this.dragged = false;
-
         const handlePanStart = () => {
-            if (onManualPan) onManualPan(); 
+            if (onManualPan) onManualPan();
             this.dragging = true;
             this.dragStart.x = e.clientX - this.offset.x;
             this.dragStart.y = e.clientY - this.offset.y;
             this.canvas.style.cursor = 'grabbing';
             document.body.classList.add('is-dragging');
         };
-
-        if (!isEditor) {
-            if (e.button === 0) handlePanStart();
-            return;
-        }
-        
-        if (e.button === 1) {
-            handlePanStart();
-            return;
-        }
-
+        if (!isEditor) { if (e.button === 0) handlePanStart(); return; }
+        if (e.button === 1) { handlePanStart(); return; }
         if (e.button === 0) {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { this.draggingControlPoint = cp; document.body.classList.add('is-dragging'); return; }
-            
             const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-            
             if (clicked && (clicked.type === 'node' || clicked.type === 'decoration')) {
                 const entity = clicked.entity;
                 if (entity.selected) this.isDraggingSelection = true;
@@ -818,22 +647,14 @@ export default class Renderer {
                 document.body.classList.add('is-dragging');
                 return;
             }
-            
-            if (!clicked) {
-                this.isMarqueeSelecting = true;
-                this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
-            }
-
+            if (!clicked) { this.isMarqueeSelecting = true; this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 }; }
         } else if (e.button === 2) {
             e.preventDefault();
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
             else { 
               const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true });
-              if (clickedNode && clickedNode.type === 'node') { 
-                this.isCreatingEdge = true; 
-                this.edgeCreationSource = clickedNode.entity; 
-              } 
+              if (clickedNode && clickedNode.type === 'node') { this.isCreatingEdge = true; this.edgeCreationSource = clickedNode.entity; } 
             }
         }
     });
@@ -847,34 +668,23 @@ export default class Renderer {
              return;
         }
         this.dragged = true;
-
         if (this.dragging) {
+            if (onManualPan) onManualPan(); // CORRECTED: Also disable follow mode on drag
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.draggingEntity) {
-            const potentialNewPos = {
-                x: this.mousePos.x - this.dragOffset.x,
-                y: this.mousePos.y - this.dragOffset.y
-            };
+            const potentialNewPos = { x: this.mousePos.x - this.dragOffset.x, y: this.mousePos.y - this.dragOffset.y };
             const snappedPos = this._getSnappedPosition(potentialNewPos, this.draggingEntity);
             const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
             const dx = snappedPos.x - originalBounds.x;
             const dy = snappedPos.y - originalBounds.y;
-
             const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
             const isLocked = getIsDecorationsLocked();
-
             selection.forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
-                if ('x' in entity) { 
-                    entity.x += dx; 
-                    entity.y += dy; 
-                }
-                else if (entity.controlPoints) {
-                    entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); 
-                }
+                if ('x' in entity) { entity.x += dx; entity.y += dy; }
+                else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
             });
-
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);
@@ -888,9 +698,7 @@ export default class Renderer {
     this.canvas.addEventListener('mouseup', (e) => {
         if (this.isMarqueeSelecting) {
             const normalizedRect = this.normalizeRect(this.marqueeRect);
-            if (normalizedRect.w > 5 || normalizedRect.h > 5) {
-                onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
-            }
+            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
         }
         if (this.isCreatingEdge && e.button === 2) {
             const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
@@ -915,13 +723,12 @@ export default class Renderer {
     this.canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         this.isAnimatingPan = false;
+        if (onManualPan) onManualPan(); // CORRECTED: Also disable follow mode on zoom
         const zoomIntensity = 0.1;
         const wheel = e.deltaY < 0 ? 1 : -1;
         const zoom = Math.exp(wheel * zoomIntensity);
         const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
+        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
         this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
         this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
         this.scale *= zoom;
@@ -931,5 +738,4 @@ export default class Renderer {
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
   }
-
 }

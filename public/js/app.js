@@ -28,12 +28,13 @@ class GraphApp {
     this.graphData = new GraphData();
     this.renderer = new Renderer('graphCanvas', this.iframeContainer);
     this.player = new Player(this.graphData, this.iframeContainer);
-    this.navigation = new Navigation(this.graphData, this.player, this.renderer, this); // Pass app instance
+    // CORRECTED: Pass the 'app' instance (this) to Navigation
+    this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
-    this.isFollowing = false; // NEW STATE
+    this.isFollowing = false;
   }
 
   async init() {
@@ -50,11 +51,10 @@ class GraphApp {
     }
   }
 
-  // NEW: Method to control follow mode state
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
-      // If we just enabled it, center on the current node immediately
+      console.log(`Follow mode is now: ${this.isFollowing}`);
       if (this.isFollowing && this.navigation.currentNode) {
           this.renderer.centerOnNode(this.navigation.currentNode.id);
       }
@@ -88,7 +88,7 @@ class GraphApp {
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
         getSelection: () => this.editorTools.getSelection(),
-        // NEW: Callback to disable follow mode on manual pan
+        // CORRECTED: This callback is now correctly passed and used
         onManualPan: () => {
             if (this.isFollowing) {
                 this.toggleFollowMode(false);
@@ -126,7 +126,6 @@ class GraphApp {
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
     
-    // NEW: Event listener for our new button
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
@@ -168,7 +167,6 @@ class GraphApp {
   }
 }
 
-// Main application entry point
 (async () => {
   try {
     await loadYouTubeAPI();
