@@ -582,12 +582,24 @@ export default class Renderer {
   }
   
   highlight(currentId, prevId = null, edge = null) {
+      // Reset all highlights first
       this.graphData.nodes.forEach(n => n.highlighted = false);
       this.graphData.edges.forEach(e => e.highlighted = false);
-      if (currentId) { const node = this.graphData.nodes.find(n => n.id === currentId); if (node) node.highlighted = true; }
-      if (edge) { const e = this.graphData.edges.find(i => i.source === edge.source && i.target === edge.target); if (e) e.highlighted = true; }
-  }
-  
+
+      // Highlight the current node
+      if (currentId) {
+          const node = this.graphData.getNodeById(currentId);
+          if (node) {
+              node.highlighted = true;
+          }
+      }
+      
+      // Highlight the edge that was traversed.
+      // The passed 'edge' object is the exact one to highlight. No need to find it again.
+      if (edge && this.graphData.edges.includes(edge)) {
+          edge.highlighted = true;
+      }
+  }  
   getCanvasCoords({ clientX, clientY }) {
       const rect = this.canvas.getBoundingClientRect();
       const x = (clientX - rect.left - this.offset.x) / this.scale;

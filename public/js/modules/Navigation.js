@@ -55,14 +55,17 @@ export default class Navigation {
   goBack() {
     if (this.history.length < 2) return;
     
+    const oldNodeId = this.currentNode.id;
     this.history.pop();
+    
     const prevNodeId = this.history[this.history.length - 1];
     const prevNode = this.graphData.getNodeById(prevNodeId);
 
     if (prevNode) {
-        const oldNodeId = this.currentNode.id;
         this.currentNode = prevNode;
-        const edge = this.graphData.getEdgesFromNode(prevNodeId).find(e => e.target === oldNodeId);
+        // Find the edge that led from the previous node to the one we just left
+        const edge = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
+        
         this.renderer.highlight(prevNodeId, oldNodeId, edge);
         this.player.play(prevNode);
     }
