@@ -59,24 +59,21 @@ export default class Navigation {
     let prevNodeId = null;
     let edgeToHighlight = null;
 
-    // First, try to use the recorded history path.
     if (this.history.length > 1) {
         this.history.pop();
         prevNodeId = this.history[this.history.length - 1];
         edgeToHighlight = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
     } 
-    // If no history, try to find a single, unambiguous "parent" node.
     else {
         const incomingEdges = this.graphData.edges.filter(e => e.target === oldNodeId);
         if (incomingEdges.length === 1) {
             edgeToHighlight = incomingEdges[0];
             prevNodeId = edgeToHighlight.source;
-            // We are creating a new history path going backwards.
             this.history.unshift(prevNodeId);
             this.history.pop();
         } else {
             console.log("Cannot go back: No history and ambiguous or no predecessor.");
-            return; // Stop if we can't determine where to go back to.
+            return;
         }
     }
 
@@ -105,6 +102,11 @@ export default class Navigation {
       const modal = document.getElementById('choiceModal');
       const optionsContainer = document.getElementById('choiceOptions');
       const closeModalBtn = document.getElementById('closeModalBtn');
+      const choiceTimerEl = document.getElementById('choiceTimer');
+      const countdownEl = document.getElementById('countdown');
+      
+      let countdown = 5;
+      let timerId = null;
       optionsContainer.innerHTML = '';
 
       const onChoose = (edge) => {
@@ -118,8 +120,11 @@ export default class Navigation {
       };
 
       const cleanup = () => {
+          clearInterval(timerId); // Crucial: stop the timer
           modal.classList.add('hidden');
+          choiceTimerEl.classList.add('hidden');
           closeModalBtn.removeEventListener('click', closeHandler);
+          // Buttons are children of optionsContainer, they will be removed with it
           while (optionsContainer.firstChild) {
               optionsContainer.removeChild(optionsContainer.firstChild);
           }
@@ -134,7 +139,21 @@ export default class Navigation {
       });
       
       closeModalBtn.addEventListener('click', closeHandler);
+      
+      // Setup and start the timer
+      countdownEl.textContent = countdown;
+      choiceTimerEl.classList.remove('hidden');
       modal.classList.remove('hidden');
+
+      timerId = setInterval(() => {
+        countdown--;
+        countdownEl.textContent = countdown;
+        if (countdown <= 0) {
+          const randomChoice = options[Math.floor(Math.random() * options.length)];
+          console.log(`Timer expired. Auto-selecting: ${randomChoice.label || randomChoice.target}`);
+          onChoose(randomChoice);
+        }
+      }, 1000);
     });
   }
 }
