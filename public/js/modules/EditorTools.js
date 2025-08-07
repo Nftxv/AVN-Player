@@ -3,8 +3,10 @@
  * by Nftxv
  */
 const NODE_WIDTH = 200;
-const NODE_HEIGHT_COLLAPSED = 45;
-const NODE_HEIGHT_EXPANDED = 225;
+const NODE_HEADER_HEIGHT = 45;
+const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
+const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+
 
 export default class EditorTools {
   constructor(graphData, renderer) {
@@ -43,11 +45,15 @@ export default class EditorTools {
 
   createNode() {
     const center = this.renderer.getViewportCenter();
+    // A new node is expanded, so we account for the content height to center it visually.
+    // node.y is the top of the header.
+    const visualCenterOffset = (NODE_HEADER_HEIGHT - NODE_CONTENT_HEIGHT) / 2;
+
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
       x: center.x - NODE_WIDTH / 2,
-      y: center.y - (NODE_HEIGHT_EXPANDED / 2),
+      y: center.y - visualCenterOffset,
       isCollapsed: false,
       sourceType: 'audio',
       audioUrl: '', coverUrl: '', lyricsUrl: '', iframeUrl: '',
@@ -308,8 +314,9 @@ export default class EditorTools {
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
       
-      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEIGHT_COLLAPSED / 2 };
-      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEIGHT_COLLAPSED / 2 };
+      // The "center" for an edge connection is the middle of the header.
+      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEADER_HEIGHT / 2 };
+      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEADER_HEIGHT / 2 };
 
       const pathPoints = [ startPoint, ...edge.controlPoints, endPoint ];
       
