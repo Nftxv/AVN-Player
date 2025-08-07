@@ -177,13 +177,17 @@ export default class Renderer {
       if (!src || !trg) return;
 
       const controlPoints = edge.controlPoints || [];
-      const srcRect = this._getNodeVisualRect(src);
-      const trgRect = this._getNodeVisualRect(trg);
       
-      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trgRect.x + trgRect.width / 2, y: trgRect.y + trgRect.height / 2 };
+      // NEW: Define static anchor points based on the header center
+      const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
+      const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
+
+      // Determine the angle of the edge based on the static header centers
+      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
+      // But calculate the intersection point using the node's full visual rectangle
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
 
-      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: srcRect.x + srcRect.width / 2, y: srcRect.y + srcRect.height / 2 };
+      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
 
       const pathPoints = [startPoint, ...controlPoints, endPoint];
@@ -225,7 +229,7 @@ export default class Renderer {
       }
       ctx.restore();
   }
-  
+
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
@@ -523,18 +527,20 @@ export default class Renderer {
   getEdgeAt(x, y) {
     const tolerance = 10 / this.scale;
     for (const edge of this.graphData.edges) {
-        const src = this.graphData.nodes.find(n => n.id === edge.source);
-        const trg = this.graphData.nodes.find(n => n.id === edge.target);
+        const src = this.graphData.getNodeById(edge.source);
+        const trg = this.graphData.getNodeById(edge.target);
         if (!src || !trg) continue;
         
         const controlPoints = edge.controlPoints || [];
-        const srcRect = this._getNodeVisualRect(src);
-        const trgRect = this._getNodeVisualRect(trg);
+        
+        // NEW: Use the same static anchor logic as in drawEdge for consistency
+        const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
+        const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
 
-        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trgRect.x + trgRect.width / 2, y: trgRect.y + trgRect.height / 2 };
+        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
         const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
         
-        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: srcRect.x + srcRect.width / 2, y: srcRect.y + srcRect.height / 2 };
+        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
         const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
 
         const pathPoints = [startPoint, ...controlPoints, endPoint];
@@ -553,7 +559,7 @@ export default class Renderer {
     }
     return null;
   }
-  
+    
   _drawArrow(x, y, angle, color, size) {
       this.ctx.save(); this.ctx.translate(x, y); this.ctx.rotate(angle);
       this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(-size, -size * 0.4);
@@ -689,7 +695,7 @@ export default class Renderer {
       }
       return snappedPos;
   }
-    
+
   _drawSnapGuides() {
       const ctx = this.ctx; ctx.save(); ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)'; ctx.lineWidth = 1 / this.scale;
       ctx.setLineDash([5 / this.scale, 5 / this.scale]);
@@ -780,34 +786,38 @@ export default class Renderer {
         if (this.dragging) {
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
-        } else if (this.isDraggingSelection) {
-            const isLocked = getIsDecorationsLocked();
-            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
-            const targetX = this.mousePos.x - this.dragOffset.x;
-            const targetY = this.mousePos.y - this.dragOffset.y;
+        } else if (this.draggingEntity) {
+            // Determine the potential new top-left corner of the visual bounds based on mouse movement
+            const potentialNewPos = {
+                x: this.mousePos.x - this.dragOffset.x,
+                y: this.mousePos.y - this.dragOffset.y
+            };
             
-            const snappedPos = this._getSnappedPosition({ x: targetX, y: targetY }, this.draggingEntity);
+            // Get the final, snapped position for the top-left corner
+            const snappedPos = this._getSnappedPosition(potentialNewPos, this.draggingEntity);
+            
+            // Get the visual bounds of the entity *before* the move
+            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
+            
+            // Calculate the total displacement (delta) needed
             const dx = snappedPos.x - originalBounds.x;
             const dy = snappedPos.y - originalBounds.y;
 
-            getSelection().forEach(entity => {
+            // Apply this displacement to all selected entities
+            const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
+            const isLocked = getIsDecorationsLocked();
+
+            selection.forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
 
-                if ('x' in entity) { entity.x += dx; entity.y += dy; }
-                else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
+                if ('x' in entity) { 
+                    entity.x += dx; 
+                    entity.y += dy; 
+                }
+                else if (entity.controlPoints) { // For edges that might be part of a selection
+                    entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); 
+                }
             });
-
-        } else if (this.draggingEntity) {
-            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
-            const targetX = this.mousePos.x - this.dragOffset.x;
-            const targetY = this.mousePos.y - this.dragOffset.y;
-            const snappedPos = this._getSnappedPosition({x: targetX, y: targetY}, this.draggingEntity);
-            
-            const dx = snappedPos.x - originalBounds.x;
-            const dy = snappedPos.y - originalBounds.y;
-
-            this.draggingEntity.x += dx;
-            this.draggingEntity.y += dy;
 
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];

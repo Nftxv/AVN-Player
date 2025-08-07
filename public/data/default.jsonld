@@ -9,7 +9,7 @@
         "x": 92,
         "y": 230
       },
-      "isCollapsed": false,
+      "isCollapsed": true,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
@@ -22,9 +22,9 @@
       "name": "Ballad of Everything (2 version)",
       "position": {
         "x": -72,
-        "y": 508
+        "y": 495.0138468887229
       },
-      "isCollapsed": false,
+      "isCollapsed": true,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
@@ -37,9 +37,9 @@
       "name": "Ballad of Everything (1 version)",
       "position": {
         "x": 273.18977016560103,
-        "y": 511.2500000000001
+        "y": 498.26384688872304
       },
-      "isCollapsed": false,
+      "isCollapsed": true,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
@@ -52,9 +52,9 @@
       "name": "Love Transcends",
       "position": {
         "x": 92,
-        "y": 817.7372127070013
+        "y": 678.9786584887257
       },
-      "isCollapsed": false,
+      "isCollapsed": true,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
@@ -67,9 +67,9 @@
       "name": "Garbage for Ears",
       "position": {
         "x": 92,
-        "y": 1126.0379900508315
+        "y": 866.9360592337733
       },
-      "isCollapsed": false,
+      "isCollapsed": true,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
@@ -131,11 +131,11 @@
       "controlPoints": [
         {
           "x": -188.45755966224445,
-          "y": 1092.2879900508315
+          "y": 889.4360592337733
         },
         {
           "x": -188.45755966224445,
-          "y": 196.25
+          "y": 252.5
         }
       ]
     },
@@ -143,7 +143,7 @@
       "@id": "deco-rect-1",
       "position": {
         "x": -283,
-        "y": 13.423959817333184
+        "y": -6.569811882272688
       },
       "@type": "RectangleAnnotation",
       "size": {
