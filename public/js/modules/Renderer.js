@@ -291,7 +291,6 @@ export default class Renderer {
     });
   }
 
-  // CORRECTED: This function now uses this.ctx instead of expecting it on textObj
   _getWrappedLines(textObj) {
       const { textContent, fontSize, width } = textObj;
       this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
@@ -478,16 +477,21 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-      // ALWAYS use the header rect for consistent connection points regardless of collapsed state.
-      const rect = { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
+      // CORRECTED: Use the node's complete visual rectangle, which accounts for its collapsed state.
+      const rect = this._getNodeVisualRect(node);
       const halfW = rect.width / 2, halfH = rect.height / 2;
       const cx = rect.x + halfW, cy = rect.y + halfH;
       const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
       if (dx === 0 && dy === 0) return {x: cx, y: cy};
       const angle = Math.atan2(dy, dx);
       const tan = Math.tan(angle); let x, y;
-      if (Math.abs(halfH * dx) > Math.abs(halfW * dy)) { x = cx + Math.sign(dx) * halfW; y = cy + Math.sign(dx) * halfW * tan; }
-      else { y = cy + Math.sign(dy) * halfH; x = cx + Math.sign(dy) * halfH / tan; }
+      if (Math.abs(halfH * dx) > Math.abs(halfW * dy)) { 
+          x = cx + Math.sign(dx) * halfW;
+          y = cy + Math.sign(dx) * halfW * tan;
+      } else {
+          y = cy + Math.sign(dy) * halfH;
+          x = cx + Math.sign(dy) * halfH / tan;
+      }
       return { x, y };
   }
   
