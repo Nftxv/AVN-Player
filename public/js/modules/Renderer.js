@@ -721,7 +721,6 @@ export default class Renderer {
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
-    // REVAMPED: Robust drag handling using window events
     const handleMouseMove = (e) => {
         this.mousePos = this.getCanvasCoords(e);
         if (e.buttons === 0) { // Should not happen with this new logic, but as a fallback
@@ -734,18 +733,45 @@ export default class Renderer {
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.draggingEntity) {
-            const potentialNewPos = { x: this.mousePos.x - this.dragOffset.x, y: this.mousePos.y - this.dragOffset.y };
-            const snappedPos = this._getSnappedPosition(potentialNewPos, this.draggingEntity);
-            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
-            const dx = snappedPos.x - originalBounds.x;
-            const dy = snappedPos.y - originalBounds.y;
+
+            const potentialTopLeft = { x: this.mousePos.x - this.dragOffset.x, y: this.mousePos.y - this.dragOffset.y };
+            const snappedTopLeft = this._getSnappedPosition(potentialTopLeft, this.draggingEntity);
+            
             const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
             const isLocked = getIsDecorationsLocked();
+
+            const primaryDx = snappedTopLeft.x - potentialTopLeft.x;
+            const primaryDy = snappedTopLeft.y - potentialTopLeft.y;
+
             selection.forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
-                if ('x' in entity && 'y' in entity) { 
-                    entity.x += dx; entity.y += dy; 
-                } else if (entity.controlPoints) { // This is an edge being dragged as part of a selection
+
+                const originalBounds = this._getDecorationBounds(entity) || this._getNodeVisualRect(entity);
+                const currentTopLeft = { x: originalBounds.x, y: originalBounds.y };
+                
+                // For all other items in a multi-selection, we move them by the same delta as the primary dragged item.
+                if (entity !== this.draggingEntity) {
+                   currentTopLeft.x += primaryDx;
+                   currentTopLeft.y += primaryDy;
+                } else {
+                   currentTopLeft.x = snappedTopLeft.x;
+                   currentTopLeft.y = snappedTopLeft.y;
+                }
+
+                if (entity.sourceType) { // It's a Node
+                    entity.x = currentTopLeft.x;
+                    const contentHeight = entity.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
+                    entity.y = currentTopLeft.y + contentHeight;
+                } else if (entity.type === 'rectangle') {
+                    entity.x = currentTopLeft.x;
+                    entity.y = currentTopLeft.y;
+                } else if (entity.type === 'text') {
+                    const textBounds = this._getDecorationBounds(entity);
+                    entity.x = currentTopLeft.x + textBounds.width / 2;
+                    entity.y = currentTopLeft.y + textBounds.height / 2;
+                } else if (entity.controlPoints) { // It's an edge (part of selection)
+                    const dx = currentTopLeft.x - originalBounds.x;
+                    const dy = currentTopLeft.y - originalBounds.y;
                     entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; });
                 }
             });
