@@ -25,6 +25,14 @@ class GraphApp {
     try {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
+      
+      // Create all iframe infrastructure upfront before the first render.
+      // This ensures YT.Player is constructed on valid, existing DOM elements.
+      this.renderer.ensureAllIframeWrappersExist();
+      this.graphData.nodes
+          .filter(node => node.sourceType === 'iframe')
+          .forEach(node => this.player.createYtPlayer(node));
+
       await this.renderer.loadAndRenderAll();
       this.setupEventListeners();
       this.toggleEditorMode(false);

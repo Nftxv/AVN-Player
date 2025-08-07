@@ -47,7 +47,7 @@ export default class Renderer {
   async loadAndRenderAll() {
     if (!this.graphData) return;
     await this.loadImages();
-    this._ensureAllIframeWrappersExist();
+    // ensureAllIframeWrappersExist() is now called from app.js before this.
     this.renderLoop();
   }
 
@@ -70,7 +70,7 @@ export default class Renderer {
   renderLoop() {
     if (!this.graphData) return;
     
-    this.updateIframes(); // Update iframe positions first
+    this.updateIframeWrappers(); // Update iframe positions and visibility first
 
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
@@ -134,9 +134,9 @@ export default class Renderer {
     ctx.restore();
   }
 
-  // --- START Iframe and Helper Methods ---
+  // --- Iframe and Helper Methods ---
   
-  _ensureAllIframeWrappersExist() {
+  ensureAllIframeWrappersExist() {
     if (!this.graphData) return;
     this.graphData.nodes.forEach(node => {
         if (node.sourceType === 'iframe') {
@@ -148,24 +148,27 @@ export default class Renderer {
     });
   }
   
-  updateIframes() {
-    if (!this.player || !this.graphData) return;
+  updateIframeWrappers() {
+    if (!this.graphData) return;
     this.graphData.nodes.forEach(node => {
         if (node.sourceType !== 'iframe') return;
         const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
         if (!wrapper) return;
-        
-        this.player.createYtPlayer(node);
 
-        const contentRect = this._getNodeContentRect(node);
-        const screenX = contentRect.x * this.scale + this.offset.x;
-        const screenY = contentRect.y * this.scale + this.offset.y;
-        const screenWidth = contentRect.width * this.scale;
-        const screenHeight = contentRect.height * this.scale;
+        const isVisibleOnCanvas = !node.isCollapsed;
+        wrapper.style.display = isVisibleOnCanvas ? 'block' : 'none';
 
-        wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-        wrapper.style.width = `${screenWidth}px`;
-        wrapper.style.height = `${screenHeight}px`;
+        if (isVisibleOnCanvas) {
+            const contentRect = this._getNodeContentRect(node);
+            const screenX = contentRect.x * this.scale + this.offset.x;
+            const screenY = contentRect.y * this.scale + this.offset.y;
+            const screenWidth = contentRect.width * this.scale;
+            const screenHeight = contentRect.height * this.scale;
+
+            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+            wrapper.style.width = `${screenWidth}px`;
+            wrapper.style.height = `${screenHeight}px`;
+        }
     });
   }
 
