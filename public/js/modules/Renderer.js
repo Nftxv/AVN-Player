@@ -477,22 +477,79 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-      // CORRECTED: Use the node's complete visual rectangle, which accounts for its collapsed state.
-      const rect = this._getNodeVisualRect(node);
-      const halfW = rect.width / 2, halfH = rect.height / 2;
-      const cx = rect.x + halfW, cy = rect.y + halfH;
-      const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
-      if (dx === 0 && dy === 0) return {x: cx, y: cy};
-      const angle = Math.atan2(dy, dx);
-      const tan = Math.tan(angle); let x, y;
-      if (Math.abs(halfH * dx) > Math.abs(halfW * dy)) { 
-          x = cx + Math.sign(dx) * halfW;
-          y = cy + Math.sign(dx) * halfW * tan;
-      } else {
-          y = cy + Math.sign(dy) * halfH;
-          x = cx + Math.sign(dy) * halfH / tan;
-      }
-      return { x, y };
+    // The logical center is ALWAYS the center of the header. This is our stable anchor point.
+    const logicalCenterX = node.x + NODE_WIDTH / 2;
+    const logicalCenterY = node.y + NODE_HEADER_HEIGHT / 2;
+
+    // The visual rectangle is what the line must clip to. This changes when collapsed.
+    const rect = this._getNodeVisualRect(node);
+    
+    // Vector from the logical center to the external point. This defines the line's direction.
+    const dx = externalPoint.x - logicalCenterX;
+    const dy = externalPoint.y - logicalCenterY;
+
+    if (dx === 0 && dy === 0) return { x: logicalCenterX, y: logicalCenterY };
+
+    // Parametric line equation: P = P0 + t * V
+    // P0 is (logicalCenterX, logicalCenterY), V is (dx, dy)
+    // We need to find the smallest positive t for which P is on the boundary of `rect`.
+    let t = Infinity;
+
+    // Top edge: y = rect.y
+    if (dy < 0) { // Ray is moving up
+        const t_y = (rect.y - logicalCenterY) / dy;
+        const x = logicalCenterX + t_y * dx;
+        if (x >= rect.x && x <= rect.x + rect.width) {
+            t = Math.min(t, t_y);
+        }
+    }
+    // Bottom edge: y = rect.y + rect.height
+    if (dy > 0) { // Ray is moving down
+        const t_y = (rect.y + rect.height - logicalCenterY) / dy;
+        const x = logicalCenterX + t_y * dx;
+        if (x >= rect.x && x <= rect.x + rect.width) {
+            t = Math.min(t, t_y);
+        }
+    }
+    // Left edge: x = rect.x
+    if (dx < 0) { // Ray is moving left
+        const t_x = (rect.x - logicalCenterX) / dx;
+        const y = logicalCenterY + t_x * dy;
+        if (y >= rect.y && y <= rect.y + rect.height) {
+            t = Math.min(t, t_x);
+        }
+    }
+    // Right edge: x = rect.x + rect.width
+    if (dx > 0) { // Ray is moving right
+        const t_x = (rect.x + rect.width - logicalCenterX) / dx;
+        const y = logicalCenterY + t_x * dy;
+        if (y >= rect.y && y <= rect.y + rect.height) {
+            t = Math.min(t, t_x);
+        }
+    }
+
+    // If we found a valid intersection, return it
+    if (t !== Infinity && t > 0) {
+        return { x: logicalCenterX + t * dx, y: logicalCenterY + t * dy };
+    }
+
+    // Fallback: This can happen if the logical center is inside the visual rect,
+    // which it is for expanded nodes. In this case, there's no "forward" intersection.
+    // The old geometric method works better here. Let's combine them.
+    const angle = Math.atan2(dy, dx);
+    const tan = Math.tan(angle);
+    const halfW = rect.width / 2;
+    const halfH = rect.height / 2;
+
+    if (Math.abs(halfH * dx) > Math.abs(halfW * dy)) { 
+        const ix = rect.x + (dx > 0 ? rect.width : 0);
+        const iy = logicalCenterY + (ix - logicalCenterX) * tan;
+        return { x: ix, y: iy };
+    } else { 
+        const iy = rect.y + (dy > 0 ? rect.height : 0);
+        const ix = logicalCenterX + (iy - logicalCenterY) / tan;
+        return { x: ix, y: iy };
+    }
   }
   
   drawTemporaryEdge() {
