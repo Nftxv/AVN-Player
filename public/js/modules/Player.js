@@ -1,10 +1,11 @@
 /**
  * Manages audio playback, player UI updates, and lyrics loading.
- * NEW: Also manages YouTube IFrame player instances.
+ * NEW: Also manages the entire lifecycle of YouTube IFrame players.
  */
 export default class Player {
-  constructor(graphData) {
+  constructor(graphData, iframeContainer) {
     this.graphData = graphData;
+    this.iframeContainer = iframeContainer; // The container for all iframes
     this.navigation = null;
     this.currentNode = null;
     
@@ -12,23 +13,41 @@ export default class Player {
     this.audio = new Audio();
     
     // YouTube players
-    this.ytPlayers = new Map();
+    this.ytPlayers = new Map(); // Stores the YT.Player objects
+    this.ytPlayerReady = new Map(); // Tracks which players have fired 'onReady'
+    this.ytPlayQueue = new Set(); // Stores node IDs that should play once ready
     this.currentYtPlayer = null;
 
     this.setupEventListeners();
   }
 
   setNavigation(navigation) { this.navigation = navigation; }
+  
+  /**
+   * Creates all YouTube player instances at the beginning.
+   * They are created hidden and managed by this module.
+   */
+  initializeAllYouTubePlayers() {
+      this.graphData.nodes.forEach(node => {
+          if (node.sourceType === 'iframe' && node.iframeUrl) {
+              this.createYtPlayer(node);
+          }
+      });
+  }
 
   play(node) {
     if (!node) return;
+    
+    const wasPlayingNode = this.currentNode;
     this.currentNode = node;
     
-    // Reset both players first
-    this.audio.pause();
-    if (this.currentYtPlayer) {
-      this.currentYtPlayer.pauseVideo();
-      this.currentYtPlayer = null;
+    // Stop whatever was playing before
+    if (wasPlayingNode?.id !== node.id) {
+        this.audio.pause();
+        if (this.currentYtPlayer) {
+          this.currentYtPlayer.pauseVideo();
+        }
+        this.currentYtPlayer = null;
     }
     
     document.getElementById('songTitle').textContent = node.title;
@@ -36,35 +55,34 @@ export default class Player {
     const progress = document.getElementById('progress');
 
     if (node.sourceType === 'audio') {
-        const audioUrl = node.audioUrl;
         document.getElementById('currentCover').src = node.coverUrl || 'placeholder.svg';
-        
-        if (!audioUrl) {
+        if (!node.audioUrl) {
           console.warn(`Audio URL is missing for "${node.title}".`);
           this.stop();
           document.getElementById('songTitle').textContent = node.title;
           return;
         }
-        
         playBtn.textContent = '⏸';
         playBtn.disabled = false;
         progress.disabled = false;
-        this.audio.src = audioUrl;
+        this.audio.src = node.audioUrl;
         this.audio.play().catch(e => console.error("Playback error:", e));
         this.loadAndShowLyrics(node.lyricsUrl);
 
     } else if (node.sourceType === 'iframe') {
         document.getElementById('currentCover').src = `https://i.ytimg.com/vi/${node.iframeUrl}/mqdefault.jpg`;
-        playBtn.textContent = '⏸';
         playBtn.disabled = false;
+        playBtn.textContent = '⏸';
         progress.value = 0;
         progress.disabled = true; // YouTube controls its own progress
 
         this.currentYtPlayer = this.ytPlayers.get(node.id);
-        if (this.currentYtPlayer && typeof this.currentYtPlayer.playVideo === 'function') {
-           this.currentYtPlayer.playVideo();
+        if (this.ytPlayerReady.get(node.id)) {
+            this.currentYtPlayer.playVideo();
         } else {
-            console.warn(`YouTube player for node ${node.id} not ready yet.`);
+            // Player is not ready yet, queue it to be played
+            console.log(`Player for ${node.id} not ready. Queuing for playback.`);
+            this.ytPlayQueue.add(node.id);
         }
         this.loadAndShowLyrics(null);
     }
@@ -86,10 +104,8 @@ export default class Player {
         const state = this.currentYtPlayer.getPlayerState();
         if (state === YT.PlayerState.PLAYING) {
             this.currentYtPlayer.pauseVideo();
-            playBtn.textContent = '▶';
         } else {
             this.currentYtPlayer.playVideo();
-            playBtn.textContent = '⏸';
         }
     }
   }
@@ -106,8 +122,8 @@ export default class Player {
 
     this.currentNode = null;
     document.getElementById('playBtn').textContent = '▶';
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('progress').disabled = false;
+    document.getElementById('playBtn').disabled = true;
+    document.getElementById('progress').disabled = true;
     document.getElementById('songTitle').textContent = 'Select a node to begin...';
     document.getElementById('currentCover').src = 'placeholder.svg';
     document.getElementById('progress').value = 0;
@@ -119,20 +135,33 @@ export default class Player {
   createYtPlayer(node) {
       if (this.ytPlayers.has(node.id) || !node.iframeUrl) return;
 
-      const player = new YT.Player(`yt-player-${node.id}`, {
+      const wrapper = document.createElement('div');
+      wrapper.id = `iframe-wrapper-${node.id}`;
+      wrapper.className = 'iframe-wrapper';
+      wrapper.style.display = 'none'; // Initially hidden
+      
+      const playerDiv = document.createElement('div');
+      playerDiv.id = `yt-player-${node.id}`;
+
+      const dragOverlay = document.createElement('div');
+      dragOverlay.className = 'drag-overlay';
+
+      wrapper.appendChild(playerDiv);
+      wrapper.appendChild(dragOverlay);
+      this.iframeContainer.appendChild(wrapper);
+
+      const player = new YT.Player(playerDiv.id, {
           height: '100%',
           width: '100%',
           videoId: node.iframeUrl,
-          playerVars: {
-              'playsinline': 1,
-              'controls': 0, // We use our own controls
-              'disablekb': 1
-          },
+          playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
           events: {
+              'onReady': (event) => this.onPlayerReady(event, node),
               'onStateChange': (event) => this.onPlayerStateChange(event, node)
           }
       });
       this.ytPlayers.set(node.id, player);
+      this.ytPlayerReady.set(node.id, false);
   }
 
   destroyYtPlayer(nodeId) {
@@ -142,19 +171,48 @@ export default class Player {
             player.destroy();
           }
           this.ytPlayers.delete(nodeId);
+          this.ytPlayerReady.delete(nodeId);
+          this.ytPlayQueue.delete(nodeId);
+
+          const wrapper = document.getElementById(`iframe-wrapper-${nodeId}`);
+          if (wrapper) wrapper.remove();
+          
+          console.log(`Destroyed player for node ${nodeId}`);
       }
+  }
+  
+  onPlayerReady(event, node) {
+    console.log(`YouTube player ready for node: ${node.id}`);
+    this.ytPlayerReady.set(node.id, true);
+    // If this node was queued for playback, play it now
+    if (this.ytPlayQueue.has(node.id)) {
+        console.log(`Playing queued node: ${node.id}`);
+        // Ensure this is the currently active node before playing
+        if(this.currentNode?.id === node.id) {
+            event.target.playVideo();
+        }
+        this.ytPlayQueue.delete(node.id);
+    }
   }
 
   onPlayerStateChange(event, node) {
     if (this.currentNode?.id !== node.id) return; // Only react to the current node
     
     const playBtn = document.getElementById('playBtn');
-    if (event.data === YT.PlayerState.ENDED) {
-        if (this.navigation) this.navigation.advance();
-    } else if (event.data === YT.PlayerState.PLAYING) {
-        playBtn.textContent = '⏸';
-    } else if (event.data === YT.PlayerState.PAUSED) {
-        playBtn.textContent = '▶';
+    switch(event.data) {
+        case YT.PlayerState.ENDED:
+            if (this.navigation) this.navigation.advance();
+            break;
+        case YT.PlayerState.PLAYING:
+            playBtn.textContent = '⏸';
+            break;
+        case YT.PlayerState.PAUSED:
+            playBtn.textContent = '▶';
+            break;
+        case YT.PlayerState.BUFFERING:
+        case YT.PlayerState.UNSTARTED:
+            // You can add visual feedback for these states if desired
+            break;
     }
   }
 
@@ -207,6 +265,9 @@ export default class Player {
       const mins = Math.floor(this.audio.currentTime / 60);
       const secs = Math.floor(this.audio.currentTime % 60);
       currentTimeElem.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    } else {
+      progress.value = 0;
+      currentTimeElem.textContent = '0:00';
     }
   }
 }

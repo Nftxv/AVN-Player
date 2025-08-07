@@ -10,14 +10,14 @@ import Navigation from './modules/Navigation.js';
 
 class GraphApp {
   constructor() {
+    this.iframeContainer = document.getElementById('iframe-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas');
-    this.player = new Player(this.graphData);
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer);
+    this.player = new Player(this.graphData, this.iframeContainer);
     this.navigation = new Navigation(this.graphData, this.player, this.renderer);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
-    this.renderer.setPlayer(this.player);
     this.isEditorMode = false;
   }
 
@@ -25,7 +25,12 @@ class GraphApp {
     try {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
-      await this.renderer.loadAndRenderAll();
+      
+      // Initialize all YouTube players first. They will be created hidden.
+      this.player.initializeAllYouTubePlayers();
+      
+      this.renderer.render(); // Start rendering loop
+      
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -78,7 +83,16 @@ class GraphApp {
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
     document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
 
-    document.getElementById('deleteSelectionBtn').addEventListener('click', () => this.editorTools.deleteSelection());
+    document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
+        const selection = this.editorTools.getSelection();
+        // Notify player to destroy any YT players associated with deleted nodes
+        selection.forEach(entity => {
+            if (entity.sourceType === 'iframe') {
+                this.player.destroyYtPlayer(entity.id);
+            }
+        });
+        this.editorTools.deleteSelection();
+    });
     
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());

@@ -428,10 +428,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "name": "Chapter 1: The Beginning",
       "position": { "x": 100, "y": 250 },
       "isCollapsed": false,
-      "sourceType": "audio",
-      "audioUrl": "https://cloudflare-ipfs.com/ipfs/bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
-      "coverUrl": "placeholder.svg",
-      "lyricsUrl": "https://cloudflare-ipfs.com/ipfs/bafkreifzjut3a2u7gy2g2l2ctrqkfdv3u4b2qkjk22p32d2c3k32y2y2yq"
+      "sourceType": "iframe",
+      "iframeUrl": "PaASWGWif34"
     },
     {
       "@id": "node-2",
@@ -632,8 +630,10 @@ window.addEventListener('youtubeApiReady', () => {
  * by Nftxv
  */
 const NODE_WIDTH = 200;
-const NODE_HEIGHT_COLLAPSED = 45;
-const NODE_HEIGHT_EXPANDED = 225;
+const NODE_HEADER_HEIGHT = 45;
+const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
+const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+
 
 export default class EditorTools {
   constructor(graphData, renderer) {
@@ -672,11 +672,15 @@ export default class EditorTools {
 
   createNode() {
     const center = this.renderer.getViewportCenter();
+    // A new node is expanded, so we account for the content height to center it visually.
+    // node.y is the top of the header.
+    const visualCenterOffset = (NODE_HEADER_HEIGHT - NODE_CONTENT_HEIGHT) / 2;
+
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
       x: center.x - NODE_WIDTH / 2,
-      y: center.y - (NODE_HEIGHT_EXPANDED / 2),
+      y: center.y - visualCenterOffset,
       isCollapsed: false,
       sourceType: 'audio',
       audioUrl: '', coverUrl: '', lyricsUrl: '', iframeUrl: '',
@@ -937,8 +941,9 @@ export default class EditorTools {
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
       
-      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEIGHT_COLLAPSED / 2 };
-      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEIGHT_COLLAPSED / 2 };
+      // The "center" for an edge connection is the middle of the header.
+      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEADER_HEIGHT / 2 };
+      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEADER_HEIGHT / 2 };
 
       const pathPoints = [ startPoint, ...edge.controlPoints, endPoint ];
       
@@ -1511,11 +1516,9 @@ export default class Player {
  * by Nftxv
  */
 const NODE_WIDTH = 200;
-const NODE_HEIGHT_COLLAPSED = 45;
-const NODE_HEIGHT_EXPANDED = 225;
-const NODE_CONTENT_HEIGHT = 150;
-const NODE_PADDING = 10;
-const TOGGLE_ICON_SIZE = 16;
+const NODE_HEADER_HEIGHT = 45; // Was NODE_HEIGHT_COLLAPSED
+const NODE_CONTENT_ASPECT_RATIO = 9 / 16; // Standard 16:9 aspect ratio
+const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO; // Approx 112.5px
 
 export default class Renderer {
   constructor(canvasId) {
@@ -1586,16 +1589,13 @@ export default class Renderer {
     // Layer 1: Decorations
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
     
-    // Layer 2: Node bodies (shape + content)
-    this.graphData.nodes.forEach(node => {
-      this._drawNodeShape(node);
-      this._drawNodeContent(node);
-    });
+    // Layer 2: Node content (drawn first, to be under header if overlap occurs)
+    this.graphData.nodes.forEach(node => this._drawNodeContent(node));
     
     // Layer 3: Edges
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
-
-    // Layer 4: Node headers (text + icons)
+    
+    // Layer 4: Node headers (shape + text)
     this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
 
     // Overlays for editor tools
@@ -1627,10 +1627,14 @@ export default class Renderer {
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     
     if (rect.selected) {
-        ctx.globalAlpha = 1.0;
+        ctx.restore(); // Restore from globalAlpha change
+        ctx.save(); // Save before clipping
+        ctx.beginPath();
+        ctx.rect(rect.x, rect.y, rect.width, rect.height);
+        ctx.clip(); // Clip to the rect path
         ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = 2 / this.scale;
-        ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+        ctx.lineWidth = (2 / this.scale) * 2; // Double width for inside stroke
+        ctx.stroke();
     }
     ctx.restore();
   }
@@ -1665,9 +1669,19 @@ export default class Renderer {
       }
 
       if (text.selected) {
+          const rectX = topLeftX - 2;
+          const rectY = topLeftY - 2;
+          const rectW = bounds.width + 4;
+          const rectH = bounds.height + 4;
+          
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(rectX, rectY, rectW, rectH);
+          ctx.clip();
           ctx.strokeStyle = '#e74c3c';
-          ctx.lineWidth = 1 / this.scale;
-          ctx.strokeRect(topLeftX - 2, topLeftY - 2, bounds.width + 4, bounds.height + 4);
+          ctx.lineWidth = (1 / this.scale) * 2; // Double width
+          ctx.stroke();
+          ctx.restore();
       }
       ctx.restore();
   }
@@ -1678,11 +1692,13 @@ export default class Renderer {
       if (!src || !trg) return;
 
       const controlPoints = edge.controlPoints || [];
+      const srcRect = this._getNodeVisualRect(src);
+      const trgRect = this._getNodeVisualRect(trg);
       
-      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trg.x + NODE_WIDTH / 2, y: trg.y + this._getNodeVisualRect(trg).height / 2 };
+      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trgRect.x + trgRect.width / 2, y: trgRect.y + trgRect.height / 2 };
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
 
-      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
+      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: srcRect.x + srcRect.width / 2, y: srcRect.y + srcRect.height / 2 };
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
 
       const pathPoints = [startPoint, ...controlPoints, endPoint];
@@ -1724,79 +1740,91 @@ export default class Renderer {
       }
       ctx.restore();
   }
-
-  _drawNodeShape(node) {
-    const ctx = this.ctx;
-    const rect = this._getNodeVisualRect(node);
-    
-    ctx.save();
-    
-    ctx.fillStyle = '#2d2d2d';
-    ctx.beginPath();
-    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
-    ctx.fill();
-    
-    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
-    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
-    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
-    ctx.stroke();
-    ctx.restore();
-  }
-
+  
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
-    const rect = this._getNodeVisualRect(node);
+    
+    // Define the content container
+    const containerX = node.x;
+    const containerY = node.y - NODE_CONTENT_HEIGHT;
+    const containerW = NODE_WIDTH;
+    const containerH = NODE_CONTENT_HEIGHT;
 
-    const contentAreaX = rect.x + NODE_PADDING;
-    const contentAreaY = rect.y + NODE_PADDING;
-    const contentAreaWidth = NODE_WIDTH - NODE_PADDING * 2;
+    // Draw a background for the content area
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(containerX, containerY, containerW, containerH);
 
     if (node.sourceType === 'audio') {
-        const coverUrl = node.coverUrl;
-        if (coverUrl && this.images[coverUrl]) {
-            ctx.drawImage(this.images[coverUrl], contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
-        } else {
-            ctx.fillStyle = '#1e1e1e';
-            ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+        const img = this.images[node.coverUrl];
+        if (img) {
+            // Calculate aspect ratios
+            const containerRatio = containerW / containerH;
+            const imgRatio = img.naturalWidth / img.naturalHeight;
+            
+            let drawW, drawH, drawX, drawY;
+
+            if (imgRatio > containerRatio) {
+                // Image is wider than container (fit to width)
+                drawW = containerW;
+                drawH = drawW / imgRatio;
+                drawX = containerX;
+                drawY = containerY + (containerH - drawH) / 2; // Center vertically
+            } else {
+                // Image is taller than or same as container (fit to height)
+                drawH = containerH;
+                drawW = drawH * imgRatio;
+                drawY = containerY;
+                drawX = containerX + (containerW - drawW) / 2; // Center horizontally
+            }
+            ctx.drawImage(img, drawX, drawY, drawW, drawH);
         }
+        // If no image, the background serves as a placeholder
     } else if (node.sourceType === 'iframe') {
+        // The iframe will be placed here. We draw a placeholder.
         ctx.fillStyle = '#000000';
-        ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
+        ctx.fillRect(containerX, containerY, containerW, containerH);
         ctx.font = '12px Segoe UI';
         ctx.fillStyle = '#666';
         ctx.textAlign = 'center';
-        ctx.fillText('Loading Video...', rect.x + NODE_WIDTH / 2, rect.y + NODE_PADDING + NODE_CONTENT_HEIGHT / 2);
+        ctx.fillText('Loading Video...', containerX + containerW / 2, containerY + containerH / 2);
     }
   }
 
   _drawNodeHeader(node) {
     const ctx = this.ctx;
-    const rect = this._getNodeVisualRect(node);
     ctx.save();
 
+    // 1. Define path and fill header background
+    ctx.fillStyle = '#2d2d2d';
+    ctx.beginPath();
+    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
+    ctx.fill();
+    
+    // 2. Draw stroke (selection/highlight or default)
+    if (node.selected || node.highlighted) {
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = node.selected ? '#e74c3c' : '#FFD700';
+        ctx.lineWidth = 3 * 2;
+        ctx.stroke();
+        ctx.restore();
+    } else {
+        ctx.strokeStyle = '#424242';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // 3. Draw header text
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px Segoe UI';
     ctx.textAlign = 'center';
-    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 30);
-    
-    const titleY = node.isCollapsed 
-        ? rect.y + rect.height / 2
-        : rect.y + NODE_HEIGHT_EXPANDED - 40;
     ctx.textBaseline = 'middle';
-    ctx.fillText(fittedTitle, rect.x + NODE_WIDTH / 2, titleY);
+    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 20); 
+    const titleX = node.x + NODE_WIDTH / 2;
+    const titleY = node.y + NODE_HEADER_HEIGHT / 2;
+    ctx.fillText(fittedTitle, titleX, titleY);
 
-    const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
-    const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
-    ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
-    ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
-    if (node.isCollapsed) {
-      ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 4);
-      ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
-    }
-    ctx.stroke();
     ctx.restore();
   }
 
@@ -1835,10 +1863,9 @@ export default class Renderer {
             this.player.createYtPlayer(node);
         }
 
-        const nodeRect = this._getNodeVisualRect(node);
-        const screenX = (nodeRect.x + NODE_PADDING) * this.scale + this.offset.x;
-        const screenY = (nodeRect.y + NODE_PADDING) * this.scale + this.offset.y;
-        const screenWidth = (NODE_WIDTH - NODE_PADDING * 2) * this.scale;
+        const screenX = (node.x) * this.scale + this.offset.x;
+        const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+        const screenWidth = NODE_WIDTH * this.scale;
         const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
 
         wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
@@ -1946,8 +1973,14 @@ export default class Renderer {
   }
 
   _getNodeVisualRect(node) {
-      const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-      return { x: node.x, y: node.y, width: NODE_WIDTH, height: height };
+      const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
+      const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
+      return { 
+        x: node.x, 
+        y: node.y - contentHeight, 
+        width: NODE_WIDTH, 
+        height: totalHeight 
+      };
   }
   
   _getDecorationBounds(deco) {
@@ -1968,23 +2001,17 @@ export default class Renderer {
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
-    // Nodes are on top
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
         if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
-            const iconX = rect.x + rect.width - TOGGLE_ICON_SIZE - 6;
-            const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
-            if (x > iconX && y > iconY) return { type: 'collapse_toggle', entity: node };
             return { type: 'node', entity: node };
         }
     }
     
-    // Edges are in the middle
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
 
-    // Decorations are at the bottom and can be locked
     if (!isDecorationsLocked) {
         for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
             const deco = this.graphData.decorations[i];
@@ -2002,7 +2029,6 @@ export default class Renderer {
     const normalizedRect = this.normalizeRect(rect);
     return this.graphData.nodes.filter(node => {
         const nodeRect = this._getNodeVisualRect(node);
-        // Check for complete inclusion
         return (
             nodeRect.x >= normalizedRect.x &&
             nodeRect.y >= normalizedRect.y &&
@@ -2023,7 +2049,6 @@ export default class Renderer {
       const normalizedRect = this.normalizeRect(rect);
       return this.graphData.decorations.filter(deco => {
           const decoBounds = this._getDecorationBounds(deco);
-          // Check for intersection
           return normalizedRect.x < decoBounds.x + decoBounds.width && normalizedRect.x + normalizedRect.w > decoBounds.x &&
                  normalizedRect.y < decoBounds.y + decoBounds.height && normalizedRect.y + normalizedRect.h > decoBounds.y;
       });
@@ -2059,10 +2084,15 @@ export default class Renderer {
         if (!src || !trg) continue;
         
         const controlPoints = edge.controlPoints || [];
-        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trg.x + NODE_WIDTH / 2, y: trg.y + this._getNodeVisualRect(trg).height / 2 };
+        const srcRect = this._getNodeVisualRect(src);
+        const trgRect = this._getNodeVisualRect(trg);
+
+        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trgRect.x + trgRect.width / 2, y: trgRect.y + trgRect.height / 2 };
         const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
+        
+        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: srcRect.x + srcRect.width / 2, y: srcRect.y + srcRect.height / 2 };
         const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
+
         const pathPoints = [startPoint, ...controlPoints, endPoint];
 
         for (let i = 0; i < pathPoints.length - 1; i++) {
@@ -2102,7 +2132,7 @@ export default class Renderer {
   drawTemporaryEdge() {
     const ctx = this.ctx;
     const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
-    const startY = this.edgeCreationSource.y + NODE_HEIGHT_COLLAPSED / 2;
+    const startY = this.edgeCreationSource.y + NODE_HEADER_HEIGHT / 2;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
   }

@@ -8,13 +8,12 @@ const NODE_CONTENT_ASPECT_RATIO = 9 / 16; // Standard 16:9 aspect ratio
 const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO; // Approx 112.5px
 
 export default class Renderer {
-  constructor(canvasId) {
+  constructor(canvasId, iframeContainer) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
-    this.iframeContainer = document.getElementById('iframe-container');
+    this.iframeContainer = iframeContainer;
     
     this.graphData = null; 
-    this.player = null; // NEW: Reference to the player
     this.images = {};
 
     this.offset = { x: 0, y: 0 };
@@ -39,15 +38,14 @@ export default class Renderer {
   }
 
   setData(graphData) { this.graphData = graphData; }
-  setPlayer(player) { this.player = player; } // NEW
-
-  async loadAndRenderAll() {
-    if (!this.graphData) return;
+  
+  async render() {
     await this.loadImages();
     this.renderLoop();
   }
 
   async loadImages() {
+    if (!this.graphData) return;
     const promises = this.graphData.nodes
       .filter(node => node.sourceType === 'audio' && node.coverUrl)
       .map(async node => {
@@ -232,49 +230,37 @@ export default class Renderer {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
     
-    // Define the content container
     const containerX = node.x;
     const containerY = node.y - NODE_CONTENT_HEIGHT;
     const containerW = NODE_WIDTH;
     const containerH = NODE_CONTENT_HEIGHT;
 
-    // Draw a background for the content area
     ctx.fillStyle = '#1e1e1e';
     ctx.fillRect(containerX, containerY, containerW, containerH);
 
     if (node.sourceType === 'audio') {
         const img = this.images[node.coverUrl];
         if (img) {
-            // Calculate aspect ratios
             const containerRatio = containerW / containerH;
             const imgRatio = img.naturalWidth / img.naturalHeight;
-            
             let drawW, drawH, drawX, drawY;
-
             if (imgRatio > containerRatio) {
-                // Image is wider than container (fit to width)
                 drawW = containerW;
                 drawH = drawW / imgRatio;
                 drawX = containerX;
-                drawY = containerY + (containerH - drawH) / 2; // Center vertically
+                drawY = containerY + (containerH - drawH) / 2;
             } else {
-                // Image is taller than or same as container (fit to height)
                 drawH = containerH;
                 drawW = drawH * imgRatio;
                 drawY = containerY;
-                drawX = containerX + (containerW - drawW) / 2; // Center horizontally
+                drawX = containerX + (containerW - drawW) / 2;
             }
             ctx.drawImage(img, drawX, drawY, drawW, drawH);
         }
-        // If no image, the background serves as a placeholder
     } else if (node.sourceType === 'iframe') {
-        // The iframe will be placed here. We draw a placeholder.
+        // The iframe is handled by updateIframes(). We just draw a placeholder bg.
         ctx.fillStyle = '#000000';
         ctx.fillRect(containerX, containerY, containerW, containerH);
-        ctx.font = '12px Segoe UI';
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        ctx.fillText('Loading Video...', containerX + containerW / 2, containerY + containerH / 2);
     }
   }
 
@@ -282,13 +268,11 @@ export default class Renderer {
     const ctx = this.ctx;
     ctx.save();
 
-    // 1. Define path and fill header background
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
     ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
     ctx.fill();
     
-    // 2. Draw stroke (selection/highlight or default)
     if (node.selected || node.highlighted) {
         ctx.save();
         ctx.clip();
@@ -302,7 +286,6 @@ export default class Renderer {
         ctx.stroke();
     }
 
-    // 3. Draw header text
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px Segoe UI';
     ctx.textAlign = 'center';
@@ -331,60 +314,34 @@ export default class Renderer {
 
   // --- START Helper & Interaction Methods ---
   
+  /**
+   * Updates position, size, and visibility of all iframe wrappers.
+   * Does NOT create or destroy them.
+   */
   updateIframes() {
-    if (!this.player) return;
-    const visibleNodeIds = new Set();
-    
+    if (!this.graphData) return;
     this.graphData.nodes.forEach(node => {
-        if (node.sourceType !== 'iframe' || node.isCollapsed || !this._isNodeInView(node)) {
-            return;
-        }
+        if (node.sourceType !== 'iframe') return;
 
-        visibleNodeIds.add(node.id);
-        const wrapperId = `iframe-wrapper-${node.id}`;
-        let wrapper = document.getElementById(wrapperId);
+        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+        if (!wrapper) return; // Player module might still be creating it.
 
-        if (!wrapper) {
-            wrapper = this._createIframeWrapper(node);
-            this.iframeContainer.appendChild(wrapper);
-            this.player.createYtPlayer(node);
-        }
+        const isInView = this._isNodeInView(node);
+        const shouldBeVisible = !node.isCollapsed && isInView;
 
-        const screenX = (node.x) * this.scale + this.offset.x;
-        const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
-        const screenWidth = NODE_WIDTH * this.scale;
-        const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+        wrapper.style.display = shouldBeVisible ? 'block' : 'none';
 
-        wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-        wrapper.style.width = `${screenWidth}px`;
-        wrapper.style.height = `${screenHeight}px`;
-    });
+        if (shouldBeVisible) {
+            const screenX = (node.x) * this.scale + this.offset.x;
+            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+            const screenWidth = NODE_WIDTH * this.scale;
+            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
 
-    const existingIframes = this.iframeContainer.querySelectorAll('.iframe-wrapper');
-    existingIframes.forEach(wrapper => {
-        const nodeId = wrapper.dataset.nodeId;
-        if (!visibleNodeIds.has(nodeId)) {
-            this.player.destroyYtPlayer(nodeId);
-            wrapper.remove();
+            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+            wrapper.style.width = `${screenWidth}px`;
+            wrapper.style.height = `${screenHeight}px`;
         }
     });
-  }
-
-  _createIframeWrapper(node) {
-      const wrapper = document.createElement('div');
-      wrapper.id = `iframe-wrapper-${node.id}`;
-      wrapper.dataset.nodeId = node.id;
-      wrapper.className = 'iframe-wrapper';
-
-      const playerDiv = document.createElement('div');
-      playerDiv.id = `yt-player-${node.id}`;
-
-      const dragOverlay = document.createElement('div');
-      dragOverlay.className = 'drag-overlay';
-
-      wrapper.appendChild(playerDiv);
-      wrapper.appendChild(dragOverlay);
-      return wrapper;
   }
 
   _getWrappedLines(textObj) {
@@ -628,7 +585,7 @@ export default class Renderer {
       this.graphData.nodes.forEach(n => n.highlighted = false);
       this.graphData.edges.forEach(e => e.highlighted = false);
       if (currentId) { const node = this.graphData.nodes.find(n => n.id === currentId); if (node) node.highlighted = true; }
-      if (edge) { const e = this.graphData.edges.find(i => i.id === edge.id); if (e) e.highlighted = true; }
+      if (edge) { const e = this.graphData.edges.find(i => i.source === edge.source && i.target === edge.target); if (e) e.highlighted = true; }
   }
   
   getCanvasCoords({ clientX, clientY }) {
@@ -670,7 +627,6 @@ export default class Renderer {
           if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
           snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
       });
-      // NEW: Add other control points as snap targets
       this.graphData.edges.forEach(e => {
         (e.controlPoints || []).forEach(p => {
             if (p !== movingEntity) {
