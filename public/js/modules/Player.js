@@ -69,13 +69,18 @@ export default class Player {
         progress.value = 0;
         progress.disabled = true;
 
-        // NEW "LAZY" LOGIC
         if (this.ytPlayers.has(node.id)) {
-            // Player already exists, just play it
+            // Player already exists, get it.
             this.currentYtPlayer = this.ytPlayers.get(node.id);
+            
+            // If the video has ended, seek to the beginning before playing.
+            if (this.currentYtPlayer.getPlayerState() === YT.PlayerState.ENDED) {
+                this.currentYtPlayer.seekTo(0);
+            }
             this.currentYtPlayer.playVideo();
+
         } else {
-            // Player doesn't exist, create it on-demand
+            // Player doesn't exist, create it on-demand (it will auto-play).
             this.currentYtPlayer = await this.createAndPlayYtPlayer(node);
         }
         this.loadAndShowLyrics(null);
