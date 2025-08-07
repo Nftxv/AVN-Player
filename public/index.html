@@ -82,17 +82,10 @@
     </div>
   </div>
   
-  <!-- YouTube API Scripts -->
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
-    // This function is required by the YouTube IFrame Player API.
-    // It will be called automatically when the API is loaded.
-    // We use it to notify our application module that it's safe to initialize.
-    function onYouTubeIframeAPIReady() {
-      window.dispatchEvent(new Event('youtubeApiReady'));
-    }
-  </script>
-  
+  <!--
+    The YouTube API script is now loaded programmatically by app.js
+    to prevent race conditions on page refresh.
+  -->
   <script src="js/app.js" type="module"></script>
 
   <footer id="copyright">

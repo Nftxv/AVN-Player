@@ -8,6 +8,31 @@ import Player from './modules/Player.js';
 import EditorTools from './modules/EditorTools.js';
 import Navigation from './modules/Navigation.js';
 
+/**
+ * Programmatically loads the YouTube IFrame Player API.
+ * This approach prevents race conditions on page refresh with cached scripts.
+ * @returns {Promise<void>} A promise that resolves when the API is ready.
+ */
+function loadYouTubeAPI() {
+  return new Promise((resolve) => {
+    // If API is already loaded, resolve immediately.
+    if (window.YT && window.YT.Player) {
+      return resolve();
+    }
+    
+    // Define the global callback function that the API will call.
+    window.onYouTubeIframeAPIReady = () => {
+      resolve();
+    };
+
+    // Create and inject the script tag.
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+}
+
+
 class GraphApp {
   constructor() {
     this.iframeContainer = document.getElementById('iframe-container');
@@ -26,7 +51,7 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
-      // Initialize all YouTube players first. They will be created hidden.
+      // Initialize all YouTube players. This is now safe because the API is loaded.
       this.player.initializeAllYouTubePlayers();
       
       this.renderer.render(); // Start rendering loop
@@ -140,8 +165,14 @@ class GraphApp {
   }
 }
 
-// Start the application only after the YouTube API is ready.
-window.addEventListener('youtubeApiReady', () => {
-  const app = new GraphApp();
-  app.init();
-});
+// Main application entry point
+(async () => {
+  try {
+    await loadYouTubeAPI();
+    const app = new GraphApp();
+    app.init();
+  } catch (error) {
+    console.error("Fatal error during application startup:", error);
+    alert("Could not start the application. Please check the console for details.");
+  }
+})();
