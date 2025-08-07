@@ -25,7 +25,7 @@ canvas {
   left: 0;
   display: block;
   cursor: grab;
-  /* CORRECTED: Canvas is on top of the default iframe layer */
+  /* Canvas is the top interactive layer */
   z-index: 2; 
 }
 canvas:active {
@@ -40,7 +40,7 @@ canvas:active {
   height: 100%;
   pointer-events: none; /* Click-through by default */
   overflow: hidden;
-  /* CORRECTED: The container for iframes is the base layer */
+  /* The container for iframes is the bottom layer */
   z-index: 1; 
 }
 
@@ -48,9 +48,7 @@ canvas:active {
   position: absolute;
   box-sizing: border-box;
   background-color: #000;
-  border: 1px solid #444;
-  /* Will be controlled by JS */
-  z-index: 0; 
+  /* No border needed, it will be drawn on the canvas */
 }
 
 .iframe-wrapper iframe {

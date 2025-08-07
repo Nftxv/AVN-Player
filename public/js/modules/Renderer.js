@@ -1,8 +1,6 @@
 /**
  * AVN Player - Renderer Module
- * Handles canvas drawing, iframe management via z-index stacking, and node geometry.
- * Node coordinates (x,y) represent the center of their header bar.
- * Nodes expand upwards from the header.
+ * Implements a "Hole Punching" technique for robust iframe management.
  * by Nftxv
  */
 const NODE_WIDTH = 200;
@@ -11,12 +9,6 @@ const CONTENT_ASPECT_RATIO = 16 / 9;
 const CONTENT_HEIGHT = Math.round(NODE_WIDTH / CONTENT_ASPECT_RATIO);
 const NODE_HEIGHT_EXPANDED = CONTENT_HEIGHT + NODE_HEADER_HEIGHT;
 const NODE_HEIGHT_COLLAPSED = NODE_HEADER_HEIGHT;
-
-// Z-Indexes for layer stacking
-const Z_INDEX_IFRAME_HIDDEN = 1;
-const Z_INDEX_CANVAS = 2;
-const Z_INDEX_IFRAME_VISIBLE = 3;
-
 
 export default class Renderer {
   constructor(canvasId) {
@@ -77,6 +69,9 @@ export default class Renderer {
 
   renderLoop() {
     if (!this.graphData) return;
+    
+    this.updateIframes(); // Update iframe positions first
+
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
     this.ctx.translate(this.offset.x, this.offset.y);
@@ -92,20 +87,31 @@ export default class Renderer {
     
     this.ctx.restore();
     
-    this.updateIframes();
     requestAnimationFrame(this.renderLoop);
   }
   
-  // --- START Drawing Methods ---
-
   drawNode(node) {
     const ctx = this.ctx;
-    const visualRect = this._getNodeVisualRect(node);
     
-    if (!node.isCollapsed) {
-        this._drawNodeContent(node, this._getNodeContentRect(node));
+    // For expanded iframe nodes, "punch a hole" in the canvas to reveal the iframe underneath.
+    if (!node.isCollapsed && node.sourceType === 'iframe') {
+        const contentRect = this._getNodeContentRect(node);
+        ctx.clearRect(contentRect.x, contentRect.y, contentRect.width, contentRect.height);
+    } 
+    // For expanded audio nodes, draw the cover image.
+    else if (!node.isCollapsed && node.sourceType === 'audio') {
+        const contentRect = this._getNodeContentRect(node);
+        const coverUrl = node.coverUrl;
+        if (coverUrl && this.images[coverUrl]) {
+            ctx.drawImage(this.images[coverUrl], contentRect.x, contentRect.y, contentRect.width, contentRect.height);
+        } else {
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(contentRect.x, contentRect.y, contentRect.width, contentRect.height);
+        }
     }
 
+    // Draw header and border for all nodes on top.
+    const visualRect = this._getNodeVisualRect(node);
     const headerRect = this._getNodeHeaderRect(node);
     ctx.save();
     
@@ -128,26 +134,56 @@ export default class Renderer {
     ctx.restore();
   }
 
-  _drawNodeContent(node, contentRect) {
-    const ctx = this.ctx;
-    if (node.sourceType === 'audio') {
-        const coverUrl = node.coverUrl;
-        if (coverUrl && this.images[coverUrl]) {
-            ctx.drawImage(this.images[coverUrl], contentRect.x, contentRect.y, contentRect.width, contentRect.height);
-        } else {
-            ctx.fillStyle = '#1e1e1e';
-            ctx.fillRect(contentRect.x, contentRect.y, contentRect.width, contentRect.height);
+  // --- START Iframe and Helper Methods ---
+  
+  _ensureAllIframeWrappersExist() {
+    if (!this.graphData) return;
+    this.graphData.nodes.forEach(node => {
+        if (node.sourceType === 'iframe') {
+            const wrapperId = `iframe-wrapper-${node.id}`;
+            if (!document.getElementById(wrapperId)) {
+                this.iframeContainer.appendChild(this._createIframeWrapper(node));
+            }
         }
-    } else if (node.sourceType === 'iframe') {
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(contentRect.x, contentRect.y, contentRect.width, contentRect.height);
-        ctx.font = '12px Segoe UI';
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Loading Video...', contentRect.x + contentRect.width / 2, contentRect.y + contentRect.height / 2);
-    }
+    });
   }
+  
+  updateIframes() {
+    if (!this.player || !this.graphData) return;
+    this.graphData.nodes.forEach(node => {
+        if (node.sourceType !== 'iframe') return;
+        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+        if (!wrapper) return;
+        
+        this.player.createYtPlayer(node);
+
+        const contentRect = this._getNodeContentRect(node);
+        const screenX = contentRect.x * this.scale + this.offset.x;
+        const screenY = contentRect.y * this.scale + this.offset.y;
+        const screenWidth = contentRect.width * this.scale;
+        const screenHeight = contentRect.height * this.scale;
+
+        wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+        wrapper.style.width = `${screenWidth}px`;
+        wrapper.style.height = `${screenHeight}px`;
+    });
+  }
+
+  _createIframeWrapper(node) {
+      const wrapper = document.createElement('div');
+      wrapper.id = `iframe-wrapper-${node.id}`;
+      wrapper.dataset.nodeId = node.id;
+      wrapper.className = 'iframe-wrapper';
+      const playerDiv = document.createElement('div');
+      playerDiv.id = `yt-player-${node.id}`;
+      const dragOverlay = document.createElement('div');
+      dragOverlay.className = 'drag-overlay';
+      wrapper.appendChild(playerDiv);
+      wrapper.appendChild(dragOverlay);
+      return wrapper;
+  }
+  
+  // --- Unchanged methods below this line ---
 
   drawDecoration(deco) {
     if (deco.type === 'rectangle') this.drawRectangle(deco);
@@ -258,68 +294,7 @@ export default class Renderer {
     ctx.strokeRect(this.marqueeRect.x, this.marqueeRect.y, this.marqueeRect.w, this.marqueeRect.h);
     ctx.restore();
   }
-  // --- END Drawing Methods ---
-
-  // --- START Iframe and Helper Methods ---
   
-  _ensureAllIframeWrappersExist() {
-    if (!this.graphData) return;
-    this.graphData.nodes.forEach(node => {
-        if (node.sourceType === 'iframe') {
-            const wrapperId = `iframe-wrapper-${node.id}`;
-            if (!document.getElementById(wrapperId)) {
-                this.iframeContainer.appendChild(this._createIframeWrapper(node));
-            }
-        }
-    });
-  }
-  
-  updateIframes() {
-    if (!this.player || !this.graphData) return;
-    this.graphData.nodes.forEach(node => {
-        if (node.sourceType !== 'iframe') return;
-        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
-        if (!wrapper) return;
-        
-        this.player.createYtPlayer(node);
-        const isVisibleAndExpanded = this._isNodeInView(node) && !node.isCollapsed;
-        
-        if (isVisibleAndExpanded) {
-            const contentRect = this._getNodeContentRect(node);
-            const screenX = contentRect.x * this.scale + this.offset.x;
-            const screenY = contentRect.y * this.scale + this.offset.y;
-            const screenWidth = contentRect.width * this.scale;
-            const screenHeight = contentRect.height * this.scale;
-            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-            wrapper.style.width = `${screenWidth}px`;
-            wrapper.style.height = `${screenHeight}px`;
-            wrapper.style.zIndex = Z_INDEX_IFRAME_VISIBLE;
-        } else {
-            if (wrapper.style.zIndex != Z_INDEX_IFRAME_HIDDEN) {
-                wrapper.style.zIndex = Z_INDEX_IFRAME_HIDDEN;
-                this.player.pauseYtPlayer(node.id);
-            }
-        }
-    });
-  }
-
-  _createIframeWrapper(node) {
-      const wrapper = document.createElement('div');
-      wrapper.id = `iframe-wrapper-${node.id}`;
-      wrapper.dataset.nodeId = node.id;
-      wrapper.className = 'iframe-wrapper';
-      wrapper.style.zIndex = Z_INDEX_IFRAME_HIDDEN; // Start hidden behind canvas
-      const playerDiv = document.createElement('div');
-      playerDiv.id = `yt-player-${node.id}`;
-      const dragOverlay = document.createElement('div');
-      dragOverlay.className = 'drag-overlay';
-      wrapper.appendChild(playerDiv);
-      wrapper.appendChild(dragOverlay);
-      return wrapper;
-  }
-  
-  // --- Geometry and Coordinate Helpers ---
-
   _getNodeVisualRect(node) {
       const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
       const y = node.y - NODE_HEADER_HEIGHT / 2 - (node.isCollapsed ? 0 : CONTENT_HEIGHT);
