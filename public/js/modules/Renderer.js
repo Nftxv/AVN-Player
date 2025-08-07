@@ -11,6 +11,7 @@ const CONTENT_ASPECT_RATIO = 16 / 9;
 const CONTENT_HEIGHT = Math.round(NODE_WIDTH / CONTENT_ASPECT_RATIO);
 const NODE_HEIGHT_EXPANDED = CONTENT_HEIGHT + NODE_HEADER_HEIGHT;
 const NODE_HEIGHT_COLLAPSED = NODE_HEADER_HEIGHT;
+const OFFSCREEN_POSITION = -9999; // Position for hidden iframes
 
 export default class Renderer {
   constructor(canvasId) {
@@ -278,12 +279,6 @@ export default class Renderer {
         this.player.createYtPlayer(node);
         const isVisibleAndExpanded = this._isNodeInView(node) && !node.isCollapsed;
         
-        const targetOpacity = isVisibleAndExpanded ? '1' : '0';
-        if (wrapper.style.opacity !== targetOpacity) {
-            wrapper.style.opacity = targetOpacity;
-            wrapper.style.pointerEvents = isVisibleAndExpanded ? 'auto' : 'none';
-        }
-
         if (isVisibleAndExpanded) {
             const contentRect = this._getNodeContentRect(node);
             const screenX = contentRect.x * this.scale + this.offset.x;
@@ -293,6 +288,11 @@ export default class Renderer {
             wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
             wrapper.style.width = `${screenWidth}px`;
             wrapper.style.height = `${screenHeight}px`;
+        } else {
+            // Move the iframe offscreen instead of hiding it
+            wrapper.style.transform = `translate(${OFFSCREEN_POSITION}px, ${OFFSCREEN_POSITION}px)`;
+            // Explicitly pause the player via the Player module
+            this.player.pauseYtPlayer(node.id);
         }
     });
   }
@@ -302,9 +302,6 @@ export default class Renderer {
       wrapper.id = `iframe-wrapper-${node.id}`;
       wrapper.dataset.nodeId = node.id;
       wrapper.className = 'iframe-wrapper';
-      wrapper.style.opacity = '0';
-      wrapper.style.pointerEvents = 'none';
-      wrapper.style.transition = 'opacity 0.2s ease-in-out';
       const playerDiv = document.createElement('div');
       playerDiv.id = `yt-player-${node.id}`;
       const dragOverlay = document.createElement('div');
@@ -318,6 +315,8 @@ export default class Renderer {
 
   _getNodeVisualRect(node) {
       const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
+      // y position is the center of the header bar.
+      // The top of the visual rect is calculated from that.
       const y = node.y - NODE_HEADER_HEIGHT / 2 - (node.isCollapsed ? 0 : CONTENT_HEIGHT);
       return { 
           x: node.x - NODE_WIDTH / 2, 
@@ -340,6 +339,7 @@ export default class Renderer {
   
   _getNodeHeaderRect(node) {
       const visualRect = this._getNodeVisualRect(node);
+      // The header is always at the bottom of the content (or is the whole node if collapsed)
       const y = node.isCollapsed ? visualRect.y : visualRect.y + CONTENT_HEIGHT;
       return { 
           x: visualRect.x, 
@@ -573,9 +573,9 @@ export default class Renderer {
   
   drawTemporaryEdge() {
     const ctx = this.ctx;
-    const startNodeRect = this._getNodeVisualRect(this.edgeCreationSource);
-    const startX = startNodeRect.x + startNodeRect.width / 2;
-    const startY = startNodeRect.y + startNodeRect.height / 2;
+    const startNode = this.edgeCreationSource;
+    const startX = startNode.x;
+    const startY = startNode.y;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
   }
@@ -584,7 +584,10 @@ export default class Renderer {
       this.graphData.nodes.forEach(n => n.highlighted = false);
       this.graphData.edges.forEach(e => e.highlighted = false);
       if (currentId) { const node = this.graphData.nodes.find(n => n.id === currentId); if (node) node.highlighted = true; }
-      if (edge) { const e = this.graphData.edges.find(i => i.source === edge.source && i.target === edge.target); if (e) e.highlighted = true; }
+      if (edge) { 
+          const e = this.graphData.edges.find(i => i.source === edge.source && i.target === edge.target); 
+          if (e) e.highlighted = true;
+      }
   }
   
   getCanvasCoords({ clientX, clientY }) {
@@ -611,7 +614,7 @@ export default class Renderer {
       
       if (!isPoint) {
         movingBounds.x = pos.x - movingBounds.width / 2;
-        movingBounds.y = pos.y - (movingEntity.sourceType ? this._getNodeVisualRect(movingEntity).height / 2 : movingBounds.height / 2);
+        movingBounds.y = pos.y - (movingEntity.sourceType ? this._getNodeVisualRect(movingEntity).y - movingEntity.y + movingBounds.height / 2 : movingBounds.height / 2);
       }
       
       const threshold = this.snapThreshold / this.scale;
@@ -825,19 +828,16 @@ export default class Renderer {
     });
 
     this.canvas.addEventListener('click', (e) => {
-        const wasDragged = this.wasDragged();
-        setTimeout(() => {
-            if (!wasDragged) {
-                onClick(e);
-            }
-        }, 0);
+        if (this.wasDragged()) return;
+        onClick(e);
     });
     
     this.canvas.addEventListener('dblclick', (e) => {
+        if (this.wasDragged()) return;
         const coords = this.getCanvasCoords(e);
         const clicked = this.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: getIsDecorationsLocked() });
 
-        if (clicked && clicked.type === 'node') {
+        if (clicked?.type === 'node') {
             clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
         } else {
             onDblClick(e);
