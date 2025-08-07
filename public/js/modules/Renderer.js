@@ -1,6 +1,6 @@
 /**
  * AVN Player - Renderer Module
- * Handles canvas drawing, iframe management, and node geometry.
+ * Handles canvas drawing, iframe management via z-index stacking, and node geometry.
  * Node coordinates (x,y) represent the center of their header bar.
  * Nodes expand upwards from the header.
  * by Nftxv
@@ -11,7 +11,12 @@ const CONTENT_ASPECT_RATIO = 16 / 9;
 const CONTENT_HEIGHT = Math.round(NODE_WIDTH / CONTENT_ASPECT_RATIO);
 const NODE_HEIGHT_EXPANDED = CONTENT_HEIGHT + NODE_HEADER_HEIGHT;
 const NODE_HEIGHT_COLLAPSED = NODE_HEADER_HEIGHT;
-const OFFSCREEN_POSITION = -9999; // Position for hidden iframes
+
+// Z-Indexes for layer stacking
+const Z_INDEX_IFRAME_HIDDEN = 1;
+const Z_INDEX_CANVAS = 2;
+const Z_INDEX_IFRAME_VISIBLE = 3;
+
 
 export default class Renderer {
   constructor(canvasId) {
@@ -288,11 +293,12 @@ export default class Renderer {
             wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
             wrapper.style.width = `${screenWidth}px`;
             wrapper.style.height = `${screenHeight}px`;
+            wrapper.style.zIndex = Z_INDEX_IFRAME_VISIBLE;
         } else {
-            // Move the iframe offscreen instead of hiding it
-            wrapper.style.transform = `translate(${OFFSCREEN_POSITION}px, ${OFFSCREEN_POSITION}px)`;
-            // Explicitly pause the player via the Player module
-            this.player.pauseYtPlayer(node.id);
+            if (wrapper.style.zIndex != Z_INDEX_IFRAME_HIDDEN) {
+                wrapper.style.zIndex = Z_INDEX_IFRAME_HIDDEN;
+                this.player.pauseYtPlayer(node.id);
+            }
         }
     });
   }
@@ -302,6 +308,7 @@ export default class Renderer {
       wrapper.id = `iframe-wrapper-${node.id}`;
       wrapper.dataset.nodeId = node.id;
       wrapper.className = 'iframe-wrapper';
+      wrapper.style.zIndex = Z_INDEX_IFRAME_HIDDEN; // Start hidden behind canvas
       const playerDiv = document.createElement('div');
       playerDiv.id = `yt-player-${node.id}`;
       const dragOverlay = document.createElement('div');
@@ -315,8 +322,6 @@ export default class Renderer {
 
   _getNodeVisualRect(node) {
       const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-      // y position is the center of the header bar.
-      // The top of the visual rect is calculated from that.
       const y = node.y - NODE_HEADER_HEIGHT / 2 - (node.isCollapsed ? 0 : CONTENT_HEIGHT);
       return { 
           x: node.x - NODE_WIDTH / 2, 
@@ -327,7 +332,6 @@ export default class Renderer {
   }
   
   _getNodeContentRect(node) {
-    // This is only called for expanded nodes
     const visualRect = this._getNodeVisualRect(node);
     return { 
         x: visualRect.x, 
@@ -339,7 +343,6 @@ export default class Renderer {
   
   _getNodeHeaderRect(node) {
       const visualRect = this._getNodeVisualRect(node);
-      // The header is always at the bottom of the content (or is the whole node if collapsed)
       const y = node.isCollapsed ? visualRect.y : visualRect.y + CONTENT_HEIGHT;
       return { 
           x: visualRect.x, 
