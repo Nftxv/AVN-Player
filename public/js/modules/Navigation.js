@@ -53,20 +53,37 @@ export default class Navigation {
   }
   
   goBack() {
-    if (this.history.length < 2) return;
-    
-    const oldNodeId = this.currentNode.id;
-    this.history.pop();
-    
-    const prevNodeId = this.history[this.history.length - 1];
-    const prevNode = this.graphData.getNodeById(prevNodeId);
+    if (!this.currentNode) return;
 
+    const oldNodeId = this.currentNode.id;
+    let prevNodeId = null;
+    let edgeToHighlight = null;
+
+    // First, try to use the recorded history path.
+    if (this.history.length > 1) {
+        this.history.pop();
+        prevNodeId = this.history[this.history.length - 1];
+        edgeToHighlight = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
+    } 
+    // If no history, try to find a single, unambiguous "parent" node.
+    else {
+        const incomingEdges = this.graphData.edges.filter(e => e.target === oldNodeId);
+        if (incomingEdges.length === 1) {
+            edgeToHighlight = incomingEdges[0];
+            prevNodeId = edgeToHighlight.source;
+            // We are creating a new history path going backwards.
+            this.history.unshift(prevNodeId);
+            this.history.pop();
+        } else {
+            console.log("Cannot go back: No history and ambiguous or no predecessor.");
+            return; // Stop if we can't determine where to go back to.
+        }
+    }
+
+    const prevNode = this.graphData.getNodeById(prevNodeId);
     if (prevNode) {
         this.currentNode = prevNode;
-        // Find the edge that led from the previous node to the one we just left
-        const edge = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
-        
-        this.renderer.highlight(prevNodeId, oldNodeId, edge);
+        this.renderer.highlight(prevNodeId, oldNodeId, edgeToHighlight);
         this.player.play(prevNode);
     }
   }
@@ -74,6 +91,8 @@ export default class Navigation {
   transitionToEdge(edge) {
     const prevNodeId = this.currentNode.id;
     const nextNode = this.graphData.getNodeById(edge.target);
+    if (!nextNode) return;
+    
     this.currentNode = nextNode;
     this.history.push(nextNode.id);
     
