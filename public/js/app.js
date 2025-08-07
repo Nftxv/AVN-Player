@@ -41,6 +41,12 @@ class GraphApp {
     try {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
+      
+      // Apply saved viewport settings if they exist
+      if (this.graphData.view) {
+        this.renderer.setViewport(this.graphData.view);
+      }
+      
       this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);

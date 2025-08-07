@@ -349,6 +349,19 @@ export default class Renderer {
       return { x: worldX, y: worldY };
   }
 
+  getViewport() {
+    return { offset: this.offset, scale: this.scale };
+  }
+
+  setViewport(view) {
+    if (view.offset && typeof view.offset.x === 'number' && typeof view.offset.y === 'number') {
+      this.offset = view.offset;
+    }
+    if (typeof view.scale === 'number') {
+      this.scale = view.scale;
+    }
+  }
+
   _getNodeVisualRect(node) {
       const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
       const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
@@ -464,7 +477,8 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-      const rect = this._getNodeVisualRect(node);
+      // ALWAYS use the header rect for consistent connection points regardless of collapsed state.
+      const rect = { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
       const halfW = rect.width / 2, halfH = rect.height / 2;
       const cx = rect.x + halfW, cy = rect.y + halfH;
       const dx = externalPoint.x - cx, dy = externalPoint.y - cy;
@@ -618,58 +632,16 @@ export default class Renderer {
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
-    this.canvas.addEventListener('mousedown', (e) => {
-        this.isAnimatingPan = false; 
-        const isEditor = getIsEditorMode();
-        const mousePos = this.getCanvasCoords(e);
-        this.dragged = false;
-        const handlePanStart = () => {
-            if (onManualPan) onManualPan();
-            this.dragging = true;
-            this.dragStart.x = e.clientX - this.offset.x;
-            this.dragStart.y = e.clientY - this.offset.y;
-            this.canvas.style.cursor = 'grabbing';
-            document.body.classList.add('is-dragging');
-        };
-        if (!isEditor) { if (e.button === 0) handlePanStart(); return; }
-        if (e.button === 1) { handlePanStart(); return; }
-        if (e.button === 0) {
-            const cp = this.getControlPointAt(mousePos.x, mousePos.y);
-            if (cp) { this.draggingControlPoint = cp; document.body.classList.add('is-dragging'); return; }
-            const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-            if (clicked && (clicked.type === 'node' || clicked.type === 'decoration')) {
-                const entity = clicked.entity;
-                if (entity.selected) this.isDraggingSelection = true;
-                this.draggingEntity = entity;
-                const bounds = this._getDecorationBounds(entity) || this._getNodeVisualRect(entity);
-                this.dragOffset.x = mousePos.x - bounds.x;
-                this.dragOffset.y = mousePos.y - bounds.y;
-                document.body.classList.add('is-dragging');
-                return;
-            }
-            if (!clicked) { this.isMarqueeSelecting = true; this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 }; }
-        } else if (e.button === 2) {
-            e.preventDefault();
-            const cp = this.getControlPointAt(mousePos.x, mousePos.y);
-            if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
-            else { 
-              const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true });
-              if (clickedNode && clickedNode.type === 'node') { this.isCreatingEdge = true; this.edgeCreationSource = clickedNode.entity; } 
-            }
-        }
-    });
-
-    this.canvas.addEventListener('mousemove', (e) => {
+    // REVAMPED: Robust drag handling using window events
+    const handleMouseMove = (e) => {
         this.mousePos = this.getCanvasCoords(e);
-        if (e.buttons === 0) {
-             this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
-             this.canvas.style.cursor = 'grab'; this.snapLines = [];
-             document.body.classList.remove('is-dragging');
-             return;
+        if (e.buttons === 0) { // Should not happen with this new logic, but as a fallback
+            handleMouseUp(e);
+            return;
         }
         this.dragged = true;
         if (this.dragging) {
-            if (onManualPan) onManualPan(); // CORRECTED: Also disable follow mode on drag
+            if (onManualPan) onManualPan();
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.draggingEntity) {
@@ -682,8 +654,11 @@ export default class Renderer {
             const isLocked = getIsDecorationsLocked();
             selection.forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
-                if ('x' in entity) { entity.x += dx; entity.y += dy; }
-                else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
+                if ('x' in entity && 'y' in entity) { 
+                    entity.x += dx; entity.y += dy; 
+                } else if (entity.controlPoints) { // This is an edge being dragged as part of a selection
+                    entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; });
+                }
             });
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
@@ -693,9 +668,9 @@ export default class Renderer {
             this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
             this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
         }
-    });
+    };
 
-    this.canvas.addEventListener('mouseup', (e) => {
+    const handleMouseUp = (e) => {
         if (this.isMarqueeSelecting) {
             const normalizedRect = this.normalizeRect(this.marqueeRect);
             if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
@@ -706,24 +681,86 @@ export default class Renderer {
                 onEdgeCreated(this.edgeCreationSource, targetClick.entity);
             }
         }
+        
+        // Cleanup all states and listeners
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
-        this.canvas.style.cursor = 'grab'; this.snapLines = [];
-        setTimeout(() => { this.dragged = false; }, 0);
-    });
+        this.canvas.style.cursor = 'grab';
+        document.body.classList.remove('is-dragging');
+        this.snapLines = [];
+        
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
 
-    this.canvas.addEventListener('mouseleave', () => {
+        // Allow click event to fire correctly after a drag ends
+        setTimeout(() => { this.dragged = false; }, 0);
+    };
+    
+    this.canvas.addEventListener('mousedown', (e) => {
+        this.isAnimatingPan = false; 
+        const isEditor = getIsEditorMode();
+        const mousePos = this.getCanvasCoords(e);
+        this.dragged = false;
+        
+        const handlePanStart = () => {
+            if (onManualPan) onManualPan();
+            this.dragging = true;
+            this.dragStart.x = e.clientX - this.offset.x;
+            this.dragStart.y = e.clientY - this.offset.y;
+        };
+
+        if (e.button === 0) { // Left mouse button
+            if (!isEditor) {
+                handlePanStart();
+            } else {
+                 const cp = this.getControlPointAt(mousePos.x, mousePos.y);
+                 if (cp) {
+                     this.draggingControlPoint = cp;
+                 } else {
+                     const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
+                     if (clicked && (clicked.type === 'node' || clicked.type === 'decoration')) {
+                         const entity = clicked.entity;
+                         if (entity.selected) this.isDraggingSelection = true;
+                         this.draggingEntity = entity;
+                         const bounds = this._getDecorationBounds(entity) || this._getNodeVisualRect(entity);
+                         this.dragOffset.x = mousePos.x - bounds.x;
+                         this.dragOffset.y = mousePos.y - bounds.y;
+                     } else {
+                         this.isMarqueeSelecting = true;
+                         this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
+                     }
+                 }
+            }
+        } else if (e.button === 1) { // Middle mouse button
+             handlePanStart();
+        } else if (e.button === 2) { // Right mouse button
+            e.preventDefault();
+            if (isEditor) {
+                const cp = this.getControlPointAt(mousePos.x, mousePos.y);
+                if (cp) {
+                    cp.edge.controlPoints.splice(cp.pointIndex, 1);
+                } else {
+                    const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true });
+                    if (clickedNode && clickedNode.type === 'node') {
+                        this.isCreatingEdge = true;
+                        this.edgeCreationSource = clickedNode.entity;
+                    }
+                }
+            }
+        }
+
+        // If any drag-like action was initiated, add global listeners
         if (this.dragging || this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
-            this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
-            this.canvas.style.cursor = 'grab';
-            this.snapLines = [];
-            document.body.classList.remove('is-dragging');
+            this.canvas.style.cursor = this.dragging ? 'grabbing' : 'crosshair';
+            document.body.classList.add('is-dragging'); // Enable iframe overlay
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
         }
     });
-    
+
     this.canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         this.isAnimatingPan = false;
-        if (onManualPan) onManualPan(); // CORRECTED: Also disable follow mode on zoom
+        if (onManualPan) onManualPan();
         const zoomIntensity = 0.1;
         const wheel = e.deltaY < 0 ? 1 : -1;
         const zoom = Math.exp(wheel * zoomIntensity);

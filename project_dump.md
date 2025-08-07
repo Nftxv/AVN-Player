@@ -28,6 +28,7 @@
     <!-- Always Visible Buttons -->
     <button id="collapseAllBtn" title="Collapse All Nodes">Collapse All</button>
     <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
+    <button id="followModeBtn" title="Toggle Follow Mode">[⊙]</button> 
     <div class="divider"></div>
 
     <!-- Player Mode Controls (now empty) -->
@@ -85,17 +86,10 @@
     </div>
   </div>
   
-  <!-- YouTube API Scripts -->
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
-    // This function is required by the YouTube IFrame Player API.
-    // It will be called automatically when the API is loaded.
-    // We use it to notify our application module that it's safe to initialize.
-    function onYouTubeIframeAPIReady() {
-      window.dispatchEvent(new Event('youtubeApiReady'));
-    }
-  </script>
-  
+  <!--
+    The YouTube API script is now loaded programmatically by app.js
+    to prevent race conditions on page refresh.
+  -->
   <script src="js/app.js" type="module"></script>
 
   <footer id="copyright">
@@ -398,6 +392,26 @@ body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
 
+/* Style for the new follow mode button */
+#followModeBtn {
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+    padding: 6px 10px;
+    font-size: 18px;
+    line-height: 1;
+}
+
+#followModeBtn:hover {
+    background: #4f4f4f;
+    transform: none;
+}
+
+#followModeBtn.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+}
+
 
 ## ./public/data/default.jsonld
 
@@ -405,82 +419,196 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
   "@context": "https://schema.org/",
   "@graph": [
     {
-      "@id": "deco-rect-1",
-      "@type": "RectangleAnnotation",
-      "position": { "x": 50, "y": 80 },
-      "size": { "width": 950, "height": 350 },
-      "backgroundColor": "#2c3e50"
-    },
-    {
-      "@id": "deco-text-1",
-      "@type": "TextAnnotation",
-      "position": { "x": 525, "y": 60 },
-      "textContent": "Act I: The Journey Begins",
-      "fontSize": 24,
-      "color": "#ecf0f1",
-      "textAlign": "center",
-      "width": 400,
-      "lineHeight": 1.2
-    },
-    {
       "@id": "node-1",
       "@type": "MusicRecording",
-      "name": "Chapter 1: The Beginning",
-      "position": { "x": 100, "y": 250 },
-      "isCollapsed": false,
+      "name": "Chasing the Moon",
+      "position": {
+        "x": 92,
+        "y": 230
+      },
+      "isCollapsed": true,
       "sourceType": "iframe",
-      "iframeUrl": "PaASWGWif34"
+      "audioUrl": null,
+      "coverUrl": null,
+      "lyricsUrl": null,
+      "iframeUrl": "4eJpTAxdxiU"
     },
     {
       "@id": "node-2",
       "@type": "MusicRecording",
-      "name": "Chapter 2: YouTube Video",
-      "position": { "x": 400, "y": 250 },
-      "isCollapsed": false,
+      "name": "Ballad of Everything (2 version)",
+      "position": {
+        "x": -72,
+        "y": 495.0138468887229
+      },
+      "isCollapsed": true,
       "sourceType": "iframe",
-      "iframeUrl": "dQw4w9WgXcQ"
+      "audioUrl": null,
+      "coverUrl": null,
+      "lyricsUrl": null,
+      "iframeUrl": "YGJvDBRbYdM"
     },
     {
       "@id": "node-3a",
       "@type": "MusicRecording",
-      "name": "Ending A: The Bright Path",
-      "position": { "x": 700, "y": 150 },
+      "name": "Ballad of Everything (1 version)",
+      "position": {
+        "x": 273.18977016560103,
+        "y": 498.26384688872304
+      },
       "isCollapsed": true,
-      "sourceType": "audio",
-      "audioUrl": "https://cloudflare-ipfs.com/ipfs/bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
+      "sourceType": "iframe",
+      "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null
+      "lyricsUrl": null,
+      "iframeUrl": "_IK2VLriSxs"
     },
     {
       "@id": "node-3b",
       "@type": "MusicRecording",
-      "name": "Ending B: The Dark Path",
-      "position": { "x": 700, "y": 350 },
+      "name": "Love Transcends",
+      "position": {
+        "x": 92,
+        "y": 678.9786584887257
+      },
       "isCollapsed": true,
-      "sourceType": "audio",
-      "audioUrl": "https://cloudflare-ipfs.com/ipfs/bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
+      "sourceType": "iframe",
+      "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null
+      "lyricsUrl": null,
+      "iframeUrl": "4UUnPzG2bC4"
+    },
+    {
+      "@id": "node-1754588700272",
+      "@type": "MusicRecording",
+      "name": "Garbage for Ears",
+      "position": {
+        "x": 92,
+        "y": 866.9360592337733
+      },
+      "isCollapsed": true,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "lyricsUrl": null,
+      "iframeUrl": "DcRXJrtysG0"
     },
     {
       "@type": "Path",
       "source": "node-1",
       "target": "node-2",
-      "label": "Continue the story"
+      "color": "#808080",
+      "label": "second version",
+      "lineWidth": 2,
+      "controlPoints": []
     },
     {
       "@type": "Path",
-      "source": "node-2",
+      "source": "node-1",
       "target": "node-3a",
-      "label": "Choose the light",
-      "color": "#f1c40f"
+      "color": "#808080",
+      "label": "first version",
+      "lineWidth": 2,
+      "controlPoints": []
     },
     {
       "@type": "Path",
       "source": "node-2",
       "target": "node-3b",
-      "label": "Embrace the shadow",
-      "color": "#9b59b6"
+      "color": "#2ced66",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-3a",
+      "target": "node-3b",
+      "color": "#e12d2d",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-3b",
+      "target": "node-1754588700272",
+      "color": "#58299e",
+      "label": "",
+      "lineWidth": 6,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754588700272",
+      "target": "node-1",
+      "color": "#24b3c6",
+      "label": "playlist replay",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": -188.45755966224445,
+          "y": 889.4360592337733
+        },
+        {
+          "x": -188.45755966224445,
+          "y": 252.5
+        }
+      ]
+    },
+    {
+      "@id": "deco-rect-1",
+      "position": {
+        "x": -283,
+        "y": -6.569811882272688
+      },
+      "@type": "RectangleAnnotation",
+      "size": {
+        "width": 950,
+        "height": 1300
+      },
+      "backgroundColor": "#2e2e2e"
+    },
+    {
+      "@id": "deco-text-1",
+      "position": {
+        "x": 443.6062789306635,
+        "y": 52.37341150684294
+      },
+      "@type": "TextAnnotation",
+      "textContent": "Sample starter playlist",
+      "fontSize": 24,
+      "color": "#fdff9e",
+      "textAlign": "right",
+      "width": 400,
+      "lineHeight": 1.2
+    },
+    {
+      "@id": "deco-rect-1754589215738",
+      "position": {
+        "x": 692.7849770255077,
+        "y": 607.3930629464985
+      },
+      "@type": "RectangleAnnotation",
+      "size": {
+        "width": 300,
+        "height": 700
+      },
+      "backgroundColor": "#40263c"
+    },
+    {
+      "@id": "deco-text-1754589455494",
+      "position": {
+        "x": 849.2385344657106,
+        "y": 959.1301881177274
+      },
+      "@type": "TextAnnotation",
+      "textContent": "🛡️ License and Usage\n\nThis project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).\n\n---\n\nImportant Clarification for Artists and Creators:\n\nThe CC BY-NC-SA license applies only to the player's source code (the HTML, CSS, and JavaScript files that make it run).\n\nIt does not apply to the content you create, such as your music, cover art, lyrics, or the `.jsonld` graph file that structures your narrative. You retain full ownership of your art and are free to license or sell it however you wish.\n\nYou can freely use this player as a non-commercial tool to display and distribute your commercial or non-commercial artwork.\n\nA Note on Attribution (How to give credit)\n\nTo comply with the license, you must provide a visible credit. We've made this as painless as possible.\n\n1. Required Attribution Text:\nYou must include the following text somewhere visible (e.g., in the footer of your page or on an \"About\" page):\n\n> AVN Player by Nftxv\n\n2. Required License Notice:\nYou must also include a reference to the license, so others know the terms under which the player is shared.\n\nThe Easiest Way to Do Both:\nYou can fulfill both requirements with a single, simple line. Here is a perfect example:\n\npowered by AVN Player by Nftxv, used under CC BY-NC-SA 4.0",
+      "fontSize": 11,
+      "color": "#a18159",
+      "textAlign": "left",
+      "width": 250,
+      "lineHeight": 1.2
     }
   ]
 }
@@ -498,24 +626,40 @@ import Player from './modules/Player.js';
 import EditorTools from './modules/EditorTools.js';
 import Navigation from './modules/Navigation.js';
 
+function loadYouTubeAPI() {
+  return new Promise((resolve) => {
+    if (window.YT && window.YT.Player) {
+      return resolve();
+    }
+    window.onYouTubeIframeAPIReady = () => {
+      resolve();
+    };
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+}
+
 class GraphApp {
   constructor() {
+    this.iframeContainer = document.getElementById('iframe-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas');
-    this.player = new Player(this.graphData);
-    this.navigation = new Navigation(this.graphData, this.player, this.renderer);
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer);
+    this.player = new Player(this.graphData, this.iframeContainer);
+    // CORRECTED: Pass the 'app' instance (this) to Navigation
+    this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
-    this.renderer.setPlayer(this.player);
     this.isEditorMode = false;
+    this.isFollowing = false;
   }
 
   async init() {
     try {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
-      await this.renderer.loadAndRenderAll();
+      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -523,6 +667,15 @@ class GraphApp {
       console.error('Initialization failed:', error);
       alert('Could not load the application.');
     }
+  }
+
+  toggleFollowMode(forceState = null) {
+      this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
+      document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
+      console.log(`Follow mode is now: ${this.isFollowing}`);
+      if (this.isFollowing && this.navigation.currentNode) {
+          this.renderer.centerOnNode(this.navigation.currentNode.id);
+      }
   }
 
   toggleEditorMode(isEditor) {
@@ -552,7 +705,13 @@ class GraphApp {
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
-        getSelection: () => this.editorTools.getSelection()
+        getSelection: () => this.editorTools.getSelection(),
+        // CORRECTED: This callback is now correctly passed and used
+        onManualPan: () => {
+            if (this.isFollowing) {
+                this.toggleFollowMode(false);
+            }
+        }
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -568,7 +727,15 @@ class GraphApp {
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
     document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
 
-    document.getElementById('deleteSelectionBtn').addEventListener('click', () => this.editorTools.deleteSelection());
+    document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
+        const selection = this.editorTools.getSelection();
+        selection.forEach(entity => {
+            if (entity.sourceType === 'iframe') {
+                this.player.destroyYtPlayer(entity.id);
+            }
+        });
+        this.editorTools.deleteSelection();
+    });
     
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
@@ -576,6 +743,8 @@ class GraphApp {
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
+    
+    document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
   handleCanvasClick(event) {
@@ -616,11 +785,16 @@ class GraphApp {
   }
 }
 
-// Start the application only after the YouTube API is ready.
-window.addEventListener('youtubeApiReady', () => {
-  const app = new GraphApp();
-  app.init();
-});
+(async () => {
+  try {
+    await loadYouTubeAPI();
+    const app = new GraphApp();
+    app.init();
+  } catch (error) {
+    console.error("Fatal error during application startup:", error);
+    alert("Could not start the application. Please check the console for details.");
+  }
+})();
 
 
 ## ./public/js/modules/EditorTools.js
@@ -1177,10 +1351,12 @@ export default class GraphData {
  * Manages the user's journey through the graph, handling history and branching choices.
  */
 export default class Navigation {
-  constructor(graphData, player, renderer) {
+  // CORRECTED: Constructor now properly receives and stores the 'app' instance
+  constructor(graphData, player, renderer, app) {
     this.graphData = graphData;
     this.player = player;
     this.renderer = renderer;
+    this.app = app;
     this.reset();
   }
 
@@ -1203,6 +1379,10 @@ export default class Navigation {
     
     this.renderer.highlight(nodeId, prevNodeId);
     this.player.play(node);
+
+    if (this.app.isFollowing) {
+      this.renderer.centerOnNode(nodeId);
+    }
   }
 
   async advance() {
@@ -1228,29 +1408,56 @@ export default class Navigation {
   }
   
   goBack() {
-    if (this.history.length < 2) return;
-    
-    this.history.pop();
-    const prevNodeId = this.history[this.history.length - 1];
-    const prevNode = this.graphData.getNodeById(prevNodeId);
+    if (!this.currentNode) return;
 
+    const oldNodeId = this.currentNode.id;
+    let prevNodeId = null;
+    let edgeToHighlight = null;
+
+    if (this.history.length > 1) {
+        this.history.pop();
+        prevNodeId = this.history[this.history.length - 1];
+        edgeToHighlight = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
+    } 
+    else {
+        const incomingEdges = this.graphData.edges.filter(e => e.target === oldNodeId);
+        if (incomingEdges.length === 1) {
+            edgeToHighlight = incomingEdges[0];
+            prevNodeId = edgeToHighlight.source;
+            this.history.unshift(prevNodeId);
+            this.history.pop();
+        } else {
+            console.log("Cannot go back: No history and ambiguous or no predecessor.");
+            return;
+        }
+    }
+
+    const prevNode = this.graphData.getNodeById(prevNodeId);
     if (prevNode) {
-        const oldNodeId = this.currentNode.id;
         this.currentNode = prevNode;
-        const edge = this.graphData.getEdgesFromNode(prevNodeId).find(e => e.target === oldNodeId);
-        this.renderer.highlight(prevNodeId, oldNodeId, edge);
+        this.renderer.highlight(prevNodeId, oldNodeId, edgeToHighlight);
         this.player.play(prevNode);
+
+        if (this.app.isFollowing) {
+            this.renderer.centerOnNode(prevNodeId);
+        }
     }
   }
 
   transitionToEdge(edge) {
     const prevNodeId = this.currentNode.id;
     const nextNode = this.graphData.getNodeById(edge.target);
+    if (!nextNode) return;
+    
     this.currentNode = nextNode;
     this.history.push(nextNode.id);
     
     this.renderer.highlight(nextNode.id, prevNodeId, edge);
     this.player.play(nextNode);
+    
+    if (this.app.isFollowing) {
+        this.renderer.centerOnNode(nextNode.id);
+    }
   }
 
   promptForChoice(options) {
@@ -1258,6 +1465,11 @@ export default class Navigation {
       const modal = document.getElementById('choiceModal');
       const optionsContainer = document.getElementById('choiceOptions');
       const closeModalBtn = document.getElementById('closeModalBtn');
+      const choiceTimerEl = document.getElementById('choiceTimer');
+      const countdownEl = document.getElementById('countdown');
+      
+      let countdown = 5;
+      let timerId = null;
       optionsContainer.innerHTML = '';
 
       const onChoose = (edge) => {
@@ -1271,7 +1483,9 @@ export default class Navigation {
       };
 
       const cleanup = () => {
+          clearInterval(timerId);
           modal.classList.add('hidden');
+          choiceTimerEl.classList.add('hidden');
           closeModalBtn.removeEventListener('click', closeHandler);
           while (optionsContainer.firstChild) {
               optionsContainer.removeChild(optionsContainer.firstChild);
@@ -1287,7 +1501,19 @@ export default class Navigation {
       });
       
       closeModalBtn.addEventListener('click', closeHandler);
+      
+      countdownEl.textContent = countdown;
+      choiceTimerEl.classList.remove('hidden');
       modal.classList.remove('hidden');
+
+      timerId = setInterval(() => {
+        countdown--;
+        countdownEl.textContent = countdown;
+        if (countdown <= 0) {
+          const randomChoice = options[Math.floor(Math.random() * options.length)];
+          onChoose(randomChoice);
+        }
+      }, 1000);
     });
   }
 }
@@ -1297,35 +1523,47 @@ export default class Navigation {
 
 /**
  * Manages audio playback, player UI updates, and lyrics loading.
- * NEW: Also manages YouTube IFrame player instances.
+ * NEW: Implements "lazy loading" for YouTube players to handle large graphs.
  */
 export default class Player {
-  constructor(graphData) {
+  constructor(graphData, iframeContainer) {
     this.graphData = graphData;
+    this.iframeContainer = iframeContainer;
     this.navigation = null;
     this.currentNode = null;
     
     // Audio player
     this.audio = new Audio();
     
-    // YouTube players
-    this.ytPlayers = new Map();
+    // --- YouTube Player Management ---
+    // Stores the ready-to-use YT.Player objects
+    this.ytPlayers = new Map(); 
+    // Tracks nodes for which a player is currently being created, to prevent duplicates
+    this.ytPlayersCreating = new Set(); 
     this.currentYtPlayer = null;
 
     this.setupEventListeners();
   }
 
   setNavigation(navigation) { this.navigation = navigation; }
+  
+  /**
+   * This function is now gone. Players are created on-demand.
+   * initializeAllYouTubePlayers() has been removed.
+   */
 
-  play(node) {
+  async play(node) {
     if (!node) return;
+    
+    const wasPlayingNode = this.currentNode;
     this.currentNode = node;
     
-    // Reset both players first
-    this.audio.pause();
-    if (this.currentYtPlayer) {
-      this.currentYtPlayer.pauseVideo();
-      this.currentYtPlayer = null;
+    if (wasPlayingNode?.id !== node.id) {
+        this.audio.pause();
+        if (this.currentYtPlayer) {
+          this.currentYtPlayer.pauseVideo();
+        }
+        this.currentYtPlayer = null;
     }
     
     document.getElementById('songTitle').textContent = node.title;
@@ -1333,35 +1571,35 @@ export default class Player {
     const progress = document.getElementById('progress');
 
     if (node.sourceType === 'audio') {
-        const audioUrl = node.audioUrl;
         document.getElementById('currentCover').src = node.coverUrl || 'placeholder.svg';
-        
-        if (!audioUrl) {
+        if (!node.audioUrl) {
           console.warn(`Audio URL is missing for "${node.title}".`);
           this.stop();
           document.getElementById('songTitle').textContent = node.title;
           return;
         }
-        
         playBtn.textContent = '⏸';
         playBtn.disabled = false;
         progress.disabled = false;
-        this.audio.src = audioUrl;
+        this.audio.src = node.audioUrl;
         this.audio.play().catch(e => console.error("Playback error:", e));
         this.loadAndShowLyrics(node.lyricsUrl);
 
     } else if (node.sourceType === 'iframe') {
         document.getElementById('currentCover').src = `https://i.ytimg.com/vi/${node.iframeUrl}/mqdefault.jpg`;
-        playBtn.textContent = '⏸';
         playBtn.disabled = false;
+        playBtn.textContent = '⏸';
         progress.value = 0;
-        progress.disabled = true; // YouTube controls its own progress
+        progress.disabled = true;
 
-        this.currentYtPlayer = this.ytPlayers.get(node.id);
-        if (this.currentYtPlayer && typeof this.currentYtPlayer.playVideo === 'function') {
-           this.currentYtPlayer.playVideo();
+        // NEW "LAZY" LOGIC
+        if (this.ytPlayers.has(node.id)) {
+            // Player already exists, just play it
+            this.currentYtPlayer = this.ytPlayers.get(node.id);
+            this.currentYtPlayer.playVideo();
         } else {
-            console.warn(`YouTube player for node ${node.id} not ready yet.`);
+            // Player doesn't exist, create it on-demand
+            this.currentYtPlayer = await this.createAndPlayYtPlayer(node);
         }
         this.loadAndShowLyrics(null);
     }
@@ -1383,10 +1621,8 @@ export default class Player {
         const state = this.currentYtPlayer.getPlayerState();
         if (state === YT.PlayerState.PLAYING) {
             this.currentYtPlayer.pauseVideo();
-            playBtn.textContent = '▶';
         } else {
             this.currentYtPlayer.playVideo();
-            playBtn.textContent = '⏸';
         }
     }
   }
@@ -1403,59 +1639,93 @@ export default class Player {
 
     this.currentNode = null;
     document.getElementById('playBtn').textContent = '▶';
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('progress').disabled = false;
+    document.getElementById('playBtn').disabled = true;
+    document.getElementById('progress').disabled = true;
     document.getElementById('songTitle').textContent = 'Select a node to begin...';
     document.getElementById('currentCover').src = 'placeholder.svg';
     document.getElementById('progress').value = 0;
     document.getElementById('currentTime').textContent = '0:00';
   }
 
-  // --- YouTube Player Management ---
+  /**
+   * Creates a new YouTube player on-demand.
+   * Returns a promise that resolves with the player object once it's ready.
+   * @param {object} node The node for which to create a player.
+   * @returns {Promise<YT.Player>}
+   */
+  createAndPlayYtPlayer(node) {
+    // If we are already in the process of creating this player, do nothing.
+    if (this.ytPlayersCreating.has(node.id)) {
+        console.warn(`Player creation for ${node.id} already in progress.`);
+        return;
+    }
 
-  createYtPlayer(node) {
-      if (this.ytPlayers.has(node.id) || !node.iframeUrl) return;
+    return new Promise((resolve) => {
+        this.ytPlayersCreating.add(node.id);
 
-      const player = new YT.Player(`yt-player-${node.id}`, {
-          height: '100%',
-          width: '100%',
-          videoId: node.iframeUrl,
-          playerVars: {
-              'playsinline': 1,
-              'controls': 0, // We use our own controls
-              'disablekb': 1
-          },
-          events: {
-              'onStateChange': (event) => this.onPlayerStateChange(event, node)
-          }
-      });
-      this.ytPlayers.set(node.id, player);
+        const wrapper = document.createElement('div');
+        wrapper.id = `iframe-wrapper-${node.id}`;
+        wrapper.className = 'iframe-wrapper';
+        wrapper.style.display = 'none';
+        
+        const playerDiv = document.createElement('div');
+        playerDiv.id = `yt-player-${node.id}`;
+
+        const dragOverlay = document.createElement('div');
+        dragOverlay.className = 'drag-overlay';
+
+        wrapper.appendChild(playerDiv);
+        wrapper.appendChild(dragOverlay);
+        this.iframeContainer.appendChild(wrapper);
+
+        const player = new YT.Player(playerDiv.id, {
+            height: '100%',
+            width: '100%',
+            videoId: node.iframeUrl,
+            playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
+            events: {
+                'onReady': (event) => {
+                    console.log(`Lazy-loaded player for ${node.id} is ready.`);
+                    this.ytPlayers.set(node.id, player); // Add to the map of ready players
+                    this.ytPlayersCreating.delete(node.id); // Remove from the "in-progress" set
+                    event.target.playVideo(); // Play it immediately
+                    resolve(player); // Resolve the promise with the new player object
+                },
+                'onStateChange': (event) => this.onPlayerStateChange(event, node)
+            }
+        });
+    });
   }
 
   destroyYtPlayer(nodeId) {
       if (this.ytPlayers.has(nodeId)) {
-          const player = this.ytPlayers.get(nodeId);
-          if (player && typeof player.destroy === 'function') {
-            player.destroy();
-          }
+          this.ytPlayers.get(nodeId).destroy();
           this.ytPlayers.delete(nodeId);
       }
+      this.ytPlayersCreating.delete(nodeId); // Also clear from the creation set
+
+      const wrapper = document.getElementById(`iframe-wrapper-${nodeId}`);
+      if (wrapper) wrapper.remove();
+      
+      console.log(`Destroyed player and wrapper for node ${nodeId}`);
   }
 
   onPlayerStateChange(event, node) {
-    if (this.currentNode?.id !== node.id) return; // Only react to the current node
+    if (this.currentNode?.id !== node.id) return;
     
     const playBtn = document.getElementById('playBtn');
-    if (event.data === YT.PlayerState.ENDED) {
-        if (this.navigation) this.navigation.advance();
-    } else if (event.data === YT.PlayerState.PLAYING) {
-        playBtn.textContent = '⏸';
-    } else if (event.data === YT.PlayerState.PAUSED) {
-        playBtn.textContent = '▶';
+    switch(event.data) {
+        case YT.PlayerState.ENDED:
+            if (this.navigation) this.navigation.advance();
+            break;
+        case YT.PlayerState.PLAYING:
+            playBtn.textContent = '⏸';
+            break;
+        case YT.PlayerState.PAUSED:
+            playBtn.textContent = '▶';
+            break;
     }
   }
-
-  // --- Lyrics and Progress ---
 
   async loadAndShowLyrics(url) {
       const lyricsTextElem = document.getElementById('lyricsText');
@@ -1504,6 +1774,9 @@ export default class Player {
       const mins = Math.floor(this.audio.currentTime / 60);
       const secs = Math.floor(this.audio.currentTime % 60);
       currentTimeElem.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    } else {
+      progress.value = 0;
+      currentTimeElem.textContent = '0:00';
     }
   }
 }
@@ -1516,18 +1789,17 @@ export default class Player {
  * by Nftxv
  */
 const NODE_WIDTH = 200;
-const NODE_HEADER_HEIGHT = 45; // Was NODE_HEIGHT_COLLAPSED
-const NODE_CONTENT_ASPECT_RATIO = 9 / 16; // Standard 16:9 aspect ratio
-const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO; // Approx 112.5px
+const NODE_HEADER_HEIGHT = 45;
+const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
+const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
 
 export default class Renderer {
-  constructor(canvasId) {
+  constructor(canvasId, iframeContainer) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
-    this.iframeContainer = document.getElementById('iframe-container');
+    this.iframeContainer = iframeContainer;
     
     this.graphData = null; 
-    this.player = null; // NEW: Reference to the player
     this.images = {};
 
     this.offset = { x: 0, y: 0 };
@@ -1535,7 +1807,7 @@ export default class Renderer {
     this.dragStart = { x: 0, y: 0 };
     this.dragged = false;
     this.dragging = false;
-    this.draggingEntity = null; // Generic dragging target
+    this.draggingEntity = null;
     this.dragOffset = { x: 0, y: 0 };
     this.isDraggingSelection = false;
     
@@ -1546,21 +1818,22 @@ export default class Renderer {
     this.snapThreshold = 10;
     this.snapLines = [];
     this.isMarqueeSelecting = false;
+    
+    this.isAnimatingPan = false;
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
   }
 
   setData(graphData) { this.graphData = graphData; }
-  setPlayer(player) { this.player = player; } // NEW
-
-  async loadAndRenderAll() {
-    if (!this.graphData) return;
+  
+  async render() {
     await this.loadImages();
     this.renderLoop();
   }
 
   async loadImages() {
+    if (!this.graphData) return;
     const promises = this.graphData.nodes
       .filter(node => node.sourceType === 'audio' && node.coverUrl)
       .map(async node => {
@@ -1586,19 +1859,11 @@ export default class Renderer {
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
-    // Layer 1: Decorations
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
-    
-    // Layer 2: Node content (drawn first, to be under header if overlap occurs)
     this.graphData.nodes.forEach(node => this._drawNodeContent(node));
-    
-    // Layer 3: Edges
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
-    
-    // Layer 4: Node headers (shape + text)
     this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
 
-    // Overlays for editor tools
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
     this._drawSnapGuides();
@@ -1606,17 +1871,12 @@ export default class Renderer {
     this.ctx.restore();
     
     this.updateIframes();
-    requestAnimationFrame(this.renderLoop);
+    if(!this.isAnimatingPan) requestAnimationFrame(this.renderLoop);
   }
 
-  // --- START Drawing Methods ---
-
   drawDecoration(deco) {
-    if (deco.type === 'rectangle') {
-      this.drawRectangle(deco);
-    } else if (deco.type === 'text') {
-      this.drawText(deco);
-    }
+    if (deco.type === 'rectangle') this.drawRectangle(deco);
+    else if (deco.type === 'text') this.drawText(deco);
   }
 
   drawRectangle(rect) {
@@ -1627,13 +1887,13 @@ export default class Renderer {
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     
     if (rect.selected) {
-        ctx.restore(); // Restore from globalAlpha change
-        ctx.save(); // Save before clipping
+        ctx.restore();
+        ctx.save();
         ctx.beginPath();
         ctx.rect(rect.x, rect.y, rect.width, rect.height);
-        ctx.clip(); // Clip to the rect path
+        ctx.clip();
         ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = (2 / this.scale) * 2; // Double width for inside stroke
+        ctx.lineWidth = (2 / this.scale) * 2;
         ctx.stroke();
     }
     ctx.restore();
@@ -1646,40 +1906,27 @@ export default class Renderer {
       ctx.fillStyle = text.color;
       ctx.textAlign = text.textAlign;
       ctx.textBaseline = 'top';
-
       const lines = this._getWrappedLines(text);
       const bounds = this._getTextBounds(text, lines);
-
       const topLeftX = text.x - bounds.width / 2;
       const topLeftY = text.y - bounds.height / 2;
-
       let drawX;
-      if (text.textAlign === 'left') {
-          drawX = topLeftX;
-      } else if (text.textAlign === 'center') {
-          drawX = text.x;
-      } else { // right
-          drawX = topLeftX + bounds.width;
-      }
-
+      if (text.textAlign === 'left') drawX = topLeftX;
+      else if (text.textAlign === 'center') drawX = text.x;
+      else drawX = topLeftX + bounds.width;
       let currentY = topLeftY;
       for (const line of lines) {
           ctx.fillText(line, drawX, currentY);
           currentY += text.fontSize * text.lineHeight;
       }
-
       if (text.selected) {
-          const rectX = topLeftX - 2;
-          const rectY = topLeftY - 2;
-          const rectW = bounds.width + 4;
-          const rectH = bounds.height + 4;
-          
+          const rectX = topLeftX - 2, rectY = topLeftY - 2, rectW = bounds.width + 4, rectH = bounds.height + 4;
           ctx.save();
           ctx.beginPath();
           ctx.rect(rectX, rectY, rectW, rectH);
           ctx.clip();
           ctx.strokeStyle = '#e74c3c';
-          ctx.lineWidth = (1 / this.scale) * 2; // Double width
+          ctx.lineWidth = (1 / this.scale) * 2;
           ctx.stroke();
           ctx.restore();
       }
@@ -1690,19 +1937,14 @@ export default class Renderer {
       const src = this.graphData.getNodeById(edge.source);
       const trg = this.graphData.getNodeById(edge.target);
       if (!src || !trg) return;
-
       const controlPoints = edge.controlPoints || [];
-      const srcRect = this._getNodeVisualRect(src);
-      const trgRect = this._getNodeVisualRect(trg);
-      
-      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trgRect.x + trgRect.width / 2, y: trgRect.y + trgRect.height / 2 };
+      const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
+      const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
+      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-
-      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: srcRect.x + srcRect.width / 2, y: srcRect.y + srcRect.height / 2 };
+      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
-
       const pathPoints = [startPoint, ...controlPoints, endPoint];
-      
       const ctx = this.ctx; ctx.save();
       let color = edge.color || '#888888';
       if (edge.selected) color = '#e74c3c';
@@ -1710,17 +1952,14 @@ export default class Renderer {
       const edgeLineWidth = edge.lineWidth || 2;
       const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
       const arrowSize = 6 + edgeLineWidth * 2.5;
-
       ctx.beginPath();
       ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
       for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
-      
       const pForArrow = pathPoints.at(-1);
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
-
       controlPoints.forEach(point => {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
@@ -1744,64 +1983,44 @@ export default class Renderer {
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
-    
-    // Define the content container
     const containerX = node.x;
     const containerY = node.y - NODE_CONTENT_HEIGHT;
     const containerW = NODE_WIDTH;
     const containerH = NODE_CONTENT_HEIGHT;
-
-    // Draw a background for the content area
     ctx.fillStyle = '#1e1e1e';
     ctx.fillRect(containerX, containerY, containerW, containerH);
-
     if (node.sourceType === 'audio') {
         const img = this.images[node.coverUrl];
         if (img) {
-            // Calculate aspect ratios
             const containerRatio = containerW / containerH;
             const imgRatio = img.naturalWidth / img.naturalHeight;
-            
             let drawW, drawH, drawX, drawY;
-
             if (imgRatio > containerRatio) {
-                // Image is wider than container (fit to width)
                 drawW = containerW;
                 drawH = drawW / imgRatio;
                 drawX = containerX;
-                drawY = containerY + (containerH - drawH) / 2; // Center vertically
+                drawY = containerY + (containerH - drawH) / 2;
             } else {
-                // Image is taller than or same as container (fit to height)
                 drawH = containerH;
                 drawW = drawH * imgRatio;
                 drawY = containerY;
-                drawX = containerX + (containerW - drawW) / 2; // Center horizontally
+                drawX = containerX + (containerW - drawW) / 2;
             }
             ctx.drawImage(img, drawX, drawY, drawW, drawH);
         }
-        // If no image, the background serves as a placeholder
     } else if (node.sourceType === 'iframe') {
-        // The iframe will be placed here. We draw a placeholder.
         ctx.fillStyle = '#000000';
         ctx.fillRect(containerX, containerY, containerW, containerH);
-        ctx.font = '12px Segoe UI';
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        ctx.fillText('Loading Video...', containerX + containerW / 2, containerY + containerH / 2);
     }
   }
 
   _drawNodeHeader(node) {
     const ctx = this.ctx;
     ctx.save();
-
-    // 1. Define path and fill header background
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
     ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
     ctx.fill();
-    
-    // 2. Draw stroke (selection/highlight or default)
     if (node.selected || node.highlighted) {
         ctx.save();
         ctx.clip();
@@ -1814,8 +2033,6 @@ export default class Renderer {
         ctx.lineWidth = 1;
         ctx.stroke();
     }
-
-    // 3. Draw header text
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px Segoe UI';
     ctx.textAlign = 'center';
@@ -1824,7 +2041,6 @@ export default class Renderer {
     const titleX = node.x + NODE_WIDTH / 2;
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
     ctx.fillText(fittedTitle, titleX, titleY);
-
     ctx.restore();
   }
 
@@ -1840,78 +2056,35 @@ export default class Renderer {
     ctx.restore();
   }
 
-  // --- END Drawing Methods ---
-
-  // --- START Helper & Interaction Methods ---
-  
   updateIframes() {
-    if (!this.player) return;
-    const visibleNodeIds = new Set();
-    
+    if (!this.graphData) return;
     this.graphData.nodes.forEach(node => {
-        if (node.sourceType !== 'iframe' || node.isCollapsed || !this._isNodeInView(node)) {
-            return;
-        }
-
-        visibleNodeIds.add(node.id);
-        const wrapperId = `iframe-wrapper-${node.id}`;
-        let wrapper = document.getElementById(wrapperId);
-
-        if (!wrapper) {
-            wrapper = this._createIframeWrapper(node);
-            this.iframeContainer.appendChild(wrapper);
-            this.player.createYtPlayer(node);
-        }
-
-        const screenX = (node.x) * this.scale + this.offset.x;
-        const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
-        const screenWidth = NODE_WIDTH * this.scale;
-        const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
-
-        wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-        wrapper.style.width = `${screenWidth}px`;
-        wrapper.style.height = `${screenHeight}px`;
-    });
-
-    const existingIframes = this.iframeContainer.querySelectorAll('.iframe-wrapper');
-    existingIframes.forEach(wrapper => {
-        const nodeId = wrapper.dataset.nodeId;
-        if (!visibleNodeIds.has(nodeId)) {
-            this.player.destroyYtPlayer(nodeId);
-            wrapper.remove();
+        if (node.sourceType !== 'iframe') return;
+        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+        if (!wrapper) return;
+        const isInView = this._isNodeInView(node);
+        const shouldBeVisible = !node.isCollapsed && isInView;
+        wrapper.style.display = shouldBeVisible ? 'block' : 'none';
+        if (shouldBeVisible) {
+            const screenX = (node.x) * this.scale + this.offset.x;
+            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+            const screenWidth = NODE_WIDTH * this.scale;
+            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+            wrapper.style.width = `${screenWidth}px`;
+            wrapper.style.height = `${screenHeight}px`;
         }
     });
-  }
-
-  _createIframeWrapper(node) {
-      const wrapper = document.createElement('div');
-      wrapper.id = `iframe-wrapper-${node.id}`;
-      wrapper.dataset.nodeId = node.id;
-      wrapper.className = 'iframe-wrapper';
-
-      const playerDiv = document.createElement('div');
-      playerDiv.id = `yt-player-${node.id}`;
-
-      const dragOverlay = document.createElement('div');
-      dragOverlay.className = 'drag-overlay';
-
-      wrapper.appendChild(playerDiv);
-      wrapper.appendChild(dragOverlay);
-      return wrapper;
   }
 
   _getWrappedLines(textObj) {
-      const { ctx } = this;
-      const { textContent, fontSize, width } = textObj;
+      const { ctx, textContent, fontSize, width } = textObj;
       ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-
       const paragraphs = (textContent || "").split('\n');
       const allLines = [];
-
       for (const paragraph of paragraphs) {
-          if (!width || width <= 0) {
-              allLines.push(paragraph);
-          } else {
+          if (!width || width <= 0) { allLines.push(paragraph); }
+          else {
               const words = paragraph.split(' ');
               let currentLine = '';
               for (const word of words) {
@@ -1919,9 +2092,7 @@ export default class Renderer {
                   if (ctx.measureText(testLine).width > width && currentLine) {
                       allLines.push(currentLine);
                       currentLine = word;
-                  } else {
-                      currentLine = testLine;
-                  }
+                  } else { currentLine = testLine; }
               }
               allLines.push(currentLine);
           }
@@ -1932,19 +2103,13 @@ export default class Renderer {
   _getTextBounds(textObj, renderedLines) {
       const { fontSize, width, lineHeight } = textObj;
       let maxWidth = 0;
-      if (width > 0) {
-        maxWidth = width;
-      } else {
+      if (width > 0) { maxWidth = width; }
+      else {
         this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-        renderedLines.forEach(line => {
-            maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width);
-        });
+        renderedLines.forEach(line => { maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width); });
       }
-      
       const totalHeight = (renderedLines.length > 0) 
-        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1))
-        : 0;
-
+        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1)) : 0;
       return { width: maxWidth, height: totalHeight };
   }
 
@@ -1957,10 +2122,8 @@ export default class Renderer {
   _isNodeInView(node) {
       const rect = this._getNodeVisualRect(node);
       const screenRect = {
-        x: rect.x * this.scale + this.offset.x,
-        y: rect.y * this.scale + this.offset.y,
-        width: rect.width * this.scale,
-        height: rect.height * this.scale
+        x: rect.x * this.scale + this.offset.x, y: rect.y * this.scale + this.offset.y,
+        width: rect.width * this.scale, height: rect.height * this.scale
       };
       return screenRect.x < this.canvas.width && screenRect.x + screenRect.width > 0 &&
              screenRect.y < this.canvas.height && screenRect.y + screenRect.height > 0;
@@ -1975,27 +2138,15 @@ export default class Renderer {
   _getNodeVisualRect(node) {
       const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
       const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
-      return { 
-        x: node.x, 
-        y: node.y - contentHeight, 
-        width: NODE_WIDTH, 
-        height: totalHeight 
-      };
+      return { x: node.x, y: node.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
   }
   
   _getDecorationBounds(deco) {
-    if (deco.type === 'rectangle') {
-        return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
-    }
+    if (deco.type === 'rectangle') return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
     if (deco.type === 'text') {
         const lines = this._getWrappedLines(deco);
         const bounds = this._getTextBounds(deco, lines);
-        return { 
-            x: deco.x - bounds.width / 2, 
-            y: deco.y - bounds.height / 2, 
-            width: bounds.width, 
-            height: bounds.height 
-        };
+        return { x: deco.x - bounds.width / 2, y: deco.y - bounds.height / 2, width: bounds.width, height: bounds.height };
     }
     return { x: deco.x, y: deco.y, width: 0, height: 0 };
   }
@@ -2008,10 +2159,8 @@ export default class Renderer {
             return { type: 'node', entity: node };
         }
     }
-    
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
-
     if (!isDecorationsLocked) {
         for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
             const deco = this.graphData.decorations[i];
@@ -2021,7 +2170,6 @@ export default class Renderer {
             }
         }
     }
-
     return null;
   }
   
@@ -2029,20 +2177,15 @@ export default class Renderer {
     const normalizedRect = this.normalizeRect(rect);
     return this.graphData.nodes.filter(node => {
         const nodeRect = this._getNodeVisualRect(node);
-        return (
-            nodeRect.x >= normalizedRect.x &&
-            nodeRect.y >= normalizedRect.y &&
-            nodeRect.x + nodeRect.width <= normalizedRect.x + normalizedRect.w &&
-            nodeRect.y + nodeRect.height <= normalizedRect.y + normalizedRect.h
-        );
+        return ( nodeRect.x >= normalizedRect.x && nodeRect.y >= normalizedRect.y &&
+                 nodeRect.x + nodeRect.width <= normalizedRect.x + normalizedRect.w &&
+                 nodeRect.y + nodeRect.height <= normalizedRect.y + normalizedRect.h );
     });
   }
 
   getEdgesInRect(rect, nodesInRect) {
       const nodeIdsInRect = new Set(nodesInRect.map(n => n.id));
-      return this.graphData.edges.filter(edge => {
-          return nodeIdsInRect.has(edge.source) && nodeIdsInRect.has(edge.target);
-      });
+      return this.graphData.edges.filter(edge => nodeIdsInRect.has(edge.source) && nodeIdsInRect.has(edge.target));
   }
   
   getDecorationsInRect(rect) {
@@ -2056,10 +2199,8 @@ export default class Renderer {
   
   normalizeRect(rect) {
       return {
-          x: rect.w < 0 ? rect.x + rect.w : rect.x,
-          y: rect.h < 0 ? rect.y + rect.h : rect.y,
-          w: Math.abs(rect.w),
-          h: Math.abs(rect.h)
+          x: rect.w < 0 ? rect.x + rect.w : rect.x, y: rect.h < 0 ? rect.y + rect.h : rect.y,
+          w: Math.abs(rect.w), h: Math.abs(rect.h)
       };
   }
 
@@ -2068,9 +2209,7 @@ export default class Renderer {
       for (const edge of this.graphData.edges) {
           for (let i = 0; i < (edge.controlPoints || []).length; i++) {
               const point = edge.controlPoints[i];
-              if (Math.hypot(x - point.x, y - point.y) < tolerance) {
-                  return { edge, pointIndex: i };
-              }
+              if (Math.hypot(x - point.x, y - point.y) < tolerance) return { edge, pointIndex: i };
           }
       }
       return null;
@@ -2079,30 +2218,24 @@ export default class Renderer {
   getEdgeAt(x, y) {
     const tolerance = 10 / this.scale;
     for (const edge of this.graphData.edges) {
-        const src = this.graphData.nodes.find(n => n.id === edge.source);
-        const trg = this.graphData.nodes.find(n => n.id === edge.target);
+        const src = this.graphData.getNodeById(edge.source);
+        const trg = this.graphData.getNodeById(edge.target);
         if (!src || !trg) continue;
-        
         const controlPoints = edge.controlPoints || [];
-        const srcRect = this._getNodeVisualRect(src);
-        const trgRect = this._getNodeVisualRect(trg);
-
-        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trgRect.x + trgRect.width / 2, y: trgRect.y + trgRect.height / 2 };
+        const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
+        const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
+        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
         const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-        
-        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: srcRect.x + srcRect.width / 2, y: srcRect.y + srcRect.height / 2 };
+        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
         const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
-
         const pathPoints = [startPoint, ...controlPoints, endPoint];
-
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i], p2 = pathPoints[i + 1];
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
             if (len < 1) continue;
             const dot = (((x - p1.x) * (p2.x - p1.x)) + ((y - p1.y) * (p2.y - p1.y))) / (len * len);
             if (dot >= 0 && dot <= 1) {
-                const closestX = p1.x + (dot * (p2.x - p1.x));
-                const closestY = p1.y + (dot * (p2.y - p1.y));
+                const closestX = p1.x + (dot * (p2.x - p1.x)), closestY = p1.y + (dot * (p2.y - p1.y));
                 if (Math.hypot(x - closestX, y - closestY) < tolerance) return edge;
             }
         }
@@ -2140,8 +2273,13 @@ export default class Renderer {
   highlight(currentId, prevId = null, edge = null) {
       this.graphData.nodes.forEach(n => n.highlighted = false);
       this.graphData.edges.forEach(e => e.highlighted = false);
-      if (currentId) { const node = this.graphData.nodes.find(n => n.id === currentId); if (node) node.highlighted = true; }
-      if (edge) { const e = this.graphData.edges.find(i => i.id === edge.id); if (e) e.highlighted = true; }
+      if (currentId) {
+          const node = this.graphData.getNodeById(currentId);
+          if (node) node.highlighted = true;
+      }
+      if (edge && this.graphData.edges.includes(edge)) {
+          edge.highlighted = true;
+      }
   }
   
   getCanvasCoords({ clientX, clientY }) {
@@ -2159,64 +2297,47 @@ export default class Renderer {
       let snappedPos = { ...pos };
       this.snapLines = [];
       if (!movingEntity) return pos;
-
       const isPoint = !movingEntity.sourceType && !movingEntity.type;
-      
-      const movingBounds = isPoint 
-          ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
+      const movingBounds = isPoint ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
           : (this._getDecorationBounds(movingEntity) || this._getNodeVisualRect(movingEntity));
-      
-      if (!isPoint) {
-        movingBounds.x = pos.x;
-        movingBounds.y = pos.y;
-      }
-      
+      if (!isPoint) { movingBounds.x = pos.x; movingBounds.y = pos.y; }
       const threshold = this.snapThreshold / this.scale;
-      let bestSnapX = { delta: Infinity };
-      let bestSnapY = { delta: Infinity };
-
+      let bestSnapX = { delta: Infinity }, bestSnapY = { delta: Infinity };
       const movingPointsX = [movingBounds.x, movingBounds.x + movingBounds.width / 2, movingBounds.x + movingBounds.width];
       const movingPointsY = [movingBounds.y, movingBounds.y + movingBounds.height / 2, movingBounds.y + movingBounds.height];
-
       const snapTargets = [];
       this.graphData.nodes.forEach(n => {
           if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
           snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
       });
-      // NEW: Add other control points as snap targets
+      this.graphData.decorations.forEach(d => {
+          if (d === movingEntity || (movingEntity.id && d.id === movingEntity.id) || d.selected) return;
+          snapTargets.push({ type: 'decoration', bounds: this._getDecorationBounds(d) });
+      });
       this.graphData.edges.forEach(e => {
         (e.controlPoints || []).forEach(p => {
-            if (p !== movingEntity) {
-                snapTargets.push({ type: 'point', bounds: { x: p.x, y: p.y, width: 0, height: 0 }});
-            }
+            if (p !== movingEntity) snapTargets.push({ type: 'point', bounds: { x: p.x, y: p.y, width: 0, height: 0 }});
         });
       });
-
       for (const target of snapTargets) {
           const targetBounds = target.bounds;
           const targetPointsX = [targetBounds.x, targetBounds.x + targetBounds.width / 2, targetBounds.x + targetBounds.width];
           const targetPointsY = [targetBounds.y, targetBounds.y + targetBounds.height / 2, targetBounds.y + targetBounds.height];
-
           for (let i = 0; i < movingPointsX.length; i++) {
               if (movingPointsX[i] === undefined) continue;
               for (let j = 0; j < targetPointsX.length; j++) {
                   const delta = targetPointsX[j] - movingPointsX[i];
-                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapX.delta)) {
-                      bestSnapX = { delta, pos: targetPointsX[j] };
-                  }
+                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapX.delta)) bestSnapX = { delta, pos: targetPointsX[j] };
               }
           }
           for (let i = 0; i < movingPointsY.length; i++) {
               if (movingPointsY[i] === undefined) continue;
               for (let j = 0; j < targetPointsY.length; j++) {
                   const delta = targetPointsY[j] - movingPointsY[i];
-                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapY.delta)) {
-                      bestSnapY = { delta, pos: targetPointsY[j] };
-                  }
+                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapY.delta)) bestSnapY = { delta, pos: targetPointsY[j] };
               }
           }
       }
-      
       if (Math.abs(bestSnapX.delta) < threshold) {
           snappedPos.x += bestSnapX.delta;
           this.snapLines.push({ type: 'v', pos: bestSnapX.pos });
@@ -2239,42 +2360,69 @@ export default class Renderer {
       });
       ctx.restore();
   }
+
+  centerOnNode(nodeId) {
+    if (!this.graphData) return;
+    const node = this.graphData.getNodeById(nodeId);
+    if (!node) return;
+
+    this.isAnimatingPan = true;
+    const nodeCenterX = node.x + NODE_WIDTH / 2;
+    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
+    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * this.scale);
+    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * this.scale);
+    const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
+    const diffX = targetOffsetX - startOffsetX, diffY = targetOffsetY - startOffsetY;
+    const duration = 500;
+    let startTime = null;
+
+    const animate = (timestamp) => {
+        if (!this.isAnimatingPan) return;
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        let progress = Math.min(elapsed / duration, 1);
+        progress = progress * (2 - progress); // Ease-out
+        this.offset.x = startOffsetX + diffX * progress;
+        this.offset.y = startOffsetY + diffY * progress;
+        
+        this.renderLoop(); // Re-render on each animation frame
+
+        if (elapsed < duration) {
+            requestAnimationFrame(animate);
+        } else {
+            this.offset.x = targetOffsetX;
+            this.offset.y = targetOffsetY;
+            this.isAnimatingPan = false;
+            this.renderLoop(); // Final render
+        }
+    };
+    requestAnimationFrame(animate);
+  }
   
   setupCanvasInteraction(callbacks) {
-    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
-
+    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection, onManualPan } = callbacks;
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
     this.canvas.addEventListener('mousedown', (e) => {
+        this.isAnimatingPan = false; 
         const isEditor = getIsEditorMode();
         const mousePos = this.getCanvasCoords(e);
         this.dragged = false;
-
         const handlePanStart = () => {
+            if (onManualPan) onManualPan();
             this.dragging = true;
             this.dragStart.x = e.clientX - this.offset.x;
             this.dragStart.y = e.clientY - this.offset.y;
             this.canvas.style.cursor = 'grabbing';
             document.body.classList.add('is-dragging');
         };
-
-        if (!isEditor) {
-            if (e.button === 0) handlePanStart();
-            return;
-        }
-        
-        if (e.button === 1) { // Middle mouse button pan
-            handlePanStart();
-            return;
-        }
-
-        if (e.button === 0) { // Left mouse button
+        if (!isEditor) { if (e.button === 0) handlePanStart(); return; }
+        if (e.button === 1) { handlePanStart(); return; }
+        if (e.button === 0) {
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { this.draggingControlPoint = cp; document.body.classList.add('is-dragging'); return; }
-            
             const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-            
             if (clicked && (clicked.type === 'node' || clicked.type === 'decoration')) {
                 const entity = clicked.entity;
                 if (entity.selected) this.isDraggingSelection = true;
@@ -2285,22 +2433,14 @@ export default class Renderer {
                 document.body.classList.add('is-dragging');
                 return;
             }
-            
-            if (!clicked) { // Start marquee selection
-                this.isMarqueeSelecting = true;
-                this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
-            }
-
-        } else if (e.button === 2) { // Right mouse button
+            if (!clicked) { this.isMarqueeSelecting = true; this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 }; }
+        } else if (e.button === 2) {
             e.preventDefault();
             const cp = this.getControlPointAt(mousePos.x, mousePos.y);
             if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); }
             else { 
-              const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true }); // Ignore decorations for edge creation
-              if (clickedNode && clickedNode.type === 'node') { 
-                this.isCreatingEdge = true; 
-                this.edgeCreationSource = clickedNode.entity; 
-              } 
+              const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true });
+              if (clickedNode && clickedNode.type === 'node') { this.isCreatingEdge = true; this.edgeCreationSource = clickedNode.entity; } 
             }
         }
     });
@@ -2314,39 +2454,23 @@ export default class Renderer {
              return;
         }
         this.dragged = true;
-
         if (this.dragging) {
+            if (onManualPan) onManualPan(); // CORRECTED: Also disable follow mode on drag
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
-        } else if (this.isDraggingSelection) {
-            const isLocked = getIsDecorationsLocked();
+        } else if (this.draggingEntity) {
+            const potentialNewPos = { x: this.mousePos.x - this.dragOffset.x, y: this.mousePos.y - this.dragOffset.y };
+            const snappedPos = this._getSnappedPosition(potentialNewPos, this.draggingEntity);
             const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
-            const targetX = this.mousePos.x - this.dragOffset.x;
-            const targetY = this.mousePos.y - this.dragOffset.y;
-            
-            const snappedPos = this._getSnappedPosition({ x: targetX, y: targetY }, this.draggingEntity);
             const dx = snappedPos.x - originalBounds.x;
             const dy = snappedPos.y - originalBounds.y;
-
-            getSelection().forEach(entity => {
+            const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
+            const isLocked = getIsDecorationsLocked();
+            selection.forEach(entity => {
                 if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
-
                 if ('x' in entity) { entity.x += dx; entity.y += dy; }
                 else if (entity.controlPoints) { entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; }); }
             });
-
-        } else if (this.draggingEntity) {
-            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
-            const targetX = this.mousePos.x - this.dragOffset.x;
-            const targetY = this.mousePos.y - this.dragOffset.y;
-            const snappedPos = this._getSnappedPosition({x: targetX, y: targetY}, this.draggingEntity);
-            
-            const dx = snappedPos.x - originalBounds.x;
-            const dy = snappedPos.y - originalBounds.y;
-
-            this.draggingEntity.x += dx;
-            this.draggingEntity.y += dy;
-
         } else if (this.draggingControlPoint) {
             const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
             const snappedPos = this._getSnappedPosition(this.mousePos, point);
@@ -2360,9 +2484,7 @@ export default class Renderer {
     this.canvas.addEventListener('mouseup', (e) => {
         if (this.isMarqueeSelecting) {
             const normalizedRect = this.normalizeRect(this.marqueeRect);
-            if (normalizedRect.w > 5 || normalizedRect.h > 5) {
-                onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
-            }
+            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
         }
         if (this.isCreatingEdge && e.button === 2) {
             const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
@@ -2372,7 +2494,6 @@ export default class Renderer {
         }
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab'; this.snapLines = [];
-        document.body.classList.remove('is-dragging');
         setTimeout(() => { this.dragged = false; }, 0);
     });
 
@@ -2387,13 +2508,13 @@ export default class Renderer {
     
     this.canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
+        this.isAnimatingPan = false;
+        if (onManualPan) onManualPan(); // CORRECTED: Also disable follow mode on zoom
         const zoomIntensity = 0.1;
         const wheel = e.deltaY < 0 ? 1 : -1;
         const zoom = Math.exp(wheel * zoomIntensity);
         const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
+        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
         this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
         this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
         this.scale *= zoom;

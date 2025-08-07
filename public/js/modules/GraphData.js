@@ -7,6 +7,7 @@ export default class GraphData {
     this.edges = [];
     this.decorations = [];
     this.meta = {};
+    this.view = null; // To store viewport data (pan/zoom)
   }
 
   /**
@@ -26,6 +27,7 @@ export default class GraphData {
    */
   parseData(data) {
     this.meta = data.meta || {};
+    this.view = data.view || null;
     const graph = data['@graph'] || [];
 
     // Clear existing data
@@ -90,9 +92,10 @@ export default class GraphData {
 
   /**
    * Serializes the current graph data back into a JSON-LD format for export.
+   * @param {object|null} viewport - Optional viewport data to include.
    * @returns {object} - The complete graph object.
    */
-  getGraph() {
+  getGraph(viewport = null) {
     const graph = [
       ...this.nodes.map(n => ({
         '@id': n.id,
@@ -140,11 +143,18 @@ export default class GraphData {
         return null;
       }).filter(Boolean),
     ];
-    return {
+    
+    const data = {
       '@context': 'https://schema.org/',
       ...(Object.keys(this.meta).length > 0 && { meta: this.meta }),
       '@graph': graph,
     };
+
+    if (viewport) {
+      data.view = viewport;
+    }
+
+    return data;
   }
   
   /**
@@ -179,4 +189,4 @@ export default class GraphData {
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }
-} 
+}

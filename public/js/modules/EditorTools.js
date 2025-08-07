@@ -343,7 +343,8 @@ export default class EditorTools {
   }
 
   exportGraph() {
-    const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
+    const viewport = this.renderer.getViewport();
+    const graphJSON = JSON.stringify(this.graphData.getGraph(viewport), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'music-graph.jsonld'; a.click();
