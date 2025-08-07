@@ -235,7 +235,7 @@ export default class Renderer {
     const containerW = NODE_WIDTH;
     const containerH = NODE_CONTENT_HEIGHT;
 
-    ctx.fillStyle = '#1e1e1e';
+    ctx.fillStyle = '#252525';
     ctx.fillRect(containerX, containerY, containerW, containerH);
 
     if (node.sourceType === 'audio') {
@@ -270,7 +270,7 @@ export default class Renderer {
 
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
+    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 5, 5]);
     ctx.fill();
     
     if (node.selected || node.highlighted) {
