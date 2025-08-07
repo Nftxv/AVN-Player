@@ -25,10 +25,8 @@
       "name": "Chapter 1: The Beginning",
       "position": { "x": 100, "y": 250 },
       "isCollapsed": false,
-      "sourceType": "audio",
-      "audioUrl": "https://cloudflare-ipfs.com/ipfs/bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
-      "coverUrl": "placeholder.svg",
-      "lyricsUrl": "https://cloudflare-ipfs.com/ipfs/bafkreifzjut3a2u7gy2g2l2ctrqkfdv3u4b2qkjk22p32d2c3k32y2y2yq"
+      "sourceType": "iframe",
+      "iframeUrl": "PaASWGWif34"
     },
     {
       "@id": "node-2",
