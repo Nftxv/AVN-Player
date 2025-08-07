@@ -324,8 +324,11 @@ export default class Renderer {
         if (!wrapper) {
             wrapper = this._createIframeWrapper(node);
             this.iframeContainer.appendChild(wrapper);
-            this.player.createYtPlayer(node);
         }
+
+        // CORRECTED: Always attempt to create the player. 
+        // The Player module will handle whether it's ready or the player already exists.
+        this.player.createYtPlayer(node);
 
         const nodeRect = this._getNodeVisualRect(node);
         const screenX = (nodeRect.x + NODE_PADDING) * this.scale + this.offset.x;
