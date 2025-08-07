@@ -151,35 +151,61 @@ export default class Renderer {
       const src = this.graphData.getNodeById(edge.source);
       const trg = this.graphData.getNodeById(edge.target);
       if (!src || !trg) return;
+      
       const controlPoints = edge.controlPoints || [];
       const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
       const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
+      
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
+      
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
+      
       const pathPoints = [startPoint, ...controlPoints, endPoint];
-      const ctx = this.ctx; ctx.save();
+      const ctx = this.ctx;
+      ctx.save();
+      
       let color = edge.color || '#888888';
       if (edge.selected) color = '#e74c3c';
       if (edge.highlighted) color = '#FFD700';
+      
       const edgeLineWidth = edge.lineWidth || 2;
       const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
       const arrowSize = 6 + edgeLineWidth * 2.5;
-      ctx.beginPath();
-      ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
-      for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
-      ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
-      const pForArrow = pathPoints.at(-1);
+
+      const pForArrow = pathPoints.at(-1); 
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
+      
+      const offset = arrowSize; 
+      const adjustedEndPoint = {
+          x: pForArrow.x - offset * Math.cos(angle),
+          y: pForArrow.y - offset * Math.sin(angle)
+      };
+
+      ctx.beginPath();
+      ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+      for (let i = 1; i < pathPoints.length - 1; i++) {
+          ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+      }
+      if (pathPoints.length > 1) {
+          ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
+      }
+
+      ctx.strokeStyle = color; 
+      ctx.lineWidth = lineWidth; 
+      ctx.stroke();
+      
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
+      
       controlPoints.forEach(point => {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
           ctx.fillStyle = color;
           ctx.fill();
       });
+      
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
@@ -191,6 +217,7 @@ export default class Renderer {
         ctx.fillText(edge.label, 0, -8);
         ctx.restore();
       }
+      
       ctx.restore();
   }
   
