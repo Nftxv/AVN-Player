@@ -291,9 +291,10 @@ export default class Renderer {
     });
   }
 
+  // CORRECTED: This function now uses this.ctx instead of expecting it on textObj
   _getWrappedLines(textObj) {
-      const { ctx, textContent, fontSize, width } = textObj;
-      ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
+      const { textContent, fontSize, width } = textObj;
+      this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
       const paragraphs = (textContent || "").split('\n');
       const allLines = [];
       for (const paragraph of paragraphs) {
@@ -303,7 +304,7 @@ export default class Renderer {
               let currentLine = '';
               for (const word of words) {
                   const testLine = currentLine ? `${currentLine} ${word}` : word;
-                  if (ctx.measureText(testLine).width > width && currentLine) {
+                  if (this.ctx.measureText(testLine).width > width && currentLine) {
                       allLines.push(currentLine);
                       currentLine = word;
                   } else { currentLine = testLine; }
