@@ -1,21 +1,22 @@
 /**
  * Manages audio playback, player UI updates, and lyrics loading.
- * NEW: Also manages the entire lifecycle of YouTube IFrame players.
+ * NEW: Implements "lazy loading" for YouTube players to handle large graphs.
  */
 export default class Player {
   constructor(graphData, iframeContainer) {
     this.graphData = graphData;
-    this.iframeContainer = iframeContainer; // The container for all iframes
+    this.iframeContainer = iframeContainer;
     this.navigation = null;
     this.currentNode = null;
     
     // Audio player
     this.audio = new Audio();
     
-    // YouTube players
-    this.ytPlayers = new Map(); // Stores the YT.Player objects
-    this.ytPlayerReady = new Map(); // Tracks which players have fired 'onReady'
-    this.ytPlayQueue = new Set(); // Stores node IDs that should play once ready
+    // --- YouTube Player Management ---
+    // Stores the ready-to-use YT.Player objects
+    this.ytPlayers = new Map(); 
+    // Tracks nodes for which a player is currently being created, to prevent duplicates
+    this.ytPlayersCreating = new Set(); 
     this.currentYtPlayer = null;
 
     this.setupEventListeners();
@@ -24,24 +25,16 @@ export default class Player {
   setNavigation(navigation) { this.navigation = navigation; }
   
   /**
-   * Creates all YouTube player instances at the beginning.
-   * They are created hidden and managed by this module.
+   * This function is now gone. Players are created on-demand.
+   * initializeAllYouTubePlayers() has been removed.
    */
-  initializeAllYouTubePlayers() {
-      this.graphData.nodes.forEach(node => {
-          if (node.sourceType === 'iframe' && node.iframeUrl) {
-              this.createYtPlayer(node);
-          }
-      });
-  }
 
-  play(node) {
+  async play(node) {
     if (!node) return;
     
     const wasPlayingNode = this.currentNode;
     this.currentNode = node;
     
-    // Stop whatever was playing before
     if (wasPlayingNode?.id !== node.id) {
         this.audio.pause();
         if (this.currentYtPlayer) {
@@ -74,15 +67,16 @@ export default class Player {
         playBtn.disabled = false;
         playBtn.textContent = '⏸';
         progress.value = 0;
-        progress.disabled = true; // YouTube controls its own progress
+        progress.disabled = true;
 
-        this.currentYtPlayer = this.ytPlayers.get(node.id);
-        if (this.ytPlayerReady.get(node.id)) {
+        // NEW "LAZY" LOGIC
+        if (this.ytPlayers.has(node.id)) {
+            // Player already exists, just play it
+            this.currentYtPlayer = this.ytPlayers.get(node.id);
             this.currentYtPlayer.playVideo();
         } else {
-            // Player is not ready yet, queue it to be played
-            console.log(`Player for ${node.id} not ready. Queuing for playback.`);
-            this.ytPlayQueue.add(node.id);
+            // Player doesn't exist, create it on-demand
+            this.currentYtPlayer = await this.createAndPlayYtPlayer(node);
         }
         this.loadAndShowLyrics(null);
     }
@@ -130,73 +124,71 @@ export default class Player {
     document.getElementById('currentTime').textContent = '0:00';
   }
 
-  // --- YouTube Player Management ---
+  /**
+   * Creates a new YouTube player on-demand.
+   * Returns a promise that resolves with the player object once it's ready.
+   * @param {object} node The node for which to create a player.
+   * @returns {Promise<YT.Player>}
+   */
+  createAndPlayYtPlayer(node) {
+    // If we are already in the process of creating this player, do nothing.
+    if (this.ytPlayersCreating.has(node.id)) {
+        console.warn(`Player creation for ${node.id} already in progress.`);
+        return;
+    }
 
-  createYtPlayer(node) {
-      if (this.ytPlayers.has(node.id) || !node.iframeUrl) return;
+    return new Promise((resolve) => {
+        this.ytPlayersCreating.add(node.id);
 
-      const wrapper = document.createElement('div');
-      wrapper.id = `iframe-wrapper-${node.id}`;
-      wrapper.className = 'iframe-wrapper';
-      wrapper.style.display = 'none'; // Initially hidden
-      
-      const playerDiv = document.createElement('div');
-      playerDiv.id = `yt-player-${node.id}`;
+        const wrapper = document.createElement('div');
+        wrapper.id = `iframe-wrapper-${node.id}`;
+        wrapper.className = 'iframe-wrapper';
+        wrapper.style.display = 'none';
+        
+        const playerDiv = document.createElement('div');
+        playerDiv.id = `yt-player-${node.id}`;
 
-      const dragOverlay = document.createElement('div');
-      dragOverlay.className = 'drag-overlay';
+        const dragOverlay = document.createElement('div');
+        dragOverlay.className = 'drag-overlay';
 
-      wrapper.appendChild(playerDiv);
-      wrapper.appendChild(dragOverlay);
-      this.iframeContainer.appendChild(wrapper);
+        wrapper.appendChild(playerDiv);
+        wrapper.appendChild(dragOverlay);
+        this.iframeContainer.appendChild(wrapper);
 
-      const player = new YT.Player(playerDiv.id, {
-          height: '100%',
-          width: '100%',
-          videoId: node.iframeUrl,
-          playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
-          events: {
-              'onReady': (event) => this.onPlayerReady(event, node),
-              'onStateChange': (event) => this.onPlayerStateChange(event, node)
-          }
-      });
-      this.ytPlayers.set(node.id, player);
-      this.ytPlayerReady.set(node.id, false);
+        const player = new YT.Player(playerDiv.id, {
+            height: '100%',
+            width: '100%',
+            videoId: node.iframeUrl,
+            playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
+            events: {
+                'onReady': (event) => {
+                    console.log(`Lazy-loaded player for ${node.id} is ready.`);
+                    this.ytPlayers.set(node.id, player); // Add to the map of ready players
+                    this.ytPlayersCreating.delete(node.id); // Remove from the "in-progress" set
+                    event.target.playVideo(); // Play it immediately
+                    resolve(player); // Resolve the promise with the new player object
+                },
+                'onStateChange': (event) => this.onPlayerStateChange(event, node)
+            }
+        });
+    });
   }
 
   destroyYtPlayer(nodeId) {
       if (this.ytPlayers.has(nodeId)) {
-          const player = this.ytPlayers.get(nodeId);
-          if (player && typeof player.destroy === 'function') {
-            player.destroy();
-          }
+          this.ytPlayers.get(nodeId).destroy();
           this.ytPlayers.delete(nodeId);
-          this.ytPlayerReady.delete(nodeId);
-          this.ytPlayQueue.delete(nodeId);
-
-          const wrapper = document.getElementById(`iframe-wrapper-${nodeId}`);
-          if (wrapper) wrapper.remove();
-          
-          console.log(`Destroyed player for node ${nodeId}`);
       }
-  }
-  
-  onPlayerReady(event, node) {
-    console.log(`YouTube player ready for node: ${node.id}`);
-    this.ytPlayerReady.set(node.id, true);
-    // If this node was queued for playback, play it now
-    if (this.ytPlayQueue.has(node.id)) {
-        console.log(`Playing queued node: ${node.id}`);
-        // Ensure this is the currently active node before playing
-        if(this.currentNode?.id === node.id) {
-            event.target.playVideo();
-        }
-        this.ytPlayQueue.delete(node.id);
-    }
+      this.ytPlayersCreating.delete(nodeId); // Also clear from the creation set
+
+      const wrapper = document.getElementById(`iframe-wrapper-${nodeId}`);
+      if (wrapper) wrapper.remove();
+      
+      console.log(`Destroyed player and wrapper for node ${nodeId}`);
   }
 
   onPlayerStateChange(event, node) {
-    if (this.currentNode?.id !== node.id) return; // Only react to the current node
+    if (this.currentNode?.id !== node.id) return;
     
     const playBtn = document.getElementById('playBtn');
     switch(event.data) {
@@ -209,14 +201,8 @@ export default class Player {
         case YT.PlayerState.PAUSED:
             playBtn.textContent = '▶';
             break;
-        case YT.PlayerState.BUFFERING:
-        case YT.PlayerState.UNSTARTED:
-            // You can add visual feedback for these states if desired
-            break;
     }
   }
-
-  // --- Lyrics and Progress ---
 
   async loadAndShowLyrics(url) {
       const lyricsTextElem = document.getElementById('lyricsText');
