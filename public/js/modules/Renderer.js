@@ -114,10 +114,14 @@ export default class Renderer {
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     
     if (rect.selected) {
-        ctx.globalAlpha = 1.0;
+        ctx.restore(); // Restore from globalAlpha change
+        ctx.save(); // Save before clipping
+        ctx.beginPath();
+        ctx.rect(rect.x, rect.y, rect.width, rect.height);
+        ctx.clip(); // Clip to the rect path
         ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = 2 / this.scale;
-        ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+        ctx.lineWidth = (2 / this.scale) * 2; // Double width for inside stroke
+        ctx.stroke();
     }
     ctx.restore();
   }
@@ -152,9 +156,19 @@ export default class Renderer {
       }
 
       if (text.selected) {
+          const rectX = topLeftX - 2;
+          const rectY = topLeftY - 2;
+          const rectW = bounds.width + 4;
+          const rectH = bounds.height + 4;
+          
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(rectX, rectY, rectW, rectH);
+          ctx.clip();
           ctx.strokeStyle = '#e74c3c';
-          ctx.lineWidth = 1 / this.scale;
-          ctx.strokeRect(topLeftX - 2, topLeftY - 2, bounds.width + 4, bounds.height + 4);
+          ctx.lineWidth = (1 / this.scale) * 2; // Double width
+          ctx.stroke();
+          ctx.restore();
       }
       ctx.restore();
   }
@@ -218,26 +232,49 @@ export default class Renderer {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
     
-    // Content is drawn above the header (node.y)
-    const contentX = node.x;
-    const contentY = node.y - NODE_CONTENT_HEIGHT;
+    // Define the content container
+    const containerX = node.x;
+    const containerY = node.y - NODE_CONTENT_HEIGHT;
+    const containerW = NODE_WIDTH;
+    const containerH = NODE_CONTENT_HEIGHT;
+
+    // Draw a background for the content area
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(containerX, containerY, containerW, containerH);
 
     if (node.sourceType === 'audio') {
-        const coverUrl = node.coverUrl;
-        if (coverUrl && this.images[coverUrl]) {
-            ctx.drawImage(this.images[coverUrl], contentX, contentY, NODE_WIDTH, NODE_CONTENT_HEIGHT);
-        } else {
-            ctx.fillStyle = '#1e1e1e';
-            ctx.fillRect(contentX, contentY, NODE_WIDTH, NODE_CONTENT_HEIGHT);
+        const img = this.images[node.coverUrl];
+        if (img) {
+            // Calculate aspect ratios
+            const containerRatio = containerW / containerH;
+            const imgRatio = img.naturalWidth / img.naturalHeight;
+            
+            let drawW, drawH, drawX, drawY;
+
+            if (imgRatio > containerRatio) {
+                // Image is wider than container (fit to width)
+                drawW = containerW;
+                drawH = drawW / imgRatio;
+                drawX = containerX;
+                drawY = containerY + (containerH - drawH) / 2; // Center vertically
+            } else {
+                // Image is taller than or same as container (fit to height)
+                drawH = containerH;
+                drawW = drawH * imgRatio;
+                drawY = containerY;
+                drawX = containerX + (containerW - drawW) / 2; // Center horizontally
+            }
+            ctx.drawImage(img, drawX, drawY, drawW, drawH);
         }
+        // If no image, the background serves as a placeholder
     } else if (node.sourceType === 'iframe') {
         // The iframe will be placed here. We draw a placeholder.
         ctx.fillStyle = '#000000';
-        ctx.fillRect(contentX, contentY, NODE_WIDTH, NODE_CONTENT_HEIGHT);
+        ctx.fillRect(containerX, containerY, containerW, containerH);
         ctx.font = '12px Segoe UI';
         ctx.fillStyle = '#666';
         ctx.textAlign = 'center';
-        ctx.fillText('Loading Video...', contentX + NODE_WIDTH / 2, contentY + NODE_CONTENT_HEIGHT / 2);
+        ctx.fillText('Loading Video...', containerX + containerW / 2, containerY + containerH / 2);
     }
   }
 
@@ -245,25 +282,31 @@ export default class Renderer {
     const ctx = this.ctx;
     ctx.save();
 
-    // 1. Draw header background shape
+    // 1. Define path and fill header background
     ctx.fillStyle = '#2d2d2d';
     ctx.beginPath();
-    // Sharp top corners, rounded bottom corners
     ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
     ctx.fill();
     
-    // 2. Draw stroke (selection/highlight)
-    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
-    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
-    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
-    ctx.stroke();
+    // 2. Draw stroke (selection/highlight or default)
+    if (node.selected || node.highlighted) {
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = node.selected ? '#e74c3c' : '#FFD700';
+        ctx.lineWidth = 3 * 2;
+        ctx.stroke();
+        ctx.restore();
+    } else {
+        ctx.strokeStyle = '#424242';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
 
     // 3. Draw header text
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px Segoe UI';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // Leave 10px padding on each side for the text
     const fittedTitle = this._fitText(node.title, NODE_WIDTH - 20); 
     const titleX = node.x + NODE_WIDTH / 2;
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
@@ -421,7 +464,6 @@ export default class Renderer {
       const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
       return { 
         x: node.x, 
-        // node.y is the top of the header, so visual rect starts above it
         y: node.y - contentHeight, 
         width: NODE_WIDTH, 
         height: totalHeight 
@@ -446,21 +488,17 @@ export default class Renderer {
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
-    // Check nodes first (top layer)
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
         if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
-            // No more icon check, the whole node is a single entity
             return { type: 'node', entity: node };
         }
     }
     
-    // Check edges
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
 
-    // Check decorations (bottom layer)
     if (!isDecorationsLocked) {
         for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
             const deco = this.graphData.decorations[i];
@@ -478,7 +516,6 @@ export default class Renderer {
     const normalizedRect = this.normalizeRect(rect);
     return this.graphData.nodes.filter(node => {
         const nodeRect = this._getNodeVisualRect(node);
-        // Check for complete inclusion
         return (
             nodeRect.x >= normalizedRect.x &&
             nodeRect.y >= normalizedRect.y &&
@@ -499,7 +536,6 @@ export default class Renderer {
       const normalizedRect = this.normalizeRect(rect);
       return this.graphData.decorations.filter(deco => {
           const decoBounds = this._getDecorationBounds(deco);
-          // Check for intersection
           return normalizedRect.x < decoBounds.x + decoBounds.width && normalizedRect.x + normalizedRect.w > decoBounds.x &&
                  normalizedRect.y < decoBounds.y + decoBounds.height && normalizedRect.y + normalizedRect.h > decoBounds.y;
       });
