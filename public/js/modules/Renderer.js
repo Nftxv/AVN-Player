@@ -1,12 +1,13 @@
 /**
- * AVN Player - Renderer Module with Editable & Lockable Decorative Layers
+ * AVN Player - Renderer Module
+ * Handles canvas drawing and iframe management with state preservation.
  * by Nftxv
  */
 const NODE_WIDTH = 200;
-const NODE_HEIGHT_COLLAPSED = 45;
-const NODE_HEIGHT_EXPANDED = 225;
-const NODE_CONTENT_HEIGHT = 150;
-const NODE_PADDING = 10;
+const NODE_HEIGHT_COLLAPSED = 45; // This now also serves as the header height
+const CONTENT_ASPECT_RATIO = 16 / 9;
+const CONTENT_HEIGHT = Math.round(NODE_WIDTH / CONTENT_ASPECT_RATIO); // ~113px
+const NODE_HEIGHT_EXPANDED = CONTENT_HEIGHT + NODE_HEIGHT_COLLAPSED;
 const TOGGLE_ICON_SIZE = 16;
 
 export default class Renderer {
@@ -16,7 +17,7 @@ export default class Renderer {
     this.iframeContainer = document.getElementById('iframe-container');
     
     this.graphData = null; 
-    this.player = null; // NEW: Reference to the player
+    this.player = null;
     this.images = {};
 
     this.offset = { x: 0, y: 0 };
@@ -24,7 +25,7 @@ export default class Renderer {
     this.dragStart = { x: 0, y: 0 };
     this.dragged = false;
     this.dragging = false;
-    this.draggingEntity = null; // Generic dragging target
+    this.draggingEntity = null;
     this.dragOffset = { x: 0, y: 0 };
     this.isDraggingSelection = false;
     
@@ -41,11 +42,12 @@ export default class Renderer {
   }
 
   setData(graphData) { this.graphData = graphData; }
-  setPlayer(player) { this.player = player; } // NEW
+  setPlayer(player) { this.player = player; }
 
   async loadAndRenderAll() {
     if (!this.graphData) return;
     await this.loadImages();
+    this._ensureAllIframeWrappersExist(); // Create all wrappers once at the start
     this.renderLoop();
   }
 
@@ -53,16 +55,13 @@ export default class Renderer {
     const promises = this.graphData.nodes
       .filter(node => node.sourceType === 'audio' && node.coverUrl)
       .map(async node => {
-        const url = node.coverUrl;
-        if (url && !this.images[url]) {
+        if (node.coverUrl && !this.images[node.coverUrl]) {
           try {
             const img = new Image();
-            img.src = url;
+            img.src = node.coverUrl;
             await img.decode();
-            this.images[url] = img;
-          } catch (e) {
-            console.warn(`Failed to load cover image: ${url}`, e);
-          }
+            this.images[node.coverUrl] = img;
+          } catch (e) { console.warn(`Failed to load cover image: ${node.coverUrl}`, e); }
         }
       });
     await Promise.all(promises);
@@ -75,22 +74,10 @@ export default class Renderer {
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
-    // Layer 1: Decorations
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
-    
-    // Layer 2: Node bodies (shape + content)
-    this.graphData.nodes.forEach(node => {
-      this._drawNodeShape(node);
-      this._drawNodeContent(node);
-    });
-    
-    // Layer 3: Edges
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
+    this.graphData.nodes.forEach(node => this.drawNode(node));
 
-    // Layer 4: Node headers (text + icons)
-    this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
-
-    // Overlays for editor tools
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
     this._drawSnapGuides();
@@ -100,15 +87,81 @@ export default class Renderer {
     this.updateIframes();
     requestAnimationFrame(this.renderLoop);
   }
-
+  
   // --- START Drawing Methods ---
 
-  drawDecoration(deco) {
-    if (deco.type === 'rectangle') {
-      this.drawRectangle(deco);
-    } else if (deco.type === 'text') {
-      this.drawText(deco);
+  drawNode(node) {
+    const ctx = this.ctx;
+    const isExpanded = !node.isCollapsed;
+    const visualRect = this._getNodeVisualRect(node);
+    
+    // Draw content first (if expanded) so header can draw over it
+    if (isExpanded) {
+        this._drawNodeContent(node, this._getNodeContentRect(node));
     }
+
+    // --- Draw Header ---
+    const headerRect = this._getNodeHeaderRect(node);
+    ctx.save();
+    
+    ctx.fillStyle = '#2d2d2d';
+    ctx.fillRect(headerRect.x, headerRect.y, headerRect.width, headerRect.height);
+    
+    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
+    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
+    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
+
+    // Draw border around the entire node shape
+    ctx.strokeRect(visualRect.x, visualRect.y, visualRect.width, visualRect.height);
+    
+    // Header Text
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = '14px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 30);
+    ctx.fillText(fittedTitle, headerRect.x + headerRect.width / 2, headerRect.y + headerRect.height / 2);
+
+    // Collapse/Expand Icon
+    const iconX = headerRect.x + headerRect.width - TOGGLE_ICON_SIZE - 6;
+    const iconY = headerRect.y + (headerRect.height - TOGGLE_ICON_SIZE) / 2;
+    ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
+    ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
+    if (!isExpanded) { // Plus icon for collapsed state
+      ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 4);
+      ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  _drawNodeContent(node, contentRect) {
+    const ctx = this.ctx;
+    if (node.sourceType === 'audio') {
+        const coverUrl = node.coverUrl;
+        if (coverUrl && this.images[coverUrl]) {
+            ctx.drawImage(this.images[coverUrl], contentRect.x, contentRect.y, contentRect.width, contentRect.height);
+        } else {
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(contentRect.x, contentRect.y, contentRect.width, contentRect.height);
+        }
+    } else if (node.sourceType === 'iframe') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(contentRect.x, contentRect.y, contentRect.width, contentRect.height);
+        ctx.font = '12px Segoe UI';
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Loading Video...', contentRect.x + contentRect.width / 2, contentRect.y + contentRect.height / 2);
+    }
+  }
+
+  drawDecoration(deco) {
+    if (deco.type === 'rectangle') this.drawRectangle(deco);
+    else if (deco.type === 'text') this.drawText(deco);
   }
 
   drawRectangle(rect) {
@@ -117,7 +170,6 @@ export default class Renderer {
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = rect.backgroundColor;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-    
     if (rect.selected) {
         ctx.globalAlpha = 1.0;
         ctx.strokeStyle = '#e74c3c';
@@ -134,28 +186,19 @@ export default class Renderer {
       ctx.fillStyle = text.color;
       ctx.textAlign = text.textAlign;
       ctx.textBaseline = 'top';
-
       const lines = this._getWrappedLines(text);
       const bounds = this._getTextBounds(text, lines);
-
       const topLeftX = text.x - bounds.width / 2;
       const topLeftY = text.y - bounds.height / 2;
-
       let drawX;
-      if (text.textAlign === 'left') {
-          drawX = topLeftX;
-      } else if (text.textAlign === 'center') {
-          drawX = text.x;
-      } else { // right
-          drawX = topLeftX + bounds.width;
-      }
-
+      if (text.textAlign === 'left') drawX = topLeftX;
+      else if (text.textAlign === 'center') drawX = text.x;
+      else drawX = topLeftX + bounds.width;
       let currentY = topLeftY;
       for (const line of lines) {
           ctx.fillText(line, drawX, currentY);
           currentY += text.fontSize * text.lineHeight;
       }
-
       if (text.selected) {
           ctx.strokeStyle = '#e74c3c';
           ctx.lineWidth = 1 / this.scale;
@@ -170,13 +213,10 @@ export default class Renderer {
       if (!src || !trg) return;
 
       const controlPoints = edge.controlPoints || [];
-      
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : { x: trg.x + NODE_WIDTH / 2, y: trg.y + this._getNodeVisualRect(trg).height / 2 };
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : { x: src.x + NODE_WIDTH / 2, y: src.y + this._getNodeVisualRect(src).height / 2 };
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
-
       const pathPoints = [startPoint, ...controlPoints, endPoint];
       
       const ctx = this.ctx; ctx.save();
@@ -217,81 +257,6 @@ export default class Renderer {
       ctx.restore();
   }
 
-  _drawNodeShape(node) {
-    const ctx = this.ctx;
-    const rect = this._getNodeVisualRect(node);
-    
-    ctx.save();
-    
-    ctx.fillStyle = '#2d2d2d';
-    ctx.beginPath();
-    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
-    ctx.fill();
-    
-    if (node.selected) { ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; }
-    else if (node.highlighted) { ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3; }
-    else { ctx.strokeStyle = '#424242'; ctx.lineWidth = 1; }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  _drawNodeContent(node) {
-    if (node.isCollapsed) return;
-    const ctx = this.ctx;
-    const rect = this._getNodeVisualRect(node);
-
-    const contentAreaX = rect.x + NODE_PADDING;
-    const contentAreaY = rect.y + NODE_PADDING;
-    const contentAreaWidth = NODE_WIDTH - NODE_PADDING * 2;
-
-    if (node.sourceType === 'audio') {
-        const coverUrl = node.coverUrl;
-        if (coverUrl && this.images[coverUrl]) {
-            ctx.drawImage(this.images[coverUrl], contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
-        } else {
-            ctx.fillStyle = '#1e1e1e';
-            ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
-        }
-    } else if (node.sourceType === 'iframe') {
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(contentAreaX, contentAreaY, contentAreaWidth, NODE_CONTENT_HEIGHT);
-        ctx.font = '12px Segoe UI';
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        ctx.fillText('Loading Video...', rect.x + NODE_WIDTH / 2, rect.y + NODE_PADDING + NODE_CONTENT_HEIGHT / 2);
-    }
-  }
-
-  _drawNodeHeader(node) {
-    const ctx = this.ctx;
-    const rect = this._getNodeVisualRect(node);
-    ctx.save();
-
-    ctx.fillStyle = '#e0e0e0';
-    ctx.font = '14px Segoe UI';
-    ctx.textAlign = 'center';
-    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 30);
-    
-    const titleY = node.isCollapsed 
-        ? rect.y + rect.height / 2
-        : rect.y + NODE_HEIGHT_EXPANDED - 40;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(fittedTitle, rect.x + NODE_WIDTH / 2, titleY);
-
-    const iconX = rect.x + NODE_WIDTH - TOGGLE_ICON_SIZE - 6;
-    const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
-    ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(iconX + 4, iconY + TOGGLE_ICON_SIZE / 2);
-    ctx.lineTo(iconX + TOGGLE_ICON_SIZE - 4, iconY + TOGGLE_ICON_SIZE / 2);
-    if (node.isCollapsed) {
-      ctx.moveTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + 4);
-      ctx.lineTo(iconX + TOGGLE_ICON_SIZE / 2, iconY + TOGGLE_ICON_SIZE - 4);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
   drawMarquee() {
     const ctx = this.ctx;
     ctx.save();
@@ -306,47 +271,50 @@ export default class Renderer {
 
   // --- END Drawing Methods ---
 
-  // --- START Helper & Interaction Methods ---
+  // --- START Iframe and Helper Methods ---
+  
+  _ensureAllIframeWrappersExist() {
+    if (!this.graphData) return;
+    this.graphData.nodes.forEach(node => {
+        if (node.sourceType === 'iframe') {
+            const wrapperId = `iframe-wrapper-${node.id}`;
+            if (!document.getElementById(wrapperId)) {
+                const wrapper = this._createIframeWrapper(node);
+                this.iframeContainer.appendChild(wrapper);
+            }
+        }
+    });
+  }
   
   updateIframes() {
-    if (!this.player) return;
-    const visibleNodeIds = new Set();
-    
+    if (!this.player || !this.graphData) return;
+
     this.graphData.nodes.forEach(node => {
-        if (node.sourceType !== 'iframe' || node.isCollapsed || !this._isNodeInView(node)) {
-            return;
-        }
+        if (node.sourceType !== 'iframe') return;
 
-        visibleNodeIds.add(node.id);
-        const wrapperId = `iframe-wrapper-${node.id}`;
-        let wrapper = document.getElementById(wrapperId);
-
-        if (!wrapper) {
-            wrapper = this._createIframeWrapper(node);
-            this.iframeContainer.appendChild(wrapper);
-        }
-
-        // CORRECTED: Always attempt to create the player. 
-        // The Player module will handle whether it's ready or the player already exists.
+        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+        if (!wrapper) return; // Should not happen after _ensureAllIframeWrappersExist
+        
         this.player.createYtPlayer(node);
+        
+        const isVisibleAndExpanded = this._isNodeInView(node) && !node.isCollapsed;
+        
+        if (isVisibleAndExpanded) {
+            const contentRect = this._getNodeContentRect(node);
+            const screenX = contentRect.x * this.scale + this.offset.x;
+            const screenY = contentRect.y * this.scale + this.offset.y;
+            const screenWidth = contentRect.width * this.scale;
+            const screenHeight = contentRect.height * this.scale;
 
-        const nodeRect = this._getNodeVisualRect(node);
-        const screenX = (nodeRect.x + NODE_PADDING) * this.scale + this.offset.x;
-        const screenY = (nodeRect.y + NODE_PADDING) * this.scale + this.offset.y;
-        const screenWidth = (NODE_WIDTH - NODE_PADDING * 2) * this.scale;
-        const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
-
-        wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-        wrapper.style.width = `${screenWidth}px`;
-        wrapper.style.height = `${screenHeight}px`;
-    });
-
-    const existingIframes = this.iframeContainer.querySelectorAll('.iframe-wrapper');
-    existingIframes.forEach(wrapper => {
-        const nodeId = wrapper.dataset.nodeId;
-        if (!visibleNodeIds.has(nodeId)) {
-            this.player.destroyYtPlayer(nodeId);
-            wrapper.remove();
+            wrapper.style.display = 'block';
+            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+            wrapper.style.width = `${screenWidth}px`;
+            wrapper.style.height = `${screenHeight}px`;
+        } else {
+            if (wrapper.style.display !== 'none') {
+                wrapper.style.display = 'none';
+                this.player.pauseYtPlayer(node.id);
+            }
         }
     });
   }
@@ -356,18 +324,82 @@ export default class Renderer {
       wrapper.id = `iframe-wrapper-${node.id}`;
       wrapper.dataset.nodeId = node.id;
       wrapper.className = 'iframe-wrapper';
-
+      wrapper.style.display = 'none'; // Initially hidden
       const playerDiv = document.createElement('div');
       playerDiv.id = `yt-player-${node.id}`;
-
       const dragOverlay = document.createElement('div');
       dragOverlay.className = 'drag-overlay';
-
       wrapper.appendChild(playerDiv);
       wrapper.appendChild(dragOverlay);
       return wrapper;
   }
+  
+  // --- Geometry and Coordinate Helpers ---
 
+  _getNodeVisualRect(node) {
+      const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
+      return { x: node.x, y: node.y, width: NODE_WIDTH, height: height };
+  }
+  
+  _getNodeContentRect(node) {
+    return { x: node.x, y: node.y, width: NODE_WIDTH, height: CONTENT_HEIGHT };
+  }
+  
+  _getNodeHeaderRect(node) {
+      const y = node.isCollapsed ? node.y : node.y + CONTENT_HEIGHT;
+      return { x: node.x, y: y, width: NODE_WIDTH, height: NODE_HEIGHT_COLLAPSED };
+  }
+
+  _getDecorationBounds(deco) {
+    if (deco.type === 'rectangle') {
+        return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
+    }
+    if (deco.type === 'text') {
+        const lines = this._getWrappedLines(deco);
+        const bounds = this._getTextBounds(deco, lines);
+        return { 
+            x: deco.x - bounds.width / 2, y: deco.y - bounds.height / 2, 
+            width: bounds.width, height: bounds.height 
+        };
+    }
+    return { x: deco.x, y: deco.y, width: 0, height: 0 };
+  }
+
+  getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
+    for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
+        const node = this.graphData.nodes[i];
+        const rect = this._getNodeVisualRect(node);
+        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
+            const headerRect = this._getNodeHeaderRect(node);
+            const iconX = headerRect.x + headerRect.width - TOGGLE_ICON_SIZE - 6;
+            const iconY = headerRect.y + (headerRect.height - TOGGLE_ICON_SIZE) / 2;
+            if (x > iconX && x < iconX + TOGGLE_ICON_SIZE + 4 && y > iconY - 4 && y < iconY + TOGGLE_ICON_SIZE + 4) {
+                 return { type: 'collapse_toggle', entity: node };
+            }
+            return { type: 'node', entity: node };
+        }
+    }
+    
+    const edge = this.getEdgeAt(x, y);
+    if (edge) return { type: 'edge', entity: edge };
+
+    if (!isDecorationsLocked) {
+        for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
+            const deco = this.graphData.decorations[i];
+            const bounds = this._getDecorationBounds(deco);
+            if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
+                return { type: 'decoration', entity: deco };
+            }
+        }
+    }
+    return null;
+  }
+  
+  // ... (rest of the file remains largely the same, only pasting up to here for brevity as other parts are unchanged)
+  // ... [getNodesInRect, getEdgesInRect, getDecorationsInRect, normalizeRect, getControlPointAt, etc]
+  // ... [setupCanvasInteraction]
+  // --- Unchanged methods from the previous version are omitted below ---
+  
   _getWrappedLines(textObj) {
       const { ctx } = this;
       const { textContent, fontSize, width } = textObj;
@@ -440,64 +472,10 @@ export default class Renderer {
       return { x: worldX, y: worldY };
   }
 
-  _getNodeVisualRect(node) {
-      const height = node.isCollapsed ? NODE_HEIGHT_COLLAPSED : NODE_HEIGHT_EXPANDED;
-      return { x: node.x, y: node.y, width: NODE_WIDTH, height: height };
-  }
-  
-  _getDecorationBounds(deco) {
-    if (deco.type === 'rectangle') {
-        return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
-    }
-    if (deco.type === 'text') {
-        const lines = this._getWrappedLines(deco);
-        const bounds = this._getTextBounds(deco, lines);
-        return { 
-            x: deco.x - bounds.width / 2, 
-            y: deco.y - bounds.height / 2, 
-            width: bounds.width, 
-            height: bounds.height 
-        };
-    }
-    return { x: deco.x, y: deco.y, width: 0, height: 0 };
-  }
-
-  getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
-    // Nodes are on top
-    for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
-        const node = this.graphData.nodes[i];
-        const rect = this._getNodeVisualRect(node);
-        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
-            const iconX = rect.x + rect.width - TOGGLE_ICON_SIZE - 6;
-            const iconY = rect.y + rect.height - TOGGLE_ICON_SIZE - 6;
-            if (x > iconX && y > iconY) return { type: 'collapse_toggle', entity: node };
-            return { type: 'node', entity: node };
-        }
-    }
-    
-    // Edges are in the middle
-    const edge = this.getEdgeAt(x, y);
-    if (edge) return { type: 'edge', entity: edge };
-
-    // Decorations are at the bottom and can be locked
-    if (!isDecorationsLocked) {
-        for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
-            const deco = this.graphData.decorations[i];
-            const bounds = this._getDecorationBounds(deco);
-            if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                return { type: 'decoration', entity: deco };
-            }
-        }
-    }
-
-    return null;
-  }
-  
   getNodesInRect(rect) {
     const normalizedRect = this.normalizeRect(rect);
     return this.graphData.nodes.filter(node => {
         const nodeRect = this._getNodeVisualRect(node);
-        // Check for complete inclusion
         return (
             nodeRect.x >= normalizedRect.x &&
             nodeRect.y >= normalizedRect.y &&
@@ -518,7 +496,6 @@ export default class Renderer {
       const normalizedRect = this.normalizeRect(rect);
       return this.graphData.decorations.filter(deco => {
           const decoBounds = this._getDecorationBounds(deco);
-          // Check for intersection
           return normalizedRect.x < decoBounds.x + decoBounds.width && normalizedRect.x + normalizedRect.w > decoBounds.x &&
                  normalizedRect.y < decoBounds.y + decoBounds.height && normalizedRect.y + normalizedRect.h > decoBounds.y;
       });
@@ -648,7 +625,6 @@ export default class Renderer {
           if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
           snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
       });
-      // NEW: Add other control points as snap targets
       this.graphData.edges.forEach(e => {
         (e.controlPoints || []).forEach(p => {
             if (p !== movingEntity) {

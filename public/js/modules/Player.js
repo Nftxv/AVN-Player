@@ -1,6 +1,7 @@
 /**
  * Manages audio playback, player UI updates, and lyrics loading.
- * NEW: Also manages YouTube IFrame player instances with robust state management.
+ * Manages YouTube IFrame player instances with robust state management.
+ * by Nftxv
  */
 export default class Player {
   constructor(graphData) {
@@ -13,7 +14,7 @@ export default class Player {
     this.ytPlayers = new Map();
     this.currentYtPlayer = null;
     this.isYtApiReady = false;
-    this.pendingYtPlayerCreations = new Set(); // Queue for nodes waiting for the API
+    this.pendingYtPlayerCreations = new Set();
 
     this.setupEventListeners();
   }
@@ -22,7 +23,6 @@ export default class Player {
 
   setYtApiReady() {
     this.isYtApiReady = true;
-    // Process any pending player creation requests
     this.pendingYtPlayerCreations.forEach(node => this.createYtPlayer(node));
     this.pendingYtPlayerCreations.clear();
   }
@@ -31,11 +31,10 @@ export default class Player {
     if (!node) return;
     this.currentNode = node;
 
-    // Stop all other active players (both audio and all YT videos)
     this.audio.pause();
     this.ytPlayers.forEach((player, playerId) => {
-        if (playerId !== node.id && player && typeof player.pauseVideo === 'function') {
-            player.pauseVideo();
+        if (playerId !== node.id) {
+            this.pauseYtPlayer(playerId);
         }
     });
     this.currentYtPlayer = null;
@@ -47,12 +46,10 @@ export default class Player {
     if (node.sourceType === 'audio') {
         document.getElementById('currentCover').src = node.coverUrl || 'placeholder.svg';
         if (!node.audioUrl) {
-          console.warn(`Audio URL is missing for "${node.title}".`);
           this.stop();
-          document.getElementById('songTitle').textContent = node.title;
+          document.getElementById('songTitle').textContent = `Error: No audio source for "${node.title}"`;
           return;
         }
-        
         playBtn.textContent = '⏸';
         playBtn.disabled = false;
         progress.disabled = false;
@@ -70,9 +67,6 @@ export default class Player {
         this.currentYtPlayer = this.ytPlayers.get(node.id);
         if (this.currentYtPlayer && typeof this.currentYtPlayer.playVideo === 'function') {
            this.currentYtPlayer.playVideo();
-        } else {
-           console.warn(`YouTube player for node ${node.id} not ready yet. Will play when ready.`);
-           // The renderer will keep calling createYtPlayer, it will eventually be created and played.
         }
         this.loadAndShowLyrics(null);
     }
@@ -90,14 +84,15 @@ export default class Player {
             this.audio.pause();
             playBtn.textContent = '▶';
         }
-    } else if (this.currentNode.sourceType === 'iframe' && this.currentYtPlayer) {
-        const state = this.currentYtPlayer.getPlayerState();
-        if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
-            this.currentYtPlayer.pauseVideo();
-            playBtn.textContent = '▶';
-        } else {
-            this.currentYtPlayer.playVideo();
-            playBtn.textContent = '⏸';
+    } else if (this.currentNode.sourceType === 'iframe') {
+        const player = this.ytPlayers.get(this.currentNode.id);
+        if (player && typeof player.getPlayerState === 'function') {
+            const state = player.getPlayerState();
+            if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
+                player.pauseVideo();
+            } else {
+                player.playVideo();
+            }
         }
     }
   }
@@ -107,12 +102,7 @@ export default class Player {
     this.audio.currentTime = 0;
     this.audio.src = '';
     
-    // Stop ALL youtube players
-    this.ytPlayers.forEach(player => {
-        if (player && typeof player.stopVideo === 'function') {
-            player.stopVideo();
-        }
-    });
+    this.ytPlayers.forEach((player, playerId) => this.pauseYtPlayer(playerId));
     this.currentYtPlayer = null;
 
     this.currentNode = null;
@@ -136,37 +126,41 @@ export default class Player {
       }
 
       const player = new YT.Player(`yt-player-${node.id}`, {
-          height: '100%',
-          width: '100%',
-          videoId: node.iframeUrl,
-          playerVars: {
-              'playsinline': 1,
-              'controls': 0,
-              'disablekb': 1
-          },
+          height: '100%', width: '100%', videoId: node.iframeUrl,
+          playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
           events: {
               'onReady': (event) => this.onPlayerReady(event, node),
               'onStateChange': (event) => this.onPlayerStateChange(event, node)
           }
       });
+      // Store the player instance immediately.
+      // Don't set this.currentYtPlayer here.
       this.ytPlayers.set(node.id, player);
   }
   
   onPlayerReady(event, node) {
-      // If this node is the one we're supposed to be playing right now, start it.
+      // If this node is the one we're supposed to be playing, update the current player and start it.
       if (this.currentNode && this.currentNode.id === node.id) {
-          event.target.playVideo();
           this.currentYtPlayer = event.target;
+          event.target.playVideo();
+      }
+  }
+  
+  pauseYtPlayer(nodeId) {
+      const player = this.ytPlayers.get(nodeId);
+      if (player && typeof player.pauseVideo === 'function' && typeof player.getPlayerState === 'function') {
+          const state = player.getPlayerState();
+          if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
+              player.pauseVideo();
+          }
       }
   }
 
   destroyYtPlayer(nodeId) {
-      if (this.ytPlayers.has(nodeId)) {
-          const player = this.ytPlayers.get(nodeId);
-          if (player && typeof player.destroy === 'function') {
-            player.destroy();
-          }
-          this.ytPlayers.delete(nodeId);
+      const player = this.ytPlayers.get(nodeId);
+      if (player) {
+        if (typeof player.destroy === 'function') player.destroy();
+        this.ytPlayers.delete(nodeId);
       }
   }
 
