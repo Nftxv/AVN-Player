@@ -288,7 +288,7 @@ export default class Renderer {
               overlay.style.width = `${screenWidth}px`;
               overlay.style.height = `${screenHeight}px`;
               // REVISED: Font size is now static in CSS, not scaled, to scale with its container.
-              overlay.style.fontSize = `${deco.fontSize || 14}px`;
+              overlay.style.fontSize = `${(deco.fontSize || 14) * this.scale}px`;
               overlay.classList.toggle('selected', !!deco.selected);
 
           } else if (overlay) {
@@ -495,9 +495,12 @@ export default class Renderer {
         const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
         const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
 
-        const startPoint = srcHeaderCenter;
-        const endPoint = trgHeaderCenter;
+        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
+        const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
 
+        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
+        const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
+        
         const pathPoints = [startPoint, ...controlPoints, endPoint];
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i], p2 = pathPoints[i + 1];
@@ -522,7 +525,7 @@ export default class Renderer {
   _getIntersectionWithNodeRect(node, externalPoint) {
     const rect = this._getNodeVisualRect(node);
     const cx = rect.x + rect.width / 2;
-    const cy = rect.y + rect.height / 2;
+    const cy = node.y + NODE_HEADER_HEIGHT / 2;
     const dx = externalPoint.x - cx;
     const dy = externalPoint.y - cy;
     
