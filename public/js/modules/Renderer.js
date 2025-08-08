@@ -287,8 +287,11 @@ export default class Renderer {
               overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
               overlay.style.width = `${screenWidth}px`;
               overlay.style.height = `${screenHeight}px`;
+
               // REVISED: Font size is now static in CSS, not scaled, to scale with its container.
-              overlay.style.fontSize = `${deco.fontSize || 14}px`;
+              overlay.style.fontSize = `${(deco.fontSize || 14) * Math.sqrt(this.scale)}px`;
+              //overlay.style.fontSize = `${(deco.fontSize || 14) * this.scale}px`;
+
               overlay.classList.toggle('selected', !!deco.selected);
 
           } else if (overlay) {
@@ -523,7 +526,15 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-    const rect = this._getNodeVisualRect(node);
+    // ALWAYS use the header's rectangle for intersection calculation.
+    // This prevents lines from jumping when a node is expanded or collapsed.
+    const rect = { 
+        x: node.x, 
+        y: node.y, 
+        width: NODE_WIDTH, 
+        height: NODE_HEADER_HEIGHT 
+    };
+
     const cx = rect.x + rect.width / 2;
     const cy = rect.y + rect.height / 2;
     const dx = externalPoint.x - cx;
@@ -534,7 +545,7 @@ export default class Renderer {
     const t = 0.5 / Math.max(Math.abs(dx) / rect.width, Math.abs(dy) / rect.height);
     
     return { x: cx + t * dx, y: cy + t * dy };
-  }
+  }  
   
   drawTemporaryEdge() {
     const ctx = this.ctx;
