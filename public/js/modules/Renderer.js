@@ -249,6 +249,10 @@ export default class Renderer {
         if (node.sourceType !== 'iframe') return;
         const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
         if (!wrapper) return;
+
+        wrapper.classList.toggle('selected', !!node.selected);      // For Editor Mode
+        wrapper.classList.toggle('highlighted', !!node.highlighted); // For Player Mode
+
         const isInView = this._isNodeInView(node);
         const shouldBeVisible = !node.isCollapsed && isInView;
         if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
