@@ -120,14 +120,14 @@ export default class Renderer {
       const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
       const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
       
-      // The line should AIM at the HEADER of the other node for a clean look.
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
 
-      // The intersection function will correctly find the border of the VISIBLE rectangle.
-      const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-      const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);      
-      const pathPoints = [startPoint, ...controlPoints, endPoint];
+      // The intersection is calculated from the INVARIANT header center, but with the VISIBLE node rectangle.
+      // This keeps the connection angle consistent regardless of the collapsed state.
+      const startPoint = this._calculateIntersection(this._getNodeVisualRect(src), srcHeaderCenter, targetPointForAngle);
+      const endPoint = this._calculateIntersection(this._getNodeVisualRect(trg), trgHeaderCenter, sourcePointForAngle);
+      const pathPoints = [startPoint, ...controlPoints, endPoint];      
       const ctx = this.ctx;
       ctx.save();
       
@@ -527,20 +527,32 @@ export default class Renderer {
       this.ctx.lineTo(-size, size * 0.4); this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill(); this.ctx.restore();
   }
   
-  _getIntersectionWithNodeRect(node, externalPoint) {
-    const rect = this._getNodeVisualRect(node);
-    const cx = rect.x + rect.width / 2;
-    const cy = rect.y + rect.height / 2;
-    const dx = externalPoint.x - cx;
-    const dy = externalPoint.y - cy;
-    
-    if (dx === 0 && dy === 0) return {x: cx, y: cy};
+/**
+   * Calculates the intersection of a ray with a rectangle.
+   * The ray originates from a fixed point (rayOrigin) and goes towards a target point.
+   * @param {object} rect - The rectangle to intersect with {x, y, width, height}.
+   * @param {object} rayOrigin - The logical origin of the ray {x, y}.
+   * @param {object} rayTarget - The point the ray is aiming at {x, y}.
+   * @returns {object} The intersection point {x, y}.
+   */
+  _calculateIntersection(rect, rayOrigin, rayTarget) {
+    const dx = rayTarget.x - rayOrigin.x;
+    const dy = rayTarget.y - rayOrigin.y;
+
+    if (dx === 0 && dy === 0) return { x: rayOrigin.x, y: rayOrigin.y };
 
     const t = 0.5 / Math.max(Math.abs(dx) / rect.width, Math.abs(dy) / rect.height);
     
-    return { x: cx + t * dx, y: cy + t * dy };
+    // We only need to find the intersection point on the rect border, not check if it's inside
+    const ix = rayOrigin.x + t * dx;
+    const iy = rayOrigin.y + t * dy;
+
+    return {
+        x: Math.max(rect.x, Math.min(rect.x + rect.width, ix)),
+        y: Math.max(rect.y, Math.min(rect.y + rect.height, iy)),
+    };
   }
-  
+    
   drawTemporaryEdge() {
     const ctx = this.ctx;
     const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
