@@ -576,14 +576,14 @@ export default class Renderer {
     this.isAnimatingPan = true;
     const finalScale = targetScale !== null ? targetScale : this.scale;
     
-    // REVISED: screenOffset is now the offset of the node from the screen center
     const finalScreenOffset = screenOffset || { x: 0, y: 0 };
     
     const nodeCenterX = node.x + NODE_WIDTH / 2;
     const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
     
-    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) - finalScreenOffset.x;
-    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) - finalScreenOffset.y;
+    // **FIXED LINE** The screen offset must be ADDED to the center, not subtracted.
+    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) + finalScreenOffset.x;
+    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) + finalScreenOffset.y;
 
     const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
     const startScale = this.scale;
