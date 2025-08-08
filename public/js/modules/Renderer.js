@@ -527,32 +527,66 @@ export default class Renderer {
       this.ctx.lineTo(-size, size * 0.4); this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill(); this.ctx.restore();
   }
   
-/**
-   * Calculates the intersection of a ray with a rectangle.
-   * The ray originates from a fixed point (rayOrigin) and goes towards a target point.
-   * @param {object} rect - The rectangle to intersect with {x, y, width, height}.
-   * @param {object} rayOrigin - The logical origin of the ray {x, y}.
-   * @param {object} rayTarget - The point the ray is aiming at {x, y}.
-   * @returns {object} The intersection point {x, y}.
-   */
-  _calculateIntersection(rect, rayOrigin, rayTarget) {
-    const dx = rayTarget.x - rayOrigin.x;
-    const dy = rayTarget.y - rayOrigin.y;
+_getIntersectionWithNodeRect(node, externalPoint) {
+    const rect = this._getNodeVisualRect(node);
+    // The ray MUST originate from the stable header center for consistent angles.
+    const rayOrigin = { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEADER_HEIGHT / 2 };
 
-    if (dx === 0 && dy === 0) return { x: rayOrigin.x, y: rayOrigin.y };
+    const dir = { x: externalPoint.x - rayOrigin.x, y: externalPoint.y - rayOrigin.y };
 
-    const t = 0.5 / Math.max(Math.abs(dx) / rect.width, Math.abs(dy) / rect.height);
+    // If target is the same as the origin, return the origin.
+    if (Math.abs(dir.x) < 1e-6 && Math.abs(dir.y) < 1e-6) {
+      return rayOrigin;
+    }
+
+    // Robust Ray-AABB intersection logic.
+    // We calculate the `t` parameter for the ray to hit each of the four sides of the rect.
+    let t_values = [];
+
+    // Check intersection with vertical sides (left, right)
+    if (Math.abs(dir.x) > 1e-6) {
+      let t1 = (rect.x - rayOrigin.x) / dir.x; // Left side
+      let t2 = (rect.x + rect.width - rayOrigin.x) / dir.x; // Right side
+      // Check if intersection point is within segment bounds
+      let y1 = rayOrigin.y + t1 * dir.y;
+      if (t1 >= 0 && y1 >= rect.y && y1 <= rect.y + rect.height) t_values.push(t1);
+      let y2 = rayOrigin.y + t2 * dir.y;
+      if (t2 >= 0 && y2 >= rect.y && y2 <= rect.y + rect.height) t_values.push(t2);
+    }
+
+    // Check intersection with horizontal sides (top, bottom)
+    if (Math.abs(dir.y) > 1e-6) {
+      let t3 = (rect.y - rayOrigin.y) / dir.y; // Top side
+      let t4 = (rect.y + rect.height - rayOrigin.y) / dir.y; // Bottom side
+       // Check if intersection point is within segment bounds
+      let x3 = rayOrigin.x + t3 * dir.x;
+      if (t3 >= 0 && x3 >= rect.x && x3 <= rect.x + rect.width) t_values.push(t3);
+      let x4 = rayOrigin.x + t4 * dir.x;
+      if (t4 >= 0 && x4 >= rect.x && x4 <= rect.x + rect.width) t_values.push(x4);
+    }
     
-    // We only need to find the intersection point on the rect border, not check if it's inside
-    const ix = rayOrigin.x + t * dx;
-    const iy = rayOrigin.y + t * dy;
+    // If we have valid intersection points, find the closest one.
+    if (t_values.length > 0) {
+      const t = Math.min(...t_values);
+      // Ensure we don't go past the target (e.g. for control points inside the node)
+      if (t <= 1.0) {
+        return { x: rayOrigin.x + t * dir.x, y: rayOrigin.y + t * dir.y };
+      }
+    }
 
-    return {
-        x: Math.max(rect.x, Math.min(rect.x + rect.width, ix)),
-        y: Math.max(rect.y, Math.min(rect.y + rect.height, iy)),
-    };
+    // Fallback if no intersection found or if target is inside the node area
+    // In this case, the connection point is the target itself.
+    // This is important for edges with control points inside the node bounds.
+    const targetIsInside = externalPoint.x >= rect.x && externalPoint.x <= rect.x + rect.width &&
+                           externalPoint.y >= rect.y && externalPoint.y <= rect.y + rect.height;
+    if(targetIsInside) {
+        return externalPoint;
+    }
+
+    // Final fallback to prevent errors
+    return rayOrigin;
   }
-    
+  
   drawTemporaryEdge() {
     const ctx = this.ctx;
     const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
