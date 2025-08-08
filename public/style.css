@@ -7,8 +7,6 @@
   --dark-text: #e0e0e0;
   --dark-subtle-text: #9e9e9e;
   --dark-border: #424242;
-  --danger-color: #e74c3c;
-  --danger-hover: #c0392b;
 }
 
 body {
@@ -31,6 +29,7 @@ canvas:active {
   cursor: grabbing;
 }
 
+/* NEW: Iframe container sits on top of the canvas */
 #iframe-container {
   position: absolute;
   top: 0;
@@ -42,13 +41,16 @@ canvas:active {
   overflow: hidden;
 }
 
+/* NEW: Wrapper for each individual iframe */
 .iframe-wrapper {
   position: absolute;
   box-sizing: border-box;
   background-color: #000;
   border: 1px solid #444;
+  /* width, height, and transform are set by JS */
 }
 
+/* NEW: The actual iframe element */
 .iframe-wrapper iframe {
   width: 100%;
   height: 100%;
@@ -56,6 +58,7 @@ canvas:active {
   pointer-events: auto; /* Iframes are clickable */
 }
 
+/* NEW: Drag overlay to intercept clicks on iframe while dragging */
 .iframe-wrapper .drag-overlay {
   position: absolute;
   top: 0;
@@ -66,6 +69,7 @@ canvas:active {
   display: none; /* Hidden by default */
 }
 
+/* NEW: When dragging, show the overlay */
 body.is-dragging .drag-overlay {
   display: block;
   pointer-events: auto; /* It catches the click */
@@ -86,20 +90,6 @@ button, .button-like {
 button:hover, .button-like:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
-}
-
-button:disabled {
-    background: #555;
-    cursor: not-allowed;
-    transform: none;
-}
-
-/* NEW: Style for the active lock button */
-button#lockDecorationsBtn.active {
-    background-color: var(--danger-color);
-}
-button#lockDecorationsBtn.active:hover {
-    background-color: var(--danger-hover);
 }
 
 #player {
@@ -174,12 +164,6 @@ button#lockDecorationsBtn.active:hover {
 
 .hidden { display: none !important; }
 
-#choiceModal {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
-  justify-content: center; align-items: center; padding: 15px;
-}
-
 .modal-content {
   background: var(--dark-surface);
   padding: 25px;
@@ -250,22 +234,13 @@ input:checked + .slider:before { transform: translateX(20px); }
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input, #inspectorContent select, #inspectorContent textarea {
+#inspectorContent input {
   width: 95%; padding: 8px; border-radius: 4px;
   background-color: #3c3c3c;
   border: 1px solid #555;
   color: var(--dark-text);
-  margin-top: 2px;
 }
-#inspectorContent input[type="color"]{
-    width: 100%;
-    height: 30px;
-    padding: 2px;
-}
-#inspectorContent textarea {
-    resize: vertical;
-    min-height: 60px;
-}
+/* Inspector Toggle Switch */
 .toggle-switch {
     display: flex;
     border: 1px solid #555;
@@ -284,6 +259,19 @@ input:checked + .slider:before { transform: translateX(20px); }
     background: var(--primary-color);
     color: white;
 }
+
+#settingsModal, #choiceModal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
+  justify-content: center; align-items: center; padding: 15px;
+}
+
+.modal-content label { display: block; margin-bottom: 5px; }
+.modal-content input {
+  width: 95%; padding: 8px; margin-bottom: 15px;
+  background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text);
+}
+.modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }

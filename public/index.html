@@ -27,34 +27,42 @@
     <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
     <div class="divider"></div>
 
-    <!-- Player Mode Controls (now empty) -->
+    <!-- Player Mode Controls -->
     <div id="playerModeControls">
+      <button id="exportBtn">Export Graph</button>
+      <button id="resetBtn">Reset</button>
     </div>
 
     <!-- Editor Mode Controls (hidden by default) -->
     <div id="editorModeControls">
       <button id="addNodeBtn" title="Add New Node">Add Node</button>
-      <div class="divider"></div>
-      <button id="addRectBtn" title="Add Rectangle Shape">Add Rect</button>
-      <button id="addTextBtn" title="Add Text Label">Add Text</button>
-      <button id="lockDecorationsBtn" title="Lock/Unlock Decorations">🔓</button>
-      <div class="divider"></div>
-      <button id="exportBtn">Export Graph</button>
-      <button id="resetBtn">Reset</button>
-      <div class="divider"></div>
       <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
+      <button id="settingsBtn" title="Global Settings">⚙️</button>
     </div>
   </div>
 
   <!-- Properties Inspector Panel (hidden) -->
   <div id="inspectorPanel" class="hidden">
-      <h4>Properties</h4>
+      <h4>Node Properties</h4>
       <div id="inspectorContent"></div>
       <button id="saveNodeBtn">Save Changes</button>
       <button id="closeInspectorBtn">Close</button>
   </div>
 
-  <!-- Player and other UI -->
+  <!-- Global Settings Modal (hidden) -->
+  <div id="settingsModal" class="hidden">
+      <div class="modal-content">
+          <h3>Global Settings</h3>
+          <label for="ipfsGatewayInput">Default IPFS Gateway:</label>
+          <input type="text" id="ipfsGatewayInput" placeholder="https://gateway.pinata.cloud/ipfs/">
+          <div class="modal-buttons">
+            <button id="saveSettingsBtn">Save</button>
+            <button id="closeSettingsBtn">Cancel</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- Main Player Interface -->
   <div id="player">
     <img id="currentCover" src="placeholder.svg" alt="Album cover">
     <div id="playerContent">
@@ -69,10 +77,14 @@
       </div>
     </div>
   </div>
+
+  <!-- Lyrics Container (hidden) -->
   <div id="lyricsContainer" class="hidden">
     <pre id="lyricsText">Loading lyrics...</pre>
     <button id="closeLyricsBtn" title="Close">×</button>
   </div>
+
+  <!-- Branching Choice Modal (hidden) -->
   <div id="choiceModal" class="hidden">
     <div class="modal-content">
       <h3>Choose the next step:</h3>
@@ -81,7 +93,10 @@
       <button id="closeModalBtn">Cancel</button>
     </div>
   </div>
+  
   <script src="js/app.js" type="module"></script>
+
+  <!-- Copyright Footer -->
   <footer id="copyright">
     AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank">AbyssVoid.com</a>
   </footer>

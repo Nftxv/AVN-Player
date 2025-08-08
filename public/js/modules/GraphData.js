@@ -1,11 +1,10 @@
 /**
- * Manages the graph's data, including loading, parsing, and providing access to all entities.
+ * Manages the graph's data, including loading, parsing, and providing access to nodes and edges.
  */
 export default class GraphData {
   constructor() {
     this.nodes = [];
     this.edges = [];
-    this.decorations = [];
     this.meta = {};
   }
 
@@ -21,71 +20,38 @@ export default class GraphData {
   }
 
   /**
-   * Parses the raw JSON-LD data and populates nodes, edges, and decorations.
+   * Parses the raw JSON-LD data and populates nodes, edges, and metadata.
    * @param {object} data - The raw data object from the JSON file.
    */
   parseData(data) {
     this.meta = data.meta || {};
     const graph = data['@graph'] || [];
 
-    // Clear existing data
-    this.nodes = [];
-    this.edges = [];
-    this.decorations = [];
+    this.nodes = graph
+      .filter(item => item['@type'] === 'MusicRecording')
+      .map(node => ({
+        id: node['@id'],
+        title: node.name || 'Untitled',
+        x: node.position?.x || Math.random() * 800,
+        y: node.position?.y || Math.random() * 600,
+        isCollapsed: node.isCollapsed === true,
+        sourceType: node.sourceType || 'audio', // 'audio' or 'iframe'
+        audioUrl: node.audioUrl || null,
+        coverUrl: node.coverUrl || null,
+        lyricsUrl: node.lyricsUrl || null,
+        iframeUrl: node.iframeUrl || null,
+      }));
 
-    graph.forEach(item => {
-      switch (item['@type']) {
-        case 'MusicRecording':
-          this.nodes.push({
-            id: item['@id'],
-            title: item.name || 'Untitled',
-            x: item.position?.x || 0,
-            y: item.position?.y || 0,
-            isCollapsed: item.isCollapsed === true,
-            sourceType: item.sourceType || 'audio',
-            audioUrl: item.audioUrl || null,
-            coverUrl: item.coverUrl || null,
-            lyricsUrl: item.lyricsUrl || null,
-            iframeUrl: item.iframeUrl || null,
-          });
-          break;
-        case 'Path':
-          this.edges.push({
-            source: item.source,
-            target: item.target,
-            color: item.color || '#888888',
-            label: item.label || '',
-            lineWidth: item.lineWidth || 2,
-            controlPoints: item.controlPoints || [],
-          });
-          break;
-        case 'RectangleAnnotation':
-          this.decorations.push({
-            id: item['@id'],
-            type: 'rectangle',
-            x: item.position?.x || 0,
-            y: item.position?.y || 0,
-            width: item.size?.width || 200,
-            height: item.size?.height || 100,
-            backgroundColor: item.backgroundColor || '#333333',
-          });
-          break;
-        case 'TextAnnotation':
-          this.decorations.push({
-            id: item['@id'],
-            type: 'text',
-            x: item.position?.x || 0,
-            y: item.position?.y || 0,
-            textContent: item.textContent || '',
-            fontSize: item.fontSize || 16,
-            color: item.color || '#FFFFFF',
-            textAlign: item.textAlign || 'left',
-            width: item.width, // NEW
-            lineHeight: item.lineHeight || 1.2, // NEW
-          });
-          break;
-      }
-    });
+    this.edges = graph
+      .filter(item => item['@type'] === 'Path')
+      .map(edge => ({
+        source: edge.source,
+        target: edge.target,
+        color: edge.color || '#888888',
+        label: edge.label || '',
+        lineWidth: edge.lineWidth || 2,
+        controlPoints: edge.controlPoints || [],
+      }));
   }
 
   /**
@@ -114,31 +80,7 @@ export default class GraphData {
         label: e.label,
         lineWidth: e.lineWidth,
         controlPoints: e.controlPoints,
-      })),
-      ...this.decorations.map(d => {
-        const common = { '@id': d.id, position: { x: d.x, y: d.y } };
-        if (d.type === 'rectangle') {
-          return {
-            ...common,
-            '@type': 'RectangleAnnotation',
-            size: { width: d.width, height: d.height },
-            backgroundColor: d.backgroundColor,
-          };
-        }
-        if (d.type === 'text') {
-          return {
-            ...common,
-            '@type': 'TextAnnotation',
-            textContent: d.textContent,
-            fontSize: d.fontSize,
-            color: d.color,
-            textAlign: d.textAlign,
-            width: d.width, // NEW
-            lineHeight: d.lineHeight, // NEW
-          };
-        }
-        return null;
-      }).filter(Boolean),
+      }))
     ];
     return {
       '@context': 'https://schema.org/',
