@@ -163,19 +163,20 @@ export default class EditorTools {
           console.log(`Attached container ${container.id} to node ${node.id}`);
           this.updateSelection([node, container], 'set');
       }
+      this.updateUIState();
   }
 
   deleteSelection() {
     if (this.selectedEntities.length === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.length} item(s)?`)) {
         return;
     }
-    this.closeInspector();
     
     this.selectedEntities.forEach(entity => {
       if (entity.sourceType === 'iframe') this.app.player.destroyYtPlayer(entity.id);
       if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
     });
 
+    this.closeInspector(); // Close inspector before deleting its entity
     this.graphData.deleteEntities(this.selectedEntities);
     this.updateSelection([], 'set');
   }
@@ -220,6 +221,7 @@ export default class EditorTools {
       this.updateUIState();
   }
   
+  // START FIX: Replaced lines 224-259
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
 
@@ -251,18 +253,22 @@ export default class EditorTools {
           attachBtn.title = 'Attach selected container to the selected node';
       }
 
-      if (this.selectedEntities.length === 1 && !this.selectedEntities[0].source) { // Don't open for edges yet
+      // MANAGE INSPECTOR VISIBILITY (This breaks the recursive loop)
+      if (this.selectedEntities.length === 1 && !this.selectedEntities[0].source) {
           this.openInspector(this.selectedEntities[0]);
       } else {
-          this.closeInspector();
+          this.inspectedEntity = null;
+          document.getElementById('inspectorPanel').classList.add('hidden');
       }
   }
+  // END FIX
 
   getSelection() {
     return this.selectedEntities;
   }
 
   openInspector(entity) {
+    if (this.inspectedEntity?.id === entity.id) return; // Already open for this entity
     this.inspectedEntity = entity;
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
@@ -326,11 +332,9 @@ export default class EditorTools {
       `;
   }
 
-  _setupNodeInspectorLogic(node) {
-      const audioBtn = document.getElementById('type-audio');
-      const iframeBtn = document.getElementById('type-iframe');
-      audioBtn.addEventListener('click', () => this._setSourceTypeUI('audio'));
-      iframeBtn.addEventListener('click', () => this._setSourceTypeUI('iframe'));
+  _setupNodeInspectorLogic() {
+      document.getElementById('type-audio').addEventListener('click', () => this._setSourceTypeUI('audio'));
+      document.getElementById('type-iframe').addEventListener('click', () => this._setSourceTypeUI('iframe'));
   }
 
   _setSourceTypeUI(type) {
@@ -352,12 +356,8 @@ export default class EditorTools {
           let replacement = '';
 
           switch (type) {
-              case 'bold':
-                  replacement = `**${selectedText || 'bold text'}**`;
-                  break;
-              case 'italic':
-                  replacement = `*${selectedText || 'italic text'}*`;
-                  break;
+              case 'bold': replacement = `**${selectedText || 'bold text'}**`; break;
+              case 'italic': replacement = `*${selectedText || 'italic text'}*`; break;
               case 'link':
                   const url = prompt('Enter link URL:', 'https://');
                   if (url) replacement = `[${selectedText || 'link text'}](${url})`;
@@ -410,16 +410,15 @@ export default class EditorTools {
     }
   }
 
+  // START FIX: Replaced lines 409-422
   closeInspector() {
-    if (this.inspectedEntity) {
-        const entity = this.graphData.getEntityById(this.inspectedEntity.id);
-        if (entity) entity.selected = false;
-        this.inspectedEntity = null;
-    }
-    this.selectedEntities = this.selectedEntities.filter(e => e.id !== this.inspectedEntity?.id);
-    document.getElementById('inspectorPanel').classList.add('hidden');
-    this.updateUIState();
+    if (!this.inspectedEntity) return;
+    // The user clicked the close button, so we should deselect the item.
+    // This will trigger updateSelection, which will in turn call updateUIState,
+    // which will then correctly hide the inspector.
+    this.updateSelection([this.inspectedEntity], 'remove');
   }
+  // END FIX
   
   addControlPointAt(edge, position) {
       if (!edge || !position) return;
