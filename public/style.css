@@ -55,11 +55,6 @@ canvas:active {
     padding: 3px; 
 }
 
-.iframe-wrapper.highlighted { /* Outline for PLAYER */
-    background-color: #c2a974;
-    padding: 3px; 
-}
-
 .iframe-wrapper iframe {
   width: 100%;
   height: 100%;

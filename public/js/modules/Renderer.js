@@ -205,21 +205,24 @@ export default class Renderer {
     }
   }
 
-  _drawNodeHeader(node) {
+_drawNodeHeader(node) {
     const ctx = this.ctx;
     ctx.save();
+    
+    // Draw header background
     ctx.fillStyle = '#2d2d2d';
     const cornerRadius = 8;
     ctx.beginPath();
     ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, cornerRadius, cornerRadius]);
     ctx.fill();
     
-    ctx.strokeStyle = (node.selected || node.highlighted) 
-        ? (node.selected ? '#7febfb' : '#c2a974')
-        : '#424242';
-    ctx.lineWidth = (node.selected || node.highlighted) ? 3 : 1;
+    // --- REVISED BORDER & HIGHLIGHT LOGIC ---
+    // The border is now ONLY for editor selection (red) or default state.
+    ctx.strokeStyle = node.selected ? '#7febfb' : '#424242';
+    ctx.lineWidth = node.selected ? 2 : 1;
     ctx.stroke();
 
+    // Draw title text
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px "Segoe UI"';
     ctx.textAlign = 'center';
@@ -228,6 +231,27 @@ export default class Renderer {
     const titleX = node.x + NODE_WIDTH / 2;
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
     ctx.fillText(fittedTitle, titleX, titleY);
+
+    // --- NEW: Draw player mode highlight indicator ---
+    // If the node is active in player mode, draw a green circle.
+    if (node.highlighted) {
+        const radius = 5;
+        const padding = 8;
+        const circleX = node.x + padding;
+        const circleY = node.y + NODE_HEADER_HEIGHT - padding;
+        
+        ctx.fillStyle = '#2ecc71'; // A nice, modern green
+        ctx.beginPath();
+        ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Optional: add a subtle inner dot to make it look "live"
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        ctx.arc(circleX, circleY, radius * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
     ctx.restore();
   }
 
