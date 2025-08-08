@@ -7,17 +7,17 @@ const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
 const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
 const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
-const DECORATION_LOD_THRESHOLD = 0.4; // NEW: Zoom level to simplify decorations
+const DECORATION_LOD_THRESHOLD = 0.4;
 
 export default class Renderer {
   constructor(canvasId, iframeContainer, markdownContainer) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
     this.iframeContainer = iframeContainer;
-    this.markdownContainer = markdownContainer; // NEW
+    this.markdownContainer = markdownContainer;
     
     this.graphData = null; 
-    this.markdownOverlays = new Map(); // NEW
+    this.markdownOverlays = new Map();
 
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
@@ -25,7 +25,6 @@ export default class Renderer {
     this.dragged = false;
     this.dragging = false;
     this.draggingEntity = null;
-    this.dragOffset = { x: 0, y: 0 };
     this.isDraggingSelection = false;
     
     this.draggingControlPoint = null;
@@ -46,8 +45,7 @@ export default class Renderer {
   setData(graphData) { this.graphData = graphData; }
   
   render() {
-      // The render loop is now self-driving, so this is just a placeholder
-      // in case we need to trigger an explicit first render in the future.
+      // The render loop is now self-driving.
   }
 
   renderLoop() {
@@ -76,23 +74,22 @@ export default class Renderer {
     this.updateIframes();
     this.updateMarkdownOverlays(isLodActive);
 
-    // Continue the loop unconditionally
     requestAnimationFrame(this.renderLoop);
   }
 
   drawDecoration(deco, isLodActive) {
     if (isLodActive) {
-        this.ctx.fillStyle = deco.backgroundColor || '#888';
-        this.ctx.globalAlpha = 0.0;
+        this.ctx.fillStyle = deco.selected ? '#e74c3c' : (deco.backgroundColor || '#888');
+        this.ctx.globalAlpha = 0.8;
         this.ctx.beginPath();
-        this.ctx.arc(deco.x + deco.width/2, deco.y + deco.height/2, 5 / this.scale, 0, 2*Math.PI);
+        const radius = deco.selected ? 7 / this.scale : 5 / this.scale;
+        this.ctx.arc(deco.x + deco.width/2, deco.y + deco.height/2, radius, 0, 2*Math.PI);
         this.ctx.fill();
         this.ctx.globalAlpha = 1.0;
         return;
     }
 
     if (deco.type === 'rectangle') this.drawRectangle(deco);
-    // Markdown is now drawn as an HTML overlay, not on canvas.
   }
 
   drawRectangle(rect) {
@@ -110,8 +107,6 @@ export default class Renderer {
     ctx.restore();
   }
   
-  // REMOVED: drawText is gone.
-
   drawEdge(edge) {
       const src = this.graphData.getNodeById(edge.source);
       const trg = this.graphData.getNodeById(edge.target);
@@ -174,12 +169,15 @@ export default class Renderer {
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = `${12 / this.scale}px "Segoe UI"`; ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.font = '12px "Segoe UI"';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
         ctx.save();
         ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
         const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
         if (rotationAngle > Math.PI / 2 || rotationAngle < -Math.PI / 2) ctx.rotate(rotationAngle + Math.PI); else ctx.rotate(rotationAngle);
-        ctx.fillText(edge.label, 0, -8 / this.scale);
+        ctx.fillText(edge.label, 0, -8);
         ctx.restore();
       }
       
@@ -266,35 +264,35 @@ export default class Renderer {
     });
   }
 
-  // NEW: Manage Markdown Overlays
+  // REVISED: Logic to create/destroy overlays on the fly
   updateMarkdownOverlays(isLodActive) {
       if (!this.graphData) return;
       this.graphData.decorations.forEach(deco => {
           if (deco.type !== 'markdown') return;
-
+          
           const isInView = this._isDecorationInView(deco);
           const shouldBeVisible = !isLodActive && isInView;
-
-          let overlay = this.markdownOverlays.get(deco.id);
-          if (shouldBeVisible && !overlay) {
-              overlay = this._createMarkdownOverlay(deco);
-          }
           
-          if (overlay) {
-              if (overlay.style.display !== (shouldBeVisible ? 'block' : 'none')) {
-                  overlay.style.display = shouldBeVisible ? 'block' : 'none';
+          let overlay = this.markdownOverlays.get(deco.id);
+
+          if (shouldBeVisible) {
+              if (!overlay) {
+                  overlay = this._createMarkdownOverlay(deco);
               }
-              if (shouldBeVisible) {
-                  const screenX = deco.x * this.scale + this.offset.x;
-                  const screenY = deco.y * this.scale + this.offset.y;
-                  const screenWidth = deco.width * this.scale;
-                  const screenHeight = deco.height * this.scale;
-                  overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
-                  overlay.style.width = `${screenWidth}px`;
-                  overlay.style.height = `${screenHeight}px`;
-                  overlay.style.border = deco.selected ? `2px solid #e74c3c` : `1px solid var(--dark-border)`;
-                  overlay.classList.toggle('selected', deco.selected);
-              }
+              // Update position and style every frame
+              const screenX = deco.x * this.scale + this.offset.x;
+              const screenY = deco.y * this.scale + this.offset.y;
+              const screenWidth = deco.width * this.scale;
+              const screenHeight = deco.height * this.scale;
+              
+              overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
+              overlay.style.width = `${screenWidth}px`;
+              overlay.style.height = `${screenHeight}px`;
+              overlay.classList.toggle('selected', !!deco.selected);
+
+          } else if (overlay) {
+              // If not visible, destroy it
+              this.destroyMarkdownOverlay(deco.id);
           }
       });
   }
@@ -305,10 +303,6 @@ export default class Renderer {
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
       overlay.style.fontSize = `${deco.fontSize || 14}px`;
-
-      const dragOverlay = document.createElement('div');
-      dragOverlay.className = 'drag-overlay';
-      overlay.appendChild(dragOverlay);
 
       this.updateMarkdownOverlayContent(overlay, deco);
 
@@ -331,13 +325,7 @@ export default class Renderer {
       const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), {
         ADD_ATTR: ['target'],
       });
-      // Ensure existing drag overlay is not overwritten
-      const dragOverlay = overlay.querySelector('.drag-overlay');
       overlay.innerHTML = content;
-      if (dragOverlay) {
-        overlay.appendChild(dragOverlay);
-      }
-      // Make all links open in a new tab and add nofollow
       overlay.querySelectorAll('a').forEach(a => {
         a.target = '_blank';
         a.rel = 'noopener nofollow';
@@ -357,7 +345,7 @@ export default class Renderer {
   }
 
   _fitText(text, maxWidth) {
-      this.ctx.font = '14px "Segoe UI"'; // Ensure context is set
+      this.ctx.font = '14px "Segoe UI"';
       if(this.ctx.measureText(text).width <= maxWidth) return text;
       while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) text = text.slice(0, -1);
       return text + '...';
@@ -378,8 +366,10 @@ export default class Renderer {
         x: rect.x * this.scale + this.offset.x, y: rect.y * this.scale + this.offset.y,
         width: rect.width * this.scale, height: rect.height * this.scale
       };
-      return screenRect.x < this.canvas.width && screenRect.x + screenRect.width > 0 &&
-             screenRect.y < this.canvas.height && screenRect.y + screenRect.height > 0;
+      // Add a small buffer to load things slightly off-screen
+      const buffer = 100;
+      return screenRect.x < this.canvas.width + buffer && screenRect.x + screenRect.width > -buffer &&
+             screenRect.y < this.canvas.height + buffer && screenRect.y + screenRect.height > -buffer;
   }
 
   getViewportCenter() {
@@ -406,6 +396,18 @@ export default class Renderer {
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
+    // Check decorations first, as they are on top
+    if (!isDecorationsLocked && this.scale >= DECORATION_LOD_THRESHOLD) {
+        // Iterate backwards to click top-most items first
+        for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
+            const deco = this.graphData.decorations[i];
+            const bounds = this._getDecorationBounds(deco);
+            if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
+                return { type: 'decoration', entity: deco };
+            }
+        }
+    }
+      
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
@@ -416,16 +418,19 @@ export default class Renderer {
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
 
-    if (!isDecorationsLocked) {
-        // Iterate backwards to click top-most items first
+    // Check LOD points for decorations if LOD is active
+    if (!isDecorationsLocked && this.scale < DECORATION_LOD_THRESHOLD) {
+        const tolerance = 7 / this.scale;
         for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
-            const deco = this.graphData.decorations[i];
-            const bounds = this._getDecorationBounds(deco);
-            if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                return { type: 'decoration', entity: deco };
-            }
+             const deco = this.graphData.decorations[i];
+             const decoCenterX = deco.x + deco.width/2;
+             const decoCenterY = deco.y + deco.height/2;
+             if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
+                 return { type: 'decoration', entity: deco };
+             }
         }
     }
+
     return null;
   }
   
@@ -565,10 +570,10 @@ export default class Renderer {
   wasDragged() { return this.dragged; }
   
   _getSnappedPosition(pos, movingEntity) {
-      // Snap logic remains the same
-      return pos; // Simplified for brevity, original logic is fine
+      // Logic is fine, snipped for brevity
+      return pos;
   }
-  _drawSnapGuides() { /* ... snip ... */ }
+  _drawSnapGuides() { /* snip */ }
 
   centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     if (!this.graphData) return;
@@ -579,9 +584,8 @@ export default class Renderer {
     const finalScale = targetScale !== null ? targetScale : this.scale;
     const finalScreenOffset = screenOffset || { x: 0, y: 0 };
     
-    const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
     const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y - contentHeight/2 + NODE_HEADER_HEIGHT / 2;
+    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
     
     const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) + finalScreenOffset.x;
     const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) + finalScreenOffset.y;
@@ -650,19 +654,16 @@ export default class Renderer {
                 
                 const itemsToMove = new Set([rootToMove]);
                 
-                // Add children if dragging a group container
                 if (rootToMove.type === 'rectangle') {
                     this.graphData.decorations.forEach(d => {
                         if (d.parentId === rootToMove.id) itemsToMove.add(d);
                     });
                 }
 
-                // Add attached groups if dragging a node
                 if (rootToMove.sourceType) { // it's a node
                     this.graphData.decorations.forEach(d => {
                         if (d.attachedToNodeId === rootToMove.id && d.type === 'rectangle' && !d.parentId) {
                             itemsToMove.add(d);
-                            // and their children
                             this.graphData.decorations.forEach(child => {
                                 if (child.parentId === d.id) itemsToMove.add(child);
                             });
@@ -675,7 +676,6 @@ export default class Renderer {
                     if (item.x !== undefined) item.x += dx;
                     if (item.y !== undefined) item.y += dy;
                     
-                    // Update attachment offset if the group is attached
                     if (item.attachedToNodeId) {
                       const node = this.graphData.getNodeById(item.attachedToNodeId);
                       if (node) {

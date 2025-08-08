@@ -85,6 +85,7 @@ export default class EditorTools {
         x: center.x - 150, y: center.y - 100,
         width: 300, height: 200,
         textContent: '### New Block\n\nEdit content in the inspector.',
+        fontSize: 14,
         backgroundColor: 'rgba(45, 45, 45, 0.85)',
         parentId: null,
     };
@@ -107,7 +108,6 @@ export default class EditorTools {
     this.selectEntity(newEdge);
   }
   
-  // REVISED: Handles both grouping and ungrouping
   groupOrUngroupSelection() {
       const groupBtn = document.getElementById('groupSelectionBtn');
       const isUngroupAction = groupBtn.textContent === 'Ungroup';
@@ -139,7 +139,6 @@ export default class EditorTools {
       this.updateUIState();
   }
 
-  // REVISED: Handles both attaching and detaching
   attachOrDetachSelection() {
       const attachBtn = document.getElementById('attachToNodeBtn');
       const isDetachAction = attachBtn.textContent === 'Detach';
@@ -212,6 +211,10 @@ export default class EditorTools {
           }
           finalSelection = Array.from(currentSelection.values());
       }
+      
+      this.selectedEntities.forEach(e => { if(e.id) e.selected = false });
+      this.graphData.edges.forEach(e => e.selected = false);
+
       this.selectedEntities = finalSelection;
       const selectedIds = new Set(this.selectedEntities.map(e => entityToId(e)));
       
@@ -222,7 +225,6 @@ export default class EditorTools {
       this.updateUIState();
   }
   
-  // REVISED: Manages context for group/attach buttons
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
 
@@ -235,7 +237,7 @@ export default class EditorTools {
       // Group/Ungroup logic
       if (container && this.graphData.decorations.some(d => d.parentId === container.id)) {
           groupBtn.textContent = 'Ungroup';
-          groupBtn.disabled = false;
+          groupBtn.disabled = this.selectedEntities.length > 1; // Only enable if ONLY the container is selected
       } else {
           groupBtn.textContent = 'Group';
           groupBtn.disabled = !(decos.length > 1 && container);
@@ -270,31 +272,6 @@ export default class EditorTools {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `...`; // No changes here, snipped for brevity
-    } else if (entity.source) { // Edge
-        title.textContent = 'Edge Properties';
-        html = `...`; // No changes here, snipped for brevity
-    } else if (entity.type === 'rectangle') {
-        title.textContent = 'Rectangle Properties';
-        html = `...`; // No changes here, snipped for brevity
-    } else if (entity.type === 'markdown') {
-        title.textContent = 'Markdown Block Properties';
-        html = `
-            <label for="textContent">Markdown Content:</label>
-            <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
-            <label for="fontSize">Base Font Size (px):</label>
-            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
-            <label for="rectWidth">Width:</label>
-            <input type="number" id="rectWidth" value="${entity.width}" min="10">
-            <label for="rectHeight">Height:</label>
-            <input type="number" id="rectHeight" value="${entity.height}" min="10">
-            <label for="bgColor">Background Color (CSS value):</label>
-            <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="e.g., #333 or rgba(45,45,45,0.8)">
-        `;
-    }
-    
-    // Fill in the snipped parts to be safe
-    if (entity.sourceType) { // Node
         html = `
             <label for="nodeTitle">Title:</label>
             <input type="text" id="nodeTitle" value="${entity.title || ''}">
@@ -315,6 +292,7 @@ export default class EditorTools {
             </div>
         `;
     } else if (entity.source) { // Edge
+        title.textContent = 'Edge Properties';
         html = `
             <label for="edgeLabel">Label:</label>
             <input type="text" id="edgeLabel" value="${entity.label || ''}">
@@ -324,6 +302,7 @@ export default class EditorTools {
             <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
         `;
     } else if (entity.type === 'rectangle') {
+        title.textContent = 'Rectangle Properties';
         html = `
             <label for="rectColor">Background Color:</label>
             <input type="color" id="rectColor" value="${entity.backgroundColor}">
@@ -332,15 +311,43 @@ export default class EditorTools {
             <label for="rectHeight">Height:</label>
             <input type="number" id="rectHeight" value="${entity.height}" min="10">
         `;
+    } else if (entity.type === 'markdown') {
+        title.textContent = 'Markdown Block Properties';
+        html = `
+            <label for="textContent">Markdown Content:</label>
+            <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
+            <label for="fontSize">Base Font Size (px):</label>
+            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
+            <label for="rectWidth">Width:</label>
+            <input type="number" id="rectWidth" value="${entity.width}" min="10">
+            <label for="rectHeight">Height:</label>
+            <input type="number" id="rectHeight" value="${entity.height}" min="10">
+            <label for="bgColor">Background Color (CSS value):</label>
+            <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="e.g., #333 or rgba(45,45,45,0.8)">
+        `;
     }
-
+    
     content.innerHTML = html;
     panel.classList.remove('hidden');
     if (entity.sourceType) this._setupInspectorLogic(entity);
   }
   
   _setupInspectorLogic(node) {
-      //... No changes here
+      const audioBtn = document.getElementById('type-audio');
+      const iframeBtn = document.getElementById('type-iframe');
+      const audioFields = document.getElementById('audio-fields');
+      const iframeFields = document.getElementById('iframe-fields');
+
+      const setSourceType = (type) => {
+          node.sourceType = type;
+          audioBtn.classList.toggle('active', type === 'audio');
+          iframeBtn.classList.toggle('active', type === 'iframe');
+          audioFields.classList.toggle('hidden', type !== 'audio');
+          iframeFields.classList.toggle('hidden', type !== 'iframe');
+      }
+
+      audioBtn.addEventListener('click', () => setSourceType('audio'));
+      iframeBtn.addEventListener('click', () => setSourceType('iframe'));
   }
 
   saveInspectorChanges() {
@@ -383,14 +390,51 @@ export default class EditorTools {
   }
   
   addControlPointAt(edge, position) {
-      //... No changes here
+      if (!edge || !position) return;
+      if (!edge.controlPoints) edge.controlPoints = [];
+
+      const startNode = this.graphData.getNodeById(edge.source);
+      const endNode = this.graphData.getNodeById(edge.target);
+      
+      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEADER_HEIGHT / 2 };
+      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEADER_HEIGHT / 2 };
+
+      const pathPoints = [ startPoint, ...edge.controlPoints, endPoint ];
+      
+      let closestSegmentIndex = 0; 
+      let minDistance = Infinity;
+
+      for (let i = 0; i < pathPoints.length - 1; i++) {
+          const p1 = pathPoints[i], p2 = pathPoints[i+1];
+          const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          if (len === 0) continue;
+          const dot = (((position.x - p1.x) * (p2.x - p1.x)) + ((position.y - p1.y) * (p2.y - p1.y))) / (len * len);
+          
+          if (dot >= 0 && dot <= 1) {
+            const closestX = p1.x + (dot * (p2.x - p1.x)); 
+            const closestY = p1.y + (dot * (p2.y - p1.y));
+            const dist = Math.hypot(position.x - closestX, position.y - closestY);
+            if (dist < minDistance) { 
+              minDistance = dist; 
+              closestSegmentIndex = i; 
+            }
+          }
+      }
+      edge.controlPoints.splice(closestSegmentIndex, 0, position);
   }
 
   exportGraph() {
-    //... No changes here
+    const viewport = this.renderer.getViewport();
+    const graphJSON = JSON.stringify(this.graphData.getGraph(viewport), null, 2);
+    const blob = new Blob([graphJSON], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'music-graph.jsonld'; a.click();
+    URL.revokeObjectURL(url);
   }
   
   resetGraph() {
-    //... No changes here
+    if (confirm('Are you sure you want to reset the graph to its default state? All local changes will be lost.')) {
+      window.location.reload();
+    }
   }
 }
