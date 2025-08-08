@@ -76,13 +76,14 @@ export default class Renderer {
     this.updateIframes();
     this.updateMarkdownOverlays(isLodActive);
 
-    if(!this.isAnimatingPan) requestAnimationFrame(this.renderLoop);
+    // Continue the loop unconditionally
+    requestAnimationFrame(this.renderLoop);
   }
 
   drawDecoration(deco, isLodActive) {
     if (isLodActive) {
         this.ctx.fillStyle = deco.backgroundColor || '#888';
-        this.ctx.globalAlpha = 0.8;
+        this.ctx.globalAlpha = 0.0;
         this.ctx.beginPath();
         this.ctx.arc(deco.x + deco.width/2, deco.y + deco.height/2, 5 / this.scale, 0, 2*Math.PI);
         this.ctx.fill();
@@ -292,6 +293,7 @@ export default class Renderer {
                   overlay.style.width = `${screenWidth}px`;
                   overlay.style.height = `${screenHeight}px`;
                   overlay.style.border = deco.selected ? `2px solid #e74c3c` : `1px solid var(--dark-border)`;
+                  overlay.classList.toggle('selected', deco.selected);
               }
           }
       });
@@ -302,6 +304,7 @@ export default class Renderer {
       overlay.id = `md-overlay-${deco.id}`;
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
+      overlay.style.fontSize = `${deco.fontSize || 14}px`;
 
       const dragOverlay = document.createElement('div');
       dragOverlay.className = 'drag-overlay';
@@ -320,6 +323,7 @@ export default class Renderer {
       if (deco && overlay) {
           this.updateMarkdownOverlayContent(overlay, deco);
           overlay.style.backgroundColor = deco.backgroundColor;
+          overlay.style.fontSize = `${deco.fontSize || 14}px`;
       }
   }
 

@@ -72,10 +72,15 @@ canvas:active {
   line-height: 1.5;
   pointer-events: auto; /* Clickable in player mode */
 }
-/* In editor mode, make it transparent to clicks so the canvas can handle selection */
+/* In editor mode, overlays are not interactive by default, allowing selection via canvas click */
 body.editor-mode .markdown-overlay {
     pointer-events: none;
     user-select: none;
+}
+/* Once selected, an overlay becomes interactive to allow scrolling and text selection */
+body.editor-mode .markdown-overlay.selected {
+    pointer-events: auto;
+    user-select: text; /* Or "auto" */
 }
 
 .markdown-overlay a {

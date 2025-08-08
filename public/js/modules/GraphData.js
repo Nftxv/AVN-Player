@@ -75,6 +75,7 @@ export default class GraphData {
             width: item.size?.width || 300,
             height: item.size?.height || 200,
             textContent: item.textContent || '',
+            fontSize: item.fontSize || 14,
             backgroundColor: item.backgroundColor || 'rgba(45, 45, 45, 0.85)',
             // NEW: Grouping properties
             parentId: item.parentId || null,
@@ -127,6 +128,7 @@ export default class GraphData {
             '@type': 'MarkdownAnnotation',
             size: { width: d.width, height: d.height },
             textContent: d.textContent,
+            fontSize: d.fontSize,
             backgroundColor: d.backgroundColor,
           };
         }

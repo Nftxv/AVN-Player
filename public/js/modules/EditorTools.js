@@ -282,6 +282,8 @@ export default class EditorTools {
         html = `
             <label for="textContent">Markdown Content:</label>
             <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
+            <label for="fontSize">Base Font Size (px):</label>
+            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
             <label for="rectWidth">Width:</label>
             <input type="number" id="rectWidth" value="${entity.width}" min="10">
             <label for="rectHeight">Height:</label>
@@ -367,6 +369,7 @@ export default class EditorTools {
         entity.height = parseInt(document.getElementById('rectHeight').value, 10);
     } else if (entity.type === 'markdown') {
         entity.textContent = document.getElementById('textContent').value;
+        entity.fontSize = parseInt(document.getElementById('fontSize').value, 10);
         entity.width = parseInt(document.getElementById('rectWidth').value, 10);
         entity.height = parseInt(document.getElementById('rectHeight').value, 10);
         entity.backgroundColor = document.getElementById('bgColor').value;
