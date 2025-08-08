@@ -15,7 +15,18 @@ export default class EditorTools {
     this.app = app;
     this.inspectedEntity = null;
     this.selectedEntities = [];
-    this.decorationsLocked = false;
+    this.decorationsLocked = true; // REVISED: Start with decorations locked by default
+    this.initLockState(); // Apply initial state to UI
+  }
+    
+  // NEW: Helper to set initial lock button state
+  initLockState() {
+      const lockBtn = document.getElementById('lockDecorationsBtn');
+      lockBtn.textContent = this.decorationsLocked ? '🔒' : '🔓';
+      lockBtn.classList.toggle('active', this.decorationsLocked);
+      lockBtn.title = this.decorationsLocked ? 'Decorations Locked (Click to Unlock)' : 'Decorations Unlocked (Click to Lock)';
+      document.getElementById('addRectBtn').disabled = this.decorationsLocked;
+      document.getElementById('addTextBtn').disabled = this.decorationsLocked;
   }
 
   collapseAllNodes() {
@@ -28,15 +39,7 @@ export default class EditorTools {
 
   toggleDecorationsLock() {
     this.decorationsLocked = !this.decorationsLocked;
-    
-    const lockBtn = document.getElementById('lockDecorationsBtn');
-    const addRectBtn = document.getElementById('addRectBtn');
-    const addTextBtn = document.getElementById('addTextBtn');
-    
-    lockBtn.textContent = this.decorationsLocked ? '🔒' : '🔓';
-    lockBtn.classList.toggle('active', this.decorationsLocked);
-    addRectBtn.disabled = this.decorationsLocked;
-    addTextBtn.disabled = this.decorationsLocked;
+    this.initLockState(); // Use the helper to update UI
 
     if (this.decorationsLocked) {
       const nonDecorationSelection = this.selectedEntities.filter(e => !e.type);
@@ -234,22 +237,24 @@ export default class EditorTools {
       const nodes = this.selectedEntities.filter(e => e.sourceType);
       const container = this.selectedEntities.find(e => e.type === 'rectangle' && !e.parentId);
       
-      // Group/Ungroup logic
-      if (container && this.graphData.decorations.some(d => d.parentId === container.id)) {
+      if (container && this.selectedEntities.length === 1 && this.graphData.decorations.some(d => d.parentId === container.id)) {
           groupBtn.textContent = 'Ungroup';
-          groupBtn.disabled = this.selectedEntities.length > 1; // Only enable if ONLY the container is selected
+          groupBtn.disabled = false;
+          groupBtn.title = 'Ungroup all items from this container';
       } else {
           groupBtn.textContent = 'Group';
           groupBtn.disabled = !(decos.length > 1 && container);
+          groupBtn.title = 'Group selected items under the selected rectangle';
       }
 
-      // Attach/Detach logic
       if (container && container.attachedToNodeId) {
           attachBtn.textContent = 'Detach';
-          attachBtn.disabled = false;
+          attachBtn.disabled = this.selectedEntities.length > 1;
+          attachBtn.title = 'Detach this container from its node';
       } else {
           attachBtn.textContent = 'Attach';
           attachBtn.disabled = !(nodes.length === 1 && container);
+          attachBtn.title = 'Attach selected container to the selected node';
       }
 
       if (this.selectedEntities.length === 1) {
@@ -272,45 +277,13 @@ export default class EditorTools {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `
-            <label for="nodeTitle">Title:</label>
-            <input type="text" id="nodeTitle" value="${entity.title || ''}">
-            <label>Source Type:</label>
-            <div class="toggle-switch">
-                <button id="type-audio" class="${entity.sourceType === 'audio' ? 'active' : ''}">Audio File</button>
-                <button id="type-iframe" class="${entity.sourceType === 'iframe' ? 'active' : ''}">YouTube</button>
-            </div>
-            <div id="audio-fields" class="${entity.sourceType === 'audio' ? '' : 'hidden'}">
-                <label for="audioUrl">Audio URL:</label>
-                <input type="text" id="audioUrl" value="${entity.audioUrl || ''}" placeholder="https://.../track.mp3">
-                <label for="coverUrl">Cover URL (Data only):</label>
-                <input type="text" id="coverUrl" value="${entity.coverUrl || ''}" placeholder="https://.../cover.jpg">
-            </div>
-            <div id="iframe-fields" class="${entity.sourceType === 'iframe' ? '' : 'hidden'}">
-                <label for="iframeUrl">YouTube URL or Video ID:</label>
-                <input type="text" id="iframeUrlInput" value="${entity.iframeUrl || ''}" placeholder="dQw4w9WgXcQ">
-            </div>
-        `;
+        html = `...`; 
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
-        html = `
-            <label for="edgeLabel">Label:</label>
-            <input type="text" id="edgeLabel" value="${entity.label || ''}">
-            <label for="edgeColor">Color:</label>
-            <input type="color" id="edgeColor" value="${entity.color || '#888888'}">
-            <label for="edgeWidth">Line Width:</label>
-            <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
-        `;
+        html = `...`; 
     } else if (entity.type === 'rectangle') {
         title.textContent = 'Rectangle Properties';
-        html = `
-            <label for="rectColor">Background Color:</label>
-            <input type="color" id="rectColor" value="${entity.backgroundColor}">
-            <label for="rectWidth">Width:</label>
-            <input type="number" id="rectWidth" value="${entity.width}" min="10">
-            <label for="rectHeight">Height:</label>
-            <input type="number" id="rectHeight" value="${entity.height}" min="10">
-        `;
+        html = `...`; 
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
@@ -327,6 +300,16 @@ export default class EditorTools {
         `;
     }
     
+    // Snipped parts for brevity, logic unchanged
+    if (entity.sourceType) { // Node
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
+    } else if (entity.source) { // Edge
+        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
+    } else if (entity.type === 'rectangle') {
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${entity.backgroundColor}"><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
+    }
+
+
     content.innerHTML = html;
     panel.classList.remove('hidden');
     if (entity.sourceType) this._setupInspectorLogic(entity);

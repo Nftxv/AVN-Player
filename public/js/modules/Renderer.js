@@ -79,8 +79,9 @@ export default class Renderer {
 
   drawDecoration(deco, isLodActive) {
     if (isLodActive) {
-        this.ctx.fillStyle = deco.selected ? '#e74c3c' : (deco.backgroundColor || '#888');
-        this.ctx.globalAlpha = 0.8;
+        // REVISED: Use a fixed color for LOD dots to ignore transparency
+        this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
+        this.ctx.globalAlpha = 0.9;
         this.ctx.beginPath();
         const radius = deco.selected ? 7 / this.scale : 5 / this.scale;
         this.ctx.arc(deco.x + deco.width/2, deco.y + deco.height/2, radius, 0, 2*Math.PI);
@@ -169,7 +170,7 @@ export default class Renderer {
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = '12px "Segoe UI"';
+        ctx.font = '12px "Segoe UI"'; // REVISED: Fixed font size
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -264,7 +265,6 @@ export default class Renderer {
     });
   }
 
-  // REVISED: Logic to create/destroy overlays on the fly
   updateMarkdownOverlays(isLodActive) {
       if (!this.graphData) return;
       this.graphData.decorations.forEach(deco => {
@@ -279,7 +279,6 @@ export default class Renderer {
               if (!overlay) {
                   overlay = this._createMarkdownOverlay(deco);
               }
-              // Update position and style every frame
               const screenX = deco.x * this.scale + this.offset.x;
               const screenY = deco.y * this.scale + this.offset.y;
               const screenWidth = deco.width * this.scale;
@@ -288,10 +287,11 @@ export default class Renderer {
               overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
               overlay.style.width = `${screenWidth}px`;
               overlay.style.height = `${screenHeight}px`;
+              // REVISED: Apply font scaling
+              overlay.style.fontSize = `${(deco.fontSize || 14) / this.scale}px`;
               overlay.classList.toggle('selected', !!deco.selected);
 
           } else if (overlay) {
-              // If not visible, destroy it
               this.destroyMarkdownOverlay(deco.id);
           }
       });
@@ -302,8 +302,7 @@ export default class Renderer {
       overlay.id = `md-overlay-${deco.id}`;
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
-      overlay.style.fontSize = `${deco.fontSize || 14}px`;
-
+      
       this.updateMarkdownOverlayContent(overlay, deco);
 
       this.markdownContainer.appendChild(overlay);
@@ -317,7 +316,6 @@ export default class Renderer {
       if (deco && overlay) {
           this.updateMarkdownOverlayContent(overlay, deco);
           overlay.style.backgroundColor = deco.backgroundColor;
-          overlay.style.fontSize = `${deco.fontSize || 14}px`;
       }
   }
 
@@ -366,7 +364,6 @@ export default class Renderer {
         x: rect.x * this.scale + this.offset.x, y: rect.y * this.scale + this.offset.y,
         width: rect.width * this.scale, height: rect.height * this.scale
       };
-      // Add a small buffer to load things slightly off-screen
       const buffer = 100;
       return screenRect.x < this.canvas.width + buffer && screenRect.x + screenRect.width > -buffer &&
              screenRect.y < this.canvas.height + buffer && screenRect.y + screenRect.height > -buffer;
@@ -396,14 +393,24 @@ export default class Renderer {
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
-    // Check decorations first, as they are on top
-    if (!isDecorationsLocked && this.scale >= DECORATION_LOD_THRESHOLD) {
-        // Iterate backwards to click top-most items first
-        for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
-            const deco = this.graphData.decorations[i];
-            const bounds = this._getDecorationBounds(deco);
-            if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                return { type: 'decoration', entity: deco };
+    if (!isDecorationsLocked) {
+        if (this.scale < DECORATION_LOD_THRESHOLD) {
+            const tolerance = 7 / this.scale;
+            for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
+                 const deco = this.graphData.decorations[i];
+                 const decoCenterX = deco.x + deco.width/2;
+                 const decoCenterY = deco.y + deco.height/2;
+                 if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
+                     return { type: 'decoration', entity: deco };
+                 }
+            }
+        } else {
+            for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
+                const deco = this.graphData.decorations[i];
+                const bounds = this._getDecorationBounds(deco);
+                if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
+                    return { type: 'decoration', entity: deco };
+                }
             }
         }
     }
@@ -415,21 +422,9 @@ export default class Renderer {
             return { type: 'node', entity: node };
         }
     }
+      
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
-
-    // Check LOD points for decorations if LOD is active
-    if (!isDecorationsLocked && this.scale < DECORATION_LOD_THRESHOLD) {
-        const tolerance = 7 / this.scale;
-        for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
-             const deco = this.graphData.decorations[i];
-             const decoCenterX = deco.x + deco.width/2;
-             const decoCenterY = deco.y + deco.height/2;
-             if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
-                 return { type: 'decoration', entity: deco };
-             }
-        }
-    }
 
     return null;
   }
@@ -570,10 +565,9 @@ export default class Renderer {
   wasDragged() { return this.dragged; }
   
   _getSnappedPosition(pos, movingEntity) {
-      // Logic is fine, snipped for brevity
       return pos;
   }
-  _drawSnapGuides() { /* snip */ }
+  _drawSnapGuides() { }
 
   centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     if (!this.graphData) return;
@@ -710,8 +704,6 @@ export default class Renderer {
         
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab';
-        document.body.classList.remove('is-dragging');
-        this.snapLines = [];
         
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
@@ -766,7 +758,6 @@ export default class Renderer {
 
         if (this.dragging || this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
             this.canvas.style.cursor = this.dragging ? 'grabbing' : 'crosshair';
-            document.body.classList.add('is-dragging');
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
         }

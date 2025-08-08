@@ -1,5 +1,5 @@
 :root {
-  --player-height: 60px; /* REVISED */
+  --player-height: 60px;
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
   --dark-bg: #1e1e1e;
@@ -14,7 +14,6 @@
 body {
   margin: 0;
   overflow: hidden;
-  /* REVISED: System font stack */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   background-color: var(--dark-bg);
   color: var(--dark-text);
@@ -32,7 +31,7 @@ canvas:active {
   cursor: grabbing;
 }
 
-#iframe-container, #markdown-container { /* REVISED: Both containers share properties */
+#iframe-container, #markdown-container {
   position: absolute;
   top: 0;
   left: 0;
@@ -57,7 +56,6 @@ canvas:active {
   pointer-events: auto;
 }
 
-/* NEW: Styles for Markdown Overlays */
 .markdown-overlay {
   position: absolute;
   box-sizing: border-box;
@@ -68,19 +66,17 @@ canvas:active {
   backdrop-filter: blur(5px);
   border: 1px solid var(--dark-border);
   border-radius: 6px;
-  font-size: 14px;
   line-height: 1.5;
-  pointer-events: auto; /* Clickable in player mode */
+  pointer-events: auto; /* Active for player mode */
 }
-/* In editor mode, overlays are not interactive by default, allowing selection via canvas click */
-body.editor-mode .markdown-overlay {
+
+/* REVISED: In editor mode, all overlays are transparent to clicks, fixing selection. */
+body.editor-mode .markdown-overlay, body.editor-mode .iframe-wrapper {
     pointer-events: none;
-    user-select: none;
 }
-/* Once selected, an overlay becomes interactive to allow scrolling and text selection */
-body.editor-mode .markdown-overlay.selected {
-    pointer-events: auto;
-    user-select: text; /* Or "auto" */
+
+.markdown-overlay.selected {
+  border: 2px solid #e74c3c !important; /* Use important to override base style */
 }
 
 .markdown-overlay a {
@@ -106,21 +102,6 @@ body.editor-mode .markdown-overlay.selected {
   padding: 10px;
   border-radius: 4px;
   overflow-x: auto;
-}
-
-.iframe-wrapper .drag-overlay, .markdown-overlay .drag-overlay { /* REVISED */
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10;
-  display: none;
-}
-
-body.is-dragging .drag-overlay {
-  display: block;
-  pointer-events: auto;
 }
 
 button, .button-like {
@@ -168,8 +149,6 @@ button#lockDecorationsBtn.active:hover {
   gap: 15px;
 }
 
-/* REMOVED: #currentCover styling is gone */
-
 #playerContent {
   flex-grow: 1;
   display: flex;
@@ -177,7 +156,7 @@ button#lockDecorationsBtn.active:hover {
   justify-content: center;
   gap: 5px;
   min-width: 0;
-  align-items: center; /* REVISED: Center content */
+  align-items: center;
 }
 
 #songTitle {
@@ -187,8 +166,8 @@ button#lockDecorationsBtn.active:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--dark-text);
-  width: 100%;         /* REVISED */
-  text-align: center;  /* REVISED */
+  width: 100%;
+  text-align: center;
 }
 
 #playerControls {
@@ -196,13 +175,11 @@ button#lockDecorationsBtn.active:hover {
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 500px; /* REVISED: Constrain width for centering */
-  justify-content: center; /* REVISED: Center buttons */
+  max-width: 500px;
+  justify-content: center;
 }
 
 #progress { flex-grow: 1; }
-
-/* REMOVED: Lyrics container styling is gone */
 
 .hidden { display: none !important; }
 
@@ -259,7 +236,7 @@ button#lockDecorationsBtn.active:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap; /* NEW: Allow wrapping for smaller screens */
+  flex-wrap: wrap;
 }
 #playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
 .editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
@@ -297,7 +274,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 #inspectorContent textarea {
     resize: vertical;
-    min-height: 120px; /* REVISED: More space for Markdown */
+    min-height: 120px;
     font-family: Consolas, "Courier New", monospace;
 }
 .toggle-switch {

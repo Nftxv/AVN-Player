@@ -76,13 +76,14 @@ class GraphApp {
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
               
               console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
-              // Recenter immediately with new settings
-              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
+              
+              // Do not recenter immediately. Settings will apply on the next navigation.
           } else {
-              // No active node, just center view
+              // If no node is active, default to a centered view for the next node.
               this.followScreenOffset = { x: 0, y: 0 };
               console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
           }
+
       } else {
           console.log('Follow mode deactivated.');
       }
