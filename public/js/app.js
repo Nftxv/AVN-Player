@@ -48,7 +48,6 @@ class GraphApp {
         this.renderer.setViewport(this.graphData.view);
       }
       
-      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
