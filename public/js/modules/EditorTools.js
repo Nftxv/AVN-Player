@@ -3,16 +3,13 @@
  * by Nftxv
  */
 const NODE_WIDTH = 200;
-const NODE_HEADER_HEIGHT = 45;
-const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
-const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
-
+const NODE_HEIGHT_COLLAPSED = 45;
+const NODE_HEIGHT_EXPANDED = 225;
 
 export default class EditorTools {
-  constructor(graphData, renderer, app) { // Added app
+  constructor(graphData, renderer) {
     this.graphData = graphData;
     this.renderer = renderer;
-    this.app = app; // NEW
     this.inspectedEntity = null;
     this.selectedEntities = [];
     this.decorationsLocked = false;
@@ -39,23 +36,21 @@ export default class EditorTools {
     addTextBtn.disabled = this.decorationsLocked;
 
     if (this.decorationsLocked) {
-      const nonDecorationSelection = this.selectedEntities.filter(e => !e.type); // type exists on decorations
+      const nonDecorationSelection = this.selectedEntities.filter(e => e.type !== 'rectangle' && e.type !== 'text');
       this.updateSelection(nonDecorationSelection, 'set');
     }
   }
 
   createNode() {
     const center = this.renderer.getViewportCenter();
-    const visualCenterOffset = (NODE_HEADER_HEIGHT - NODE_CONTENT_HEIGHT) / 2;
-
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
       x: center.x - NODE_WIDTH / 2,
-      y: center.y - visualCenterOffset,
+      y: center.y - (NODE_HEIGHT_EXPANDED / 2),
       isCollapsed: false,
       sourceType: 'audio',
-      audioUrl: '', coverUrl: '', iframeUrl: '',
+      audioUrl: '', coverUrl: '', lyricsUrl: '', iframeUrl: '',
     };
     this.graphData.nodes.push(newNode);
     this.selectEntity(newNode);
@@ -69,8 +64,7 @@ export default class EditorTools {
         type: 'rectangle',
         x: center.x - 150, y: center.y - 100,
         width: 300, height: 200,
-        backgroundColor: '#2c3e50',
-        parentId: null, attachedToNodeId: null,
+        backgroundColor: '#2c3e50'
     };
     this.graphData.decorations.push(newRect);
     this.selectEntity(newRect);
@@ -81,12 +75,14 @@ export default class EditorTools {
     const center = this.renderer.getViewportCenter();
     const newText = {
         id: `deco-text-${Date.now()}`,
-        type: 'markdown',
-        x: center.x - 150, y: center.y - 100,
-        width: 300, height: 200,
-        textContent: '### New Markdown Block\n\n* Double-click to edit.\n* Supports **Markdown** syntax.',
-        backgroundColor: 'rgba(45, 45, 45, 0.85)',
-        parentId: null,
+        type: 'text',
+        x: center.x, y: center.y,
+        textContent: 'New Text Label',
+        fontSize: 16,
+        color: '#ecf0f1',
+        textAlign: 'center',
+        width: 250,
+        lineHeight: 1.2,
     };
     this.graphData.decorations.push(newText);
     this.selectEntity(newText);
@@ -106,44 +102,6 @@ export default class EditorTools {
     this.graphData.edges.push(newEdge);
     this.selectEntity(newEdge);
   }
-  
-  // NEW: Grouping logic
-  groupSelection() {
-    const decorations = this.selectedEntities.filter(e => e.type === 'rectangle' || e.type === 'markdown');
-    if (decorations.length < 2) {
-        alert('Please select at least two decoration items (rectangles or text blocks) to group.');
-        return;
-    }
-    const parent = decorations.find(d => d.type === 'rectangle');
-    if (!parent) {
-        alert('A group must have one rectangle to act as the parent container.');
-        return;
-    }
-    decorations.forEach(deco => {
-        if (deco.id !== parent.id) {
-            deco.parentId = parent.id;
-        }
-    });
-    console.log(`Grouped ${decorations.length - 1} items under parent ${parent.id}`);
-    this.updateSelection([parent], 'set');
-  }
-
-  // NEW: Attachment logic
-  attachSelectionToNode() {
-      const node = this.selectedEntities.find(e => e.sourceType);
-      const container = this.selectedEntities.find(e => e.type === 'rectangle' && !e.parentId);
-      if (!node || !container) {
-          alert('To attach, please select one node and one parent container (a rectangle).');
-          return;
-      }
-      container.attachedToNodeId = node.id;
-      // Store relative offset for stable positioning
-      container.attachOffsetX = container.x - node.x;
-      container.attachOffsetY = container.y - node.y;
-      console.log(`Attached container ${container.id} to node ${node.id}`);
-      this.updateSelection([node, container], 'set');
-  }
-
 
   deleteSelection() {
     if (this.selectedEntities.length === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.length} item(s)?`)) {
@@ -154,12 +112,6 @@ export default class EditorTools {
     const selectedIds = new Set(this.selectedEntities.map(e => e.id));
     const nodesToDelete = new Set(this.selectedEntities.filter(e => e.sourceType).map(n => n.id));
     
-    // Ungroup/unattach children of deleted items
-    this.graphData.decorations.forEach(deco => {
-        if (selectedIds.has(deco.parentId)) deco.parentId = null;
-        if (selectedIds.has(deco.attachedToNodeId)) deco.attachedToNodeId = null;
-    });
-
     this.graphData.nodes = this.graphData.nodes.filter(n => !selectedIds.has(n.id));
     this.graphData.edges = this.graphData.edges.filter(e => !selectedIds.has(e.id) && !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target));
     this.graphData.decorations = this.graphData.decorations.filter(d => !selectedIds.has(d.id));
@@ -202,15 +154,6 @@ export default class EditorTools {
   
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
-
-      // Grouping/Attaching UI logic
-      const decos = this.selectedEntities.filter(e => e.type);
-      const nodes = this.selectedEntities.filter(e => e.sourceType);
-      const isContainerSelected = decos.some(d => d.type === 'rectangle' && !d.parentId);
-      
-      document.getElementById('groupSelectionBtn').disabled = !(decos.length > 1 && isContainerSelected);
-      document.getElementById('attachToNodeBtn').disabled = !(nodes.length === 1 && isContainerSelected);
-
       if (this.selectedEntities.length === 1) {
           this.openInspector(this.selectedEntities[0]);
       } else {
@@ -242,8 +185,10 @@ export default class EditorTools {
             <div id="audio-fields" class="${entity.sourceType === 'audio' ? '' : 'hidden'}">
                 <label for="audioUrl">Audio URL:</label>
                 <input type="text" id="audioUrl" value="${entity.audioUrl || ''}" placeholder="https://.../track.mp3">
-                <label for="coverUrl">Cover URL (Data only):</label>
+                <label for="coverUrl">Cover URL:</label>
                 <input type="text" id="coverUrl" value="${entity.coverUrl || ''}" placeholder="https://.../cover.jpg">
+                <label for="lyricsUrl">Lyrics URL:</label>
+                <input type="text" id="lyricsUrl" value="${entity.lyricsUrl || ''}" placeholder="https://.../lyrics.txt">
             </div>
             <div id="iframe-fields" class="${entity.sourceType === 'iframe' ? '' : 'hidden'}">
                 <label for="iframeUrl">YouTube URL or Video ID:</label>
@@ -270,17 +215,25 @@ export default class EditorTools {
             <label for="rectHeight">Height:</label>
             <input type="number" id="rectHeight" value="${entity.height}" min="10">
         `;
-    } else if (entity.type === 'markdown') {
-        title.textContent = 'Markdown Block Properties';
+    } else if (entity.type === 'text') {
+        title.textContent = 'Text Properties';
         html = `
-            <label for="textContent">Markdown Content:</label>
-            <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
-            <label for="rectWidth">Width:</label>
-            <input type="number" id="rectWidth" value="${entity.width}" min="10">
-            <label for="rectHeight">Height:</label>
-            <input type="number" id="rectHeight" value="${entity.height}" min="10">
-            <label for="bgColor">Background Color:</label>
-            <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="rgba(45, 45, 45, 0.85)">
+            <label for="textContent">Text:</label>
+            <textarea id="textContent" rows="4">${entity.textContent || ''}</textarea>
+            <label for="textWidth">Width (px, 0=auto):</label>
+            <input type="number" id="textWidth" value="${entity.width || 0}" min="0">
+            <label for="textColor">Text Color:</label>
+            <input type="color" id="textColor" value="${entity.color || '#FFFFFF'}">
+            <label for="textSize">Font Size:</label>
+            <input type="number" id="textSize" value="${entity.fontSize || 16}" min="8">
+             <label for="textLineHeight">Line Height:</label>
+            <input type="number" id="textLineHeight" value="${entity.lineHeight || 1.2}" step="0.1" min="0.8">
+            <label for="textAlign">Alignment:</label>
+            <select id="textAlign">
+                <option value="left" ${entity.textAlign === 'left' ? 'selected' : ''}>Left</option>
+                <option value="center" ${entity.textAlign === 'center' ? 'selected' : ''}>Center</option>
+                <option value="right" ${entity.textAlign === 'right' ? 'selected' : ''}>Right</option>
+            </select>
         `;
     }
     
@@ -316,13 +269,16 @@ export default class EditorTools {
         if (entity.sourceType === 'audio') {
             entity.audioUrl = document.getElementById('audioUrl').value || null;
             entity.coverUrl = document.getElementById('coverUrl').value || null;
+            entity.lyricsUrl = document.getElementById('lyricsUrl').value || null;
             entity.iframeUrl = null;
         } else if (entity.sourceType === 'iframe') {
             const userInput = document.getElementById('iframeUrlInput').value;
-            entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null;
+            entity.iframeUrl = this._parseYoutubeUrl(userInput) || null;
             entity.audioUrl = null;
             entity.coverUrl = null;
+            entity.lyricsUrl = null;
         }
+        this.renderer.loadAndRenderAll();
     } else if (entity.source) { // Edge
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
@@ -331,13 +287,37 @@ export default class EditorTools {
         entity.backgroundColor = document.getElementById('rectColor').value;
         entity.width = parseInt(document.getElementById('rectWidth').value, 10);
         entity.height = parseInt(document.getElementById('rectHeight').value, 10);
-    } else if (entity.type === 'markdown') {
+    } else if (entity.type === 'text') {
         entity.textContent = document.getElementById('textContent').value;
-        entity.width = parseInt(document.getElementById('rectWidth').value, 10);
-        entity.height = parseInt(document.getElementById('rectHeight').value, 10);
-        entity.backgroundColor = document.getElementById('bgColor').value;
-        this.renderer.updateMarkdownOverlay(entity.id); // Refresh view
+        entity.width = parseInt(document.getElementById('textWidth').value, 10);
+        entity.color = document.getElementById('textColor').value;
+        entity.fontSize = parseInt(document.getElementById('textSize').value, 10);
+        entity.lineHeight = parseFloat(document.getElementById('textLineHeight').value);
+        entity.textAlign = document.getElementById('textAlign').value;
     }
+  }
+
+  _parseYoutubeUrl(input) {
+      if (!input || typeof input !== 'string') return '';
+      if (input.includes('youtube.com/embed/')) {
+        return input;
+      }
+      let videoId = '';
+      try {
+        const url = new URL(input);
+        if (url.hostname.includes('youtube.com')) {
+          videoId = url.searchParams.get('v');
+        } else if (url.hostname.includes('youtu.be')) {
+          videoId = url.pathname.slice(1);
+        }
+      } catch (e) {
+        videoId = input.trim();
+      }
+      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+      console.warn("Could not parse YouTube URL/ID:", input);
+      return input;
   }
 
   closeInspector() {
@@ -352,8 +332,8 @@ export default class EditorTools {
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
       
-      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEADER_HEIGHT / 2 };
-      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEADER_HEIGHT / 2 };
+      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEIGHT_COLLAPSED / 2 };
+      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEIGHT_COLLAPSED / 2 };
 
       const pathPoints = [ startPoint, ...edge.controlPoints, endPoint ];
       
@@ -380,8 +360,7 @@ export default class EditorTools {
   }
 
   exportGraph() {
-    const viewport = this.renderer.getViewport();
-    const graphJSON = JSON.stringify(this.graphData.getGraph(viewport), null, 2);
+    const graphJSON = JSON.stringify(this.graphData.getGraph(), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'music-graph.jsonld'; a.click();

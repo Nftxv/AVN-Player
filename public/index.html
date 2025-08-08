@@ -9,8 +9,6 @@
 <body>
   <!-- Container for HTML overlays (iframes) -->
   <div id="iframe-container"></div>
-  <!-- NEW: Container for Markdown overlays -->
-  <div id="markdown-container"></div>
 
   <canvas id="graphCanvas" title="Graph"></canvas>
 
@@ -27,7 +25,6 @@
     <!-- Always Visible Buttons -->
     <button id="collapseAllBtn" title="Collapse All Nodes">Collapse All</button>
     <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
-    <button id="followModeBtn" title="Toggle Follow Mode">[⊙]</button> 
     <div class="divider"></div>
 
     <!-- Player Mode Controls (now empty) -->
@@ -39,11 +36,8 @@
       <button id="addNodeBtn" title="Add New Node">Add Node</button>
       <div class="divider"></div>
       <button id="addRectBtn" title="Add Rectangle Shape">Add Rect</button>
-      <button id="addTextBtn" title="Add Markdown Block">Add Text</button>
+      <button id="addTextBtn" title="Add Text Label">Add Text</button>
       <button id="lockDecorationsBtn" title="Lock/Unlock Decorations">🔓</button>
-      <div class="divider"></div>
-      <button id="groupSelectionBtn" title="Group Selected Decorations" disabled>Group</button>
-      <button id="attachToNodeBtn" title="Attach Group to Node" disabled>Attach</button>
       <div class="divider"></div>
       <button id="exportBtn">Export Graph</button>
       <button id="resetBtn">Reset</button>
@@ -62,6 +56,7 @@
 
   <!-- Player and other UI -->
   <div id="player">
+    <img id="currentCover" src="placeholder.svg" alt="Album cover">
     <div id="playerContent">
       <div id="songTitle">Select a node to begin...</div>
       <div id="playerControls">
@@ -70,6 +65,7 @@
         <button id="nextBtn" title="Next">⏭</button>
         <input type="range" id="progress" value="0">
         <span id="currentTime">0:00</span>
+        <button id="lyricsBtn" title="Show Lyrics">📜</button>
       </div>
     </div>
   </div>
@@ -85,15 +81,9 @@
       <button id="closeModalBtn">Cancel</button>
     </div>
   </div>
-  
-  <!-- External Libraries for Markdown -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
-
   <script src="js/app.js" type="module"></script>
-
   <footer id="copyright">
-    AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank" rel="noopener nofollow">AbyssVoid.com</a>
+    AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank">AbyssVoid.com</a>
   </footer>
 </body>
 </html>

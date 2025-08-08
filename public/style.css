@@ -1,5 +1,5 @@
 :root {
-  --player-height: 60px; /* REVISED */
+  --player-height: 80px;
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
   --dark-bg: #1e1e1e;
@@ -14,8 +14,7 @@
 body {
   margin: 0;
   overflow: hidden;
-  /* REVISED: System font stack */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: var(--dark-bg);
   color: var(--dark-text);
 }
@@ -24,7 +23,7 @@ canvas {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1;
+  z-index: 1; /* Canvas is the base layer */
   display: block;
   cursor: grab;
 }
@@ -32,14 +31,14 @@ canvas:active {
   cursor: grabbing;
 }
 
-#iframe-container, #markdown-container { /* REVISED: Both containers share properties */
+#iframe-container {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 2; 
-  pointer-events: none;
+  z-index: 2; /* Higher than canvas */
+  pointer-events: none; /* Click-through by default */
   overflow: hidden;
 }
 
@@ -54,62 +53,22 @@ canvas:active {
   width: 100%;
   height: 100%;
   border: none;
-  pointer-events: auto;
+  pointer-events: auto; /* Iframes are clickable */
 }
 
-/* NEW: Styles for Markdown Overlays */
-.markdown-overlay {
-  position: absolute;
-  box-sizing: border-box;
-  padding: 15px;
-  overflow-y: auto;
-  pointer-events: auto;
-  color: var(--dark-text);
-  background-color: rgba(45, 45, 45, 0.85);
-  backdrop-filter: blur(5px);
-  border: 1px solid var(--dark-border);
-  border-radius: 6px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-.markdown-overlay a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-.markdown-overlay a:hover {
-  text-decoration: underline;
-}
-.markdown-overlay img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 4px;
-}
-.markdown-overlay h1, .markdown-overlay h2, .markdown-overlay h3 {
-  margin-top: 0.5em;
-  margin-bottom: 0.5em;
-  border-bottom: 1px solid var(--dark-border);
-  padding-bottom: 0.3em;
-}
-.markdown-overlay pre {
-  background-color: var(--dark-bg);
-  padding: 10px;
-  border-radius: 4px;
-  overflow-x: auto;
-}
-
-.iframe-wrapper .drag-overlay, .markdown-overlay .drag-overlay { /* REVISED */
+.iframe-wrapper .drag-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   z-index: 10;
-  display: none;
+  display: none; /* Hidden by default */
 }
 
 body.is-dragging .drag-overlay {
   display: block;
-  pointer-events: auto;
+  pointer-events: auto; /* It catches the click */
 }
 
 button, .button-like {
@@ -135,6 +94,7 @@ button:disabled {
     transform: none;
 }
 
+/* NEW: Style for the active lock button */
 button#lockDecorationsBtn.active {
     background-color: var(--danger-color);
 }
@@ -157,7 +117,14 @@ button#lockDecorationsBtn.active:hover {
   gap: 15px;
 }
 
-/* REMOVED: #currentCover styling is gone */
+#currentCover {
+  width: 60px;
+  height: 60px;
+  border-radius: 5px;
+  object-fit: cover;
+  background-color: #333;
+  flex-shrink: 0;
+}
 
 #playerContent {
   flex-grow: 1;
@@ -166,7 +133,6 @@ button#lockDecorationsBtn.active:hover {
   justify-content: center;
   gap: 5px;
   min-width: 0;
-  align-items: center; /* REVISED: Center content */
 }
 
 #songTitle {
@@ -176,8 +142,6 @@ button#lockDecorationsBtn.active:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--dark-text);
-  width: 100%;         /* REVISED */
-  text-align: center;  /* REVISED */
 }
 
 #playerControls {
@@ -185,13 +149,28 @@ button#lockDecorationsBtn.active:hover {
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 500px; /* REVISED: Constrain width for centering */
-  justify-content: center; /* REVISED: Center buttons */
 }
 
 #progress { flex-grow: 1; }
 
-/* REMOVED: Lyrics container styling is gone */
+#lyricsContainer {
+  position: fixed;
+  bottom: calc(var(--player-height) + 10px);
+  left: 10px;
+  right: 10px;
+  max-height: 40vh;
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  z-index: 300;
+  overflow-y: auto;
+  padding: 20px;
+  color: var(--dark-text);
+}
+#closeLyricsBtn { color: var(--dark-text); }
+#closeLyricsBtn:hover { color: #e74c3c; }
+
 
 .hidden { display: none !important; }
 
@@ -219,9 +198,9 @@ button#lockDecorationsBtn.active:hover {
 }
 
 @media (max-width: 768px) {
-  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
+  #player { height: auto; flex-direction: column; padding: 10px; gap: 10px; }
+  #playerContent { width: 100%; }
   #songTitle { text-align: center; }
-  #playerControls { width: 100%; }
 }
 
 #copyright {
@@ -248,9 +227,8 @@ button#lockDecorationsBtn.active:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap; /* NEW: Allow wrapping for smaller screens */
 }
-#playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
+#playerModeControls, #editorModeControls { display: flex; gap: 10px; }
 .editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
 .divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
@@ -286,8 +264,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 #inspectorContent textarea {
     resize: vertical;
-    min-height: 120px; /* REVISED: More space for Markdown */
-    font-family: Consolas, "Courier New", monospace;
+    min-height: 60px;
 }
 .toggle-switch {
     display: flex;
@@ -311,22 +288,3 @@ input:checked + .slider:before { transform: translateX(20px); }
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
-
-#followModeBtn {
-    background: #3c3c3c;
-    color: var(--dark-subtle-text);
-    padding: 6px 10px;
-    font-size: 18px;
-    line-height: 1;
-}
-
-#followModeBtn:hover {
-    background: #4f4f4f;
-    transform: none;
-}
-
-#followModeBtn.active {
-    background: var(--primary-color);
-    color: white;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
-}
