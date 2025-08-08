@@ -288,7 +288,7 @@ export default class Renderer {
               overlay.style.width = `${screenWidth}px`;
               overlay.style.height = `${screenHeight}px`;
               // REVISED: Font size is now static in CSS, not scaled, to scale with its container.
-              overlay.style.fontSize = `${(deco.fontSize || 14) * this.scale}px`;
+              overlay.style.fontSize = `${deco.fontSize || 14}px`;
               overlay.classList.toggle('selected', !!deco.selected);
 
           } else if (overlay) {
@@ -525,7 +525,7 @@ export default class Renderer {
   _getIntersectionWithNodeRect(node, externalPoint) {
     const rect = this._getNodeVisualRect(node);
     const cx = rect.x + rect.width / 2;
-    const cy = node.y + NODE_HEADER_HEIGHT / 2;
+    const cy = rect.y + rect.height / 2;
     const dx = externalPoint.x - cx;
     const dy = externalPoint.y - cy;
     
