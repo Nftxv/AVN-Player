@@ -2,7 +2,6 @@
  * Manages the user's journey through the graph, handling history and branching choices.
  */
 export default class Navigation {
-  // CORRECTED: Constructor now properly receives and stores the 'app' instance
   constructor(graphData, player, renderer, app) {
     this.graphData = graphData;
     this.player = player;
@@ -20,7 +19,6 @@ export default class Navigation {
 
   startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
-    
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
     
@@ -32,7 +30,7 @@ export default class Navigation {
     this.player.play(node);
 
     if (this.app.isFollowing) {
-      this.renderer.centerOnNode(nodeId);
+      this.renderer.centerOnNode(nodeId, this.app.followModeGlobalScale);
     }
   }
 
@@ -60,7 +58,6 @@ export default class Navigation {
   
   goBack() {
     if (!this.currentNode) return;
-
     const oldNodeId = this.currentNode.id;
     let prevNodeId = null;
     let edgeToHighlight = null;
@@ -69,16 +66,14 @@ export default class Navigation {
         this.history.pop();
         prevNodeId = this.history[this.history.length - 1];
         edgeToHighlight = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
-    } 
-    else {
+    } else {
         const incomingEdges = this.graphData.edges.filter(e => e.target === oldNodeId);
         if (incomingEdges.length === 1) {
             edgeToHighlight = incomingEdges[0];
             prevNodeId = edgeToHighlight.source;
-            this.history.unshift(prevNodeId);
-            this.history.pop();
+            this.history = [prevNodeId]; // Reset history to the new starting point
         } else {
-            console.log("Cannot go back: No history and ambiguous or no predecessor.");
+            console.log("Cannot go back: No linear history or predecessor.");
             return;
         }
     }
@@ -90,7 +85,7 @@ export default class Navigation {
         this.player.play(prevNode);
 
         if (this.app.isFollowing) {
-            this.renderer.centerOnNode(prevNodeId);
+            this.renderer.centerOnNode(prevNodeId, this.app.followModeGlobalScale);
         }
     }
   }
@@ -102,12 +97,11 @@ export default class Navigation {
     
     this.currentNode = nextNode;
     this.history.push(nextNode.id);
-    
     this.renderer.highlight(nextNode.id, prevNodeId, edge);
     this.player.play(nextNode);
     
     if (this.app.isFollowing) {
-        this.renderer.centerOnNode(nextNode.id);
+        this.renderer.centerOnNode(nextNode.id, this.app.followModeGlobalScale);
     }
   }
 
@@ -118,29 +112,18 @@ export default class Navigation {
       const closeModalBtn = document.getElementById('closeModalBtn');
       const choiceTimerEl = document.getElementById('choiceTimer');
       const countdownEl = document.getElementById('countdown');
-      
       let countdown = 5;
       let timerId = null;
       optionsContainer.innerHTML = '';
 
-      const onChoose = (edge) => {
-        cleanup();
-        resolve(edge);
-      };
-      
-      const closeHandler = () => {
-        cleanup();
-        resolve(null);
-      };
-
+      const onChoose = (edge) => { cleanup(); resolve(edge); };
+      const closeHandler = () => { cleanup(); resolve(null); };
       const cleanup = () => {
           clearInterval(timerId);
           modal.classList.add('hidden');
           choiceTimerEl.classList.add('hidden');
           closeModalBtn.removeEventListener('click', closeHandler);
-          while (optionsContainer.firstChild) {
-              optionsContainer.removeChild(optionsContainer.firstChild);
-          }
+          while (optionsContainer.firstChild) { optionsContainer.removeChild(optionsContainer.firstChild); }
       }
       
       options.forEach(edge => {
@@ -152,7 +135,6 @@ export default class Navigation {
       });
       
       closeModalBtn.addEventListener('click', closeHandler);
-      
       countdownEl.textContent = countdown;
       choiceTimerEl.classList.remove('hidden');
       modal.classList.remove('hidden');
@@ -161,8 +143,7 @@ export default class Navigation {
         countdown--;
         countdownEl.textContent = countdown;
         if (countdown <= 0) {
-          const randomChoice = options[Math.floor(Math.random() * options.length)];
-          onChoose(randomChoice);
+          onChoose(options[Math.floor(Math.random() * options.length)]);
         }
       }, 1000);
     });

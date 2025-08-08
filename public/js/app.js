@@ -1,5 +1,5 @@
 /**
- * AVN Player - Main Application
+ * AVN Player - Main Application v2.0
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -24,17 +24,17 @@ function loadYouTubeAPI() {
 
 class GraphApp {
   constructor() {
-    this.iframeContainer = document.getElementById('iframe-container');
+    this.htmlOverlayContainer = document.getElementById('html-overlay-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas', this.iframeContainer);
-    this.player = new Player(this.graphData, this.iframeContainer);
-    // CORRECTED: Pass the 'app' instance (this) to Navigation
+    this.renderer = new Renderer('graphCanvas', this.htmlOverlayContainer);
+    this.player = new Player(this.graphData, this.htmlOverlayContainer);
     this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
     this.isFollowing = false;
+    this.followModeGlobalScale = 1.0;
   }
 
   async init() {
@@ -42,7 +42,6 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
-      // Apply saved viewport settings if they exist
       if (this.graphData.view) {
         this.renderer.setViewport(this.graphData.view);
       }
@@ -59,10 +58,13 @@ class GraphApp {
 
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
+      if (this.isFollowing) {
+        this.followModeGlobalScale = this.renderer.scale;
+      }
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
       console.log(`Follow mode is now: ${this.isFollowing}`);
       if (this.isFollowing && this.navigation.currentNode) {
-          this.renderer.centerOnNode(this.navigation.currentNode.id);
+          this.renderer.centerOnNode(this.navigation.currentNode.id, this.followModeGlobalScale);
       }
   }
 
@@ -94,11 +96,9 @@ class GraphApp {
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
         getSelection: () => this.editorTools.getSelection(),
-        // CORRECTED: This callback is now correctly passed and used
         onManualPan: () => {
-            if (this.isFollowing) {
-                this.toggleFollowMode(false);
-            }
+          // Smart Follow: Manual panning/zooming no longer disables follow mode.
+          // It's considered a temporary adjustment by the user.
         }
     });
 
@@ -114,6 +114,9 @@ class GraphApp {
     document.getElementById('addRectBtn').addEventListener('click', () => this.editorTools.createRectangle());
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
     document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
+    document.getElementById('groupSelectionBtn').addEventListener('click', () => this.editorTools.groupSelection());
+    document.getElementById('attachToNodeBtn').addEventListener('click', () => this.editorTools.attachToNode());
+
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
@@ -139,11 +142,6 @@ class GraphApp {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
-
-    if (clicked && clicked.type === 'collapse_toggle') {
-        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
-        return;
-    }
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
@@ -177,7 +175,7 @@ class GraphApp {
   try {
     await loadYouTubeAPI();
     const app = new GraphApp();
-    app.init();
+    await app.init();
   } catch (error) {
     console.error("Fatal error during application startup:", error);
     alert("Could not start the application. Please check the console for details.");
