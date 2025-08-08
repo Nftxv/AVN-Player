@@ -494,10 +494,10 @@ export default class Renderer {
         const controlPoints = edge.controlPoints || [];
         const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
         const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
-        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
-        const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
-        const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
+
+        const startPoint = srcHeaderCenter;
+        const endPoint = trgHeaderCenter;
+
         const pathPoints = [startPoint, ...controlPoints, endPoint];
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i], p2 = pathPoints[i + 1];
