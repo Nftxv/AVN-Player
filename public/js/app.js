@@ -64,26 +64,24 @@ class GraphApp {
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
-          const { scale } = this.renderer.getViewport();
-          this.followScale = scale; // Capture current scale as the desired follow scale
+          const { scale, offset } = this.renderer.getViewport();
+          this.followScale = scale;
           
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
-              const { offset } = this.renderer.getViewport();
               
               // Calculate where the node currently is on screen
               const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
               const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
               
-              // Calculate the difference between the screen center and the node's current position
-              // This captures the user's desired placement of the node on the screen
-              this.followScreenOffset.x = nodeScreenX - this.renderer.canvas.width / 2;
-              this.followScreenOffset.y = nodeScreenY - this.renderer.canvas.height / 2;
+              // **FIXED LOGIC**: Calculate the offset that renderer expects.
+              // We are pre-inverting the value here to counteract the subtraction in renderer.
+              this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
+              this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
 
               console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
 
-              // Immediately and smoothly pan to center the current node with the new settings
-              // This eliminates the "jump" on the next navigation event.
+              // Immediately pan to "confirm" the view. This should not cause a jump.
               this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
           } else {
               // If no node is active, default to a centered view for the next node.
