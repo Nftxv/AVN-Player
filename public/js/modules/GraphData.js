@@ -1,17 +1,15 @@
 /**
- * Manages the graph's data, including loading, parsing, and providing access to nodes and edges.
+ * Manages the graph's data, including loading, parsing, and providing access to all entities.
  */
 export default class GraphData {
   constructor() {
     this.nodes = [];
     this.edges = [];
+    this.decorations = [];
     this.meta = {};
+    this.view = null;
   }
 
-  /**
-   * Loads graph data from a given URL.
-   * @param {string} url - The URL of the JSON/JSON-LD file.
-   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -19,46 +17,77 @@ export default class GraphData {
     this.parseData(data);
   }
 
-  /**
-   * Parses the raw JSON-LD data and populates nodes, edges, and metadata.
-   * @param {object} data - The raw data object from the JSON file.
-   */
   parseData(data) {
     this.meta = data.meta || {};
+    this.view = data.view || null;
     const graph = data['@graph'] || [];
 
-    this.nodes = graph
-      .filter(item => item['@type'] === 'MusicRecording')
-      .map(node => ({
-        id: node['@id'],
-        title: node.name || 'Untitled',
-        x: node.position?.x || Math.random() * 800,
-        y: node.position?.y || Math.random() * 600,
-        isCollapsed: node.isCollapsed === true,
-        sourceType: node.sourceType || 'audio', // 'audio' or 'iframe'
-        audioUrl: node.audioUrl || null,
-        coverUrl: node.coverUrl || null,
-        lyricsUrl: node.lyricsUrl || null,
-        iframeUrl: node.iframeUrl || null,
-      }));
+    this.nodes = [];
+    this.edges = [];
+    this.decorations = [];
 
-    this.edges = graph
-      .filter(item => item['@type'] === 'Path')
-      .map(edge => ({
-        source: edge.source,
-        target: edge.target,
-        color: edge.color || '#888888',
-        label: edge.label || '',
-        lineWidth: edge.lineWidth || 2,
-        controlPoints: edge.controlPoints || [],
-      }));
+    graph.forEach(item => {
+      switch (item['@type']) {
+        case 'MusicRecording':
+          this.nodes.push({
+            id: item['@id'],
+            title: item.name || 'Untitled',
+            x: item.position?.x || 0,
+            y: item.position?.y || 0,
+            isCollapsed: item.isCollapsed === true,
+            sourceType: item.sourceType || 'audio',
+            audioUrl: item.audioUrl || null,
+            coverUrl: item.coverUrl || null,
+            iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
+          });
+          break;
+        case 'Path':
+          this.edges.push({
+            source: item.source,
+            target: item.target,
+            color: item.color || '#888888',
+            label: item.label || '',
+            lineWidth: item.lineWidth || 2,
+            controlPoints: item.controlPoints || [],
+          });
+          break;
+        case 'RectangleAnnotation':
+          this.decorations.push({
+            id: item['@id'],
+            type: 'rectangle',
+            x: item.position?.x || 0,
+            y: item.position?.y || 0,
+            width: item.size?.width || 200,
+            height: item.size?.height || 100,
+            backgroundColor: item.backgroundColor || '#333333',
+            // REVISED: Grouping and attachment properties
+            parentId: item.parentId || null,
+            attachedToNodeId: item.attachedToNodeId || null,
+            attachOffsetX: item.attachOffsetX,
+            attachOffsetY: item.attachOffsetY,
+          });
+          break;
+        case 'TextAnnotation': // Legacy support
+        case 'MarkdownAnnotation':
+          this.decorations.push({
+            id: item['@id'],
+            type: 'markdown',
+            x: item.position?.x || 0,
+            y: item.position?.y || 0,
+            width: item.size?.width || 300,
+            height: item.size?.height || 200,
+            textContent: item.textContent || '',
+            fontSize: item.fontSize || 14,
+            backgroundColor: item.backgroundColor || 'rgba(45, 45, 45, 0.85)',
+            // REVISED: Grouping properties
+            parentId: item.parentId || null,
+          });
+          break;
+      }
+    });
   }
 
-  /**
-   * Serializes the current graph data back into a JSON-LD format for export.
-   * @returns {object} - The complete graph object.
-   */
-  getGraph() {
+  getGraph(viewport = null) {
     const graph = [
       ...this.nodes.map(n => ({
         '@id': n.id,
@@ -69,7 +98,6 @@ export default class GraphData {
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,
         coverUrl: n.coverUrl,
-        lyricsUrl: n.lyricsUrl,
         iframeUrl: n.iframeUrl,
       })),
       ...this.edges.map(e => ({
@@ -80,17 +108,68 @@ export default class GraphData {
         label: e.label,
         lineWidth: e.lineWidth,
         controlPoints: e.controlPoints,
-      }))
+      })),
+      ...this.decorations.map(d => {
+        const common = { 
+            '@id': d.id, 
+            position: { x: d.x, y: d.y },
+            ...(d.parentId && { parentId: d.parentId }),
+        };
+        if (d.type === 'rectangle') {
+          return {
+            ...common,
+            '@type': 'RectangleAnnotation',
+            size: { width: d.width, height: d.height },
+            backgroundColor: d.backgroundColor,
+            // REVISED: Save attachment properties
+            ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId }),
+            ...(d.attachOffsetX !== undefined && { attachOffsetX: d.attachOffsetX }),
+            ...(d.attachOffsetY !== undefined && { attachOffsetY: d.attachOffsetY }),
+          };
+        }
+        if (d.type === 'markdown') {
+          return {
+            ...common,
+            '@type': 'MarkdownAnnotation',
+            size: { width: d.width, height: d.height },
+            textContent: d.textContent,
+            fontSize: d.fontSize,
+            backgroundColor: d.backgroundColor,
+          };
+        }
+        return null;
+      }).filter(Boolean),
     ];
-    return {
+    
+    const data = {
       '@context': 'https://schema.org/',
       ...(Object.keys(this.meta).length > 0 && { meta: this.meta }),
       '@graph': graph,
     };
+
+    if (viewport) {
+      data.view = viewport;
+    }
+
+    return data;
+  }
+  
+  parseYoutubeUrl(input) {
+      if (!input || typeof input !== 'string') return null;
+      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      const match = input.match(regex);
+      if (match && match[1]) return match[1];
+      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim();
+      console.warn("Could not parse YouTube URL/ID:", input);
+      return null;
   }
 
   getNodeById(id) {
     return this.nodes.find(node => node.id === id);
+  }
+
+  getDecorationById(id) {
+    return this.decorations.find(deco => deco.id === id);
   }
   
   getEdgesFromNode(nodeId) {

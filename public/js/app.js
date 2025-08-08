@@ -1,5 +1,5 @@
 /**
- * AVN Player v1.5.03 - Main Application
+ * AVN Player - Main Application
  * by Nftxv
  */
 import GraphData from './modules/GraphData.js';
@@ -8,23 +8,47 @@ import Player from './modules/Player.js';
 import EditorTools from './modules/EditorTools.js';
 import Navigation from './modules/Navigation.js';
 
+function loadYouTubeAPI() {
+  return new Promise((resolve) => {
+    if (window.YT && window.YT.Player) {
+      return resolve();
+    }
+    window.onYouTubeIframeAPIReady = () => {
+      resolve();
+    };
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+}
+
 class GraphApp {
   constructor() {
+    this.iframeContainer = document.getElementById('iframe-container');
+    this.markdownContainer = document.getElementById('markdown-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas');
-    this.player = new Player(this.graphData);
-    this.navigation = new Navigation(this.graphData, this.player, this.renderer);
-    this.editorTools = new EditorTools(this.graphData, this.renderer);
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer);
+    this.player = new Player(this.graphData, this.iframeContainer);
+    this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
+    this.editorTools = new EditorTools(this.graphData, this.renderer, this);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
+    this.isFollowing = false;
+    this.followScale = 1.0;
+    this.followScreenOffset = { x: 0, y: 0 };
   }
 
   async init() {
     try {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
-      await this.renderer.loadAndRenderAll();
+      
+      if (this.graphData.view) {
+        this.renderer.setViewport(this.graphData.view);
+      }
+      
+      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -32,6 +56,43 @@ class GraphApp {
       console.error('Initialization failed:', error);
       alert('Could not load the application.');
     }
+  }
+
+  // REVISED: Smart Follow Mode logic with immediate centering
+  toggleFollowMode(forceState = null) {
+      this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
+      document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
+
+      if (this.isFollowing) {
+          const { scale } = this.renderer.getViewport();
+          this.followScale = scale; // Capture current scale as the desired follow scale
+          
+          if (this.navigation.currentNode) {
+              const node = this.navigation.currentNode;
+              const { offset } = this.renderer.getViewport();
+              
+              // Calculate where the node currently is on screen
+              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
+              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+              
+              // Calculate the difference between the screen center and the node's current position
+              // This captures the user's desired placement of the node on the screen
+              this.followScreenOffset.x = nodeScreenX - this.renderer.canvas.width / 2;
+              this.followScreenOffset.y = nodeScreenY - this.renderer.canvas.height / 2;
+
+              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
+
+              // Immediately and smoothly pan to center the current node with the new settings
+              // This eliminates the "jump" on the next navigation event.
+              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
+          } else {
+              // If no node is active, default to a centered view for the next node.
+              this.followScreenOffset = { x: 0, y: 0 };
+              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node, will center next.`);
+          }
+      } else {
+          console.log('Follow mode deactivated.');
+      }
   }
 
   toggleEditorMode(isEditor) {
@@ -42,11 +103,13 @@ class GraphApp {
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
     }
+    this.renderer.destroyAllMarkdownOverlays();
   }
 
   setupEventListeners() {
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
+        getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
         onClick: (e) => this.handleCanvasClick(e),
         onDblClick: (e) => this.handleCanvasDblClick(e),
         onEdgeCreated: (source, target) => {
@@ -56,10 +119,11 @@ class GraphApp {
             if (!this.isEditorMode) return;
             const nodes = this.renderer.getNodesInRect(rect);
             const edges = this.renderer.getEdgesInRect(rect, nodes);
+            const decorations = this.editorTools.decorationsLocked ? [] : this.renderer.getDecorationsInRect(rect);
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
-            this.editorTools.updateSelection([...nodes, ...edges], mode);
+            this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
-        getSelection: () => this.editorTools.getSelection()
+        getSelection: () => this.editorTools.getSelection(),
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -70,43 +134,44 @@ class GraphApp {
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());
     
-    document.getElementById('addNodeBtn').addEventListener('click', () => {
-        const newNode = this.editorTools.createNode();
-        this.editorTools.selectEntity(newNode);
-    });
+    document.getElementById('addNodeBtn').addEventListener('click', () => this.editorTools.createNode());
+    document.getElementById('addRectBtn').addEventListener('click', () => this.editorTools.createRectangle());
+    document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
+    document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
+    
+    document.getElementById('groupSelectionBtn').addEventListener('click', () => this.editorTools.groupOrUngroupSelection());
+    document.getElementById('attachToNodeBtn').addEventListener('click', () => this.editorTools.attachOrDetachSelection());
+
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
+        const selection = this.editorTools.getSelection();
+        selection.forEach(entity => {
+            if (entity.sourceType === 'iframe') this.player.destroyYtPlayer(entity.id);
+            if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
+        });
         this.editorTools.deleteSelection();
     });
     
-    document.getElementById('settingsBtn').addEventListener('click', () => this.editorTools.openSettings());
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
-    document.getElementById('saveSettingsBtn').addEventListener('click', () => this.editorTools.saveSettings());
-    document.getElementById('closeSettingsBtn').addEventListener('click', () => this.editorTools.closeSettings());
     
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
+    
+    document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
   handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
-
-    if (clicked && clicked.type === 'collapse_toggle') {
-        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
-        return;
-    }
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
-      if (event.ctrlKey) {
-          mode = 'add';
-      } else if (event.shiftKey) {
-          mode = 'remove';
-      }
+      if (event.ctrlKey) mode = 'add';
+      else if (event.shiftKey) mode = 'remove';
+      
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
     } else { // Player mode
@@ -119,7 +184,7 @@ class GraphApp {
   handleCanvasDblClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
     
     if (clicked && clicked.type === 'node') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
@@ -129,7 +194,17 @@ class GraphApp {
   }
 }
 
-window.addEventListener('load', () => {
-  const app = new GraphApp();
-  app.init();
-});
+// Constants exposed for other modules that need them
+const NODE_WIDTH = 200;
+const NODE_HEADER_HEIGHT = 45;
+
+(async () => {
+  try {
+    await loadYouTubeAPI();
+    const app = new GraphApp();
+    app.init();
+  } catch (error) {
+    console.error("Fatal error during application startup:", error);
+    alert("Could not start the application. Please check the console for details.");
+  }
+})();

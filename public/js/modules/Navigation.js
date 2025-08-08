@@ -2,10 +2,11 @@
  * Manages the user's journey through the graph, handling history and branching choices.
  */
 export default class Navigation {
-  constructor(graphData, player, renderer) {
+  constructor(graphData, player, renderer, app) {
     this.graphData = graphData;
     this.player = player;
     this.renderer = renderer;
+    this.app = app;
     this.reset();
   }
 
@@ -28,6 +29,10 @@ export default class Navigation {
     
     this.renderer.highlight(nodeId, prevNodeId);
     this.player.play(node);
+
+    if (this.app.isFollowing) {
+      this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
+    }
   }
 
   async advance() {
@@ -53,36 +58,69 @@ export default class Navigation {
   }
   
   goBack() {
-    if (this.history.length < 2) return;
-    
-    this.history.pop();
-    const prevNodeId = this.history[this.history.length - 1];
-    const prevNode = this.graphData.getNodeById(prevNodeId);
+    if (!this.currentNode) return;
 
+    const oldNodeId = this.currentNode.id;
+    let prevNodeId = null;
+    let edgeToHighlight = null;
+
+    if (this.history.length > 1) {
+        this.history.pop();
+        prevNodeId = this.history[this.history.length - 1];
+        edgeToHighlight = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
+    } 
+    else {
+        const incomingEdges = this.graphData.edges.filter(e => e.target === oldNodeId);
+        if (incomingEdges.length === 1) {
+            edgeToHighlight = incomingEdges[0];
+            prevNodeId = edgeToHighlight.source;
+            this.history.unshift(prevNodeId);
+            this.history.pop();
+        } else {
+            console.log("Cannot go back: No history and ambiguous or no predecessor.");
+            return;
+        }
+    }
+
+    const prevNode = this.graphData.getNodeById(prevNodeId);
     if (prevNode) {
-        const oldNodeId = this.currentNode.id;
         this.currentNode = prevNode;
-        const edge = this.graphData.getEdgesFromNode(prevNodeId).find(e => e.target === oldNodeId);
-        this.renderer.highlight(prevNodeId, oldNodeId, edge);
+        this.renderer.highlight(prevNodeId, oldNodeId, edgeToHighlight);
         this.player.play(prevNode);
+
+        if (this.app.isFollowing) {
+            this.renderer.centerOnNode(prevNodeId, this.app.followScale, this.app.followScreenOffset);
+        }
     }
   }
 
   transitionToEdge(edge) {
     const prevNodeId = this.currentNode.id;
     const nextNode = this.graphData.getNodeById(edge.target);
+    if (!nextNode) return;
+    
     this.currentNode = nextNode;
     this.history.push(nextNode.id);
     
     this.renderer.highlight(nextNode.id, prevNodeId, edge);
     this.player.play(nextNode);
+    
+    if (this.app.isFollowing) {
+        this.renderer.centerOnNode(nextNode.id, this.app.followScale, this.app.followScreenOffset);
+    }
   }
 
   promptForChoice(options) {
+    //... No changes here
     return new Promise((resolve) => {
       const modal = document.getElementById('choiceModal');
       const optionsContainer = document.getElementById('choiceOptions');
       const closeModalBtn = document.getElementById('closeModalBtn');
+      const choiceTimerEl = document.getElementById('choiceTimer');
+      const countdownEl = document.getElementById('countdown');
+      
+      let countdown = 5;
+      let timerId = null;
       optionsContainer.innerHTML = '';
 
       const onChoose = (edge) => {
@@ -96,7 +134,9 @@ export default class Navigation {
       };
 
       const cleanup = () => {
+          clearInterval(timerId);
           modal.classList.add('hidden');
+          choiceTimerEl.classList.add('hidden');
           closeModalBtn.removeEventListener('click', closeHandler);
           while (optionsContainer.firstChild) {
               optionsContainer.removeChild(optionsContainer.firstChild);
@@ -112,7 +152,19 @@ export default class Navigation {
       });
       
       closeModalBtn.addEventListener('click', closeHandler);
+      
+      countdownEl.textContent = countdown;
+      choiceTimerEl.classList.remove('hidden');
       modal.classList.remove('hidden');
+
+      timerId = setInterval(() => {
+        countdown--;
+        countdownEl.textContent = countdown;
+        if (countdown <= 0) {
+          const randomChoice = options[Math.floor(Math.random() * options.length)];
+          onChoose(randomChoice);
+        }
+      }, 1000);
     });
   }
 }

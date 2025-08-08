@@ -4,64 +4,201 @@
     {
       "@id": "node-1",
       "@type": "MusicRecording",
-      "name": "Chapter 1: The Beginning",
-      "position": { "x": 100, "y": 250 },
-      "isCollapsed": false,
-      "sourceType": "audio",
-      "audioUrl": "https://cloudflare-ipfs.com/ipfs/bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
-      "coverUrl": "placeholder.svg",
-      "lyricsUrl": "https://cloudflare-ipfs.com/ipfs/bafkreifzjut3a2u7gy2g2l2ctrqkfdv3u4b2qkjk22p32d2c3k32y2y2yq"
+      "name": "Chasing the Moon",
+      "position": {
+        "x": 92,
+        "y": 230
+      },
+      "isCollapsed": true,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "lyricsUrl": null,
+      "iframeUrl": "4eJpTAxdxiU"
     },
     {
       "@id": "node-2",
       "@type": "MusicRecording",
-      "name": "Chapter 2: YouTube Video",
-      "position": { "x": 400, "y": 250 },
-      "isCollapsed": false,
+      "name": "Ballad of Everything (2 version)",
+      "position": {
+        "x": -72,
+        "y": 495.0138468887229
+      },
+      "isCollapsed": true,
       "sourceType": "iframe",
-      "iframeUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+      "audioUrl": null,
+      "coverUrl": null,
+      "lyricsUrl": null,
+      "iframeUrl": "YGJvDBRbYdM"
     },
     {
       "@id": "node-3a",
       "@type": "MusicRecording",
-      "name": "Ending A: The Bright Path",
-      "position": { "x": 700, "y": 150 },
+      "name": "Ballad of Everything (1 version)",
+      "position": {
+        "x": 273.18977016560103,
+        "y": 498.26384688872304
+      },
       "isCollapsed": true,
-      "sourceType": "audio",
-      "audioUrl": "https://cloudflare-ipfs.com/ipfs/bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
+      "sourceType": "iframe",
+      "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null
+      "lyricsUrl": null,
+      "iframeUrl": "_IK2VLriSxs"
     },
     {
       "@id": "node-3b",
       "@type": "MusicRecording",
-      "name": "Ending B: The Dark Path",
-      "position": { "x": 700, "y": 350 },
+      "name": "Love Transcends",
+      "position": {
+        "x": 92,
+        "y": 678.9786584887257
+      },
       "isCollapsed": true,
-      "sourceType": "audio",
-      "audioUrl": "https://cloudflare-ipfs.com/ipfs/bafybeifx7yeb55armcsxwwitkymga5xf53dxiarykms3ygq42uhulbnnh4",
+      "sourceType": "iframe",
+      "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null
+      "lyricsUrl": null,
+      "iframeUrl": "4UUnPzG2bC4"
+    },
+    {
+      "@id": "node-1754588700272",
+      "@type": "MusicRecording",
+      "name": "Garbage for Ears",
+      "position": {
+        "x": 92,
+        "y": 866.9360592337733
+      },
+      "isCollapsed": true,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "lyricsUrl": null,
+      "iframeUrl": "DcRXJrtysG0"
     },
     {
       "@type": "Path",
       "source": "node-1",
       "target": "node-2",
-      "label": "Continue the story"
+      "color": "#808080",
+      "label": "second version",
+      "lineWidth": 2,
+      "controlPoints": []
     },
     {
       "@type": "Path",
-      "source": "node-2",
+      "source": "node-1",
       "target": "node-3a",
-      "label": "Choose the light",
-      "color": "#f1c40f"
+      "color": "#808080",
+      "label": "first version",
+      "lineWidth": 2,
+      "controlPoints": []
     },
     {
       "@type": "Path",
       "source": "node-2",
       "target": "node-3b",
-      "label": "Embrace the shadow",
-      "color": "#9b59b6"
+      "color": "#2ced66",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-3a",
+      "target": "node-3b",
+      "color": "#e12d2d",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-3b",
+      "target": "node-1754588700272",
+      "color": "#58299e",
+      "label": "",
+      "lineWidth": 6,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754588700272",
+      "target": "node-1",
+      "color": "#24b3c6",
+      "label": "playlist replay",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": -188.45755966224445,
+          "y": 889.4360592337733
+        },
+        {
+          "x": -188.45755966224445,
+          "y": 252.5
+        }
+      ]
+    },
+    {
+      "@id": "deco-rect-1",
+      "position": {
+        "x": -283,
+        "y": -6.569811882272688
+      },
+      "@type": "RectangleAnnotation",
+      "size": {
+        "width": 950,
+        "height": 1300
+      },
+      "backgroundColor": "#2e2e2e"
+    },
+    {
+      "@id": "deco-text-1",
+      "position": {
+        "x": 443.6062789306635,
+        "y": 52.37341150684294
+      },
+      "@type": "TextAnnotation",
+      "textContent": "Sample starter playlist",
+      "fontSize": 24,
+      "color": "#fdff9e",
+      "textAlign": "right",
+      "width": 400,
+      "lineHeight": 1.2
+    },
+    {
+      "@id": "deco-rect-1754589215738",
+      "position": {
+        "x": 692.7849770255077,
+        "y": 607.3930629464985
+      },
+      "@type": "RectangleAnnotation",
+      "size": {
+        "width": 300,
+        "height": 700
+      },
+      "backgroundColor": "#40263c"
+    },
+    {
+      "@id": "deco-text-1754589455494",
+      "position": {
+        "x": 849.2385344657106,
+        "y": 959.1301881177274
+      },
+      "@type": "TextAnnotation",
+      "textContent": "🛡️ License and Usage\n\nThis project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).\n\n---\n\nImportant Clarification for Artists and Creators:\n\nThe CC BY-NC-SA license applies only to the player's source code (the HTML, CSS, and JavaScript files that make it run).\n\nIt does not apply to the content you create, such as your music, cover art, lyrics, or the `.jsonld` graph file that structures your narrative. You retain full ownership of your art and are free to license or sell it however you wish.\n\nYou can freely use this player as a non-commercial tool to display and distribute your commercial or non-commercial artwork.\n\nA Note on Attribution (How to give credit)\n\nTo comply with the license, you must provide a visible credit. We've made this as painless as possible.\n\n1. Required Attribution Text:\nYou must include the following text somewhere visible (e.g., in the footer of your page or on an \"About\" page):\n\n> AVN Player by Nftxv\n\n2. Required License Notice:\nYou must also include a reference to the license, so others know the terms under which the player is shared.\n\nThe Easiest Way to Do Both:\nYou can fulfill both requirements with a single, simple line. Here is a perfect example:\n\npowered by AVN Player by Nftxv, used under CC BY-NC-SA 4.0",
+      "fontSize": 11,
+      "color": "#a18159",
+      "textAlign": "left",
+      "width": 250,
+      "lineHeight": 1.2
     }
-  ]
+  ],
+  "view": {
+    "offset": {
+      "x": 570.7378794999497,
+      "y": -46.12923764210575
+    },
+    "scale": 1.22140275816017
+  }
 }
