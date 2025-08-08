@@ -147,7 +147,7 @@ export default class Renderer {
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       
-      const offset = arrowSize / 2; // Adjust offset to touch the arrow tip
+      const offset = arrowSize / 2;
       const adjustedEndPoint = {
           x: pForArrow.x - offset * Math.cos(angle),
           y: pForArrow.y - offset * Math.sin(angle)
@@ -178,7 +178,7 @@ export default class Renderer {
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = '12px "Segoe UI"'; // REVISED: Fixed font size
+        ctx.font = `bold ${12 / this.scale}px "Segoe UI"`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -186,7 +186,7 @@ export default class Renderer {
         ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
         const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
         if (rotationAngle > Math.PI / 2 || rotationAngle < -Math.PI / 2) ctx.rotate(rotationAngle + Math.PI); else ctx.rotate(rotationAngle);
-        ctx.fillText(edge.label, 0, -8);
+        ctx.fillText(edge.label, 0, -8 / this.scale);
         ctx.restore();
       }
       
@@ -196,34 +196,39 @@ export default class Renderer {
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
+    // CORRECTED: Content is drawn *below* the header
     const containerX = node.x;
-    const containerY = node.y - NODE_CONTENT_HEIGHT;
+    const containerY = node.y + NODE_HEADER_HEIGHT;
     const containerW = NODE_WIDTH;
     const containerH = NODE_CONTENT_HEIGHT;
-    ctx.fillStyle = '#1e1e1e';
-    ctx.fillRect(containerX, containerY, containerW, containerH);
+
     if (node.sourceType === 'iframe') {
         ctx.fillStyle = '#000000';
-        ctx.fillRect(containerX, containerY, containerW, containerH);
+    } else {
+        ctx.fillStyle = '#1e1e1e';
     }
+    ctx.fillRect(containerX, containerY, containerW, containerH);
   }
 
   _drawNodeHeader(node) {
     const ctx = this.ctx;
     ctx.save();
-    ctx.fillStyle = '#2d2d2d';
-    const rect = this._getNodeVisualRect(node);
     
-    ctx.beginPath();
-    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
-    ctx.fill();
+    const visualRect = this._getNodeVisualRect(node);
 
+    // Draw the main header box
     ctx.fillStyle = '#2d2d2d';
-    ctx.fillRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT - 8);
     ctx.beginPath();
-    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
+    // CORRECTED: Use roundRect for the entire visual block to get proper rounded bottom corners
+    ctx.roundRect(visualRect.x, visualRect.y, visualRect.width, visualRect.height, 8);
     ctx.fill();
 
+    // Fill the top part to remove rounded corners between header and content
+    if (!node.isCollapsed) {
+        ctx.fillRect(node.x, node.y + NODE_HEADER_HEIGHT - 8, NODE_WIDTH, 8);
+    }
+    
+    // Draw Stroke (Selection/Highlight)
     if (node.selected || node.highlighted) {
         ctx.strokeStyle = node.selected ? '#e74c3c' : '#FFD700';
         ctx.lineWidth = 4;
@@ -234,6 +239,7 @@ export default class Renderer {
         ctx.stroke();
     }
 
+    // Draw Title
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px "Segoe UI"';
     ctx.textAlign = 'center';
@@ -263,16 +269,21 @@ export default class Renderer {
         if (node.sourceType !== 'iframe') return;
         const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
         if (!wrapper) return;
+
         const isInView = this._isNodeInView(node);
         const shouldBeVisible = !node.isCollapsed && isInView;
+
         if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
             wrapper.style.display = shouldBeVisible ? 'block' : 'none';
         }
+
         if (shouldBeVisible) {
-            const screenX = (node.x) * this.scale + this.offset.x;
-            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+            // CORRECTED: Y position is below the header
+            const screenX = node.x * this.scale + this.offset.x;
+            const screenY = (node.y + NODE_HEADER_HEIGHT) * this.scale + this.offset.y;
             const screenWidth = NODE_WIDTH * this.scale;
             const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+
             wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
             wrapper.style.width = `${screenWidth}px`;
             wrapper.style.height = `${screenHeight}px`;
@@ -302,7 +313,6 @@ export default class Renderer {
               overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
               overlay.style.width = `${screenWidth}px`;
               overlay.style.height = `${screenHeight}px`;
-              // REVISED: Apply font scaling to counteract canvas zoom
               overlay.style.fontSize = `${(deco.fontSize || 14) * (1 / this.scale)}px`;
               overlay.classList.toggle('selected', !!deco.selected);
 
@@ -320,11 +330,9 @@ export default class Renderer {
       
       this.updateMarkdownOverlayContent(overlay, deco);
 
-      // REVISED: Handle wheel event for zoom/scroll
       overlay.addEventListener('wheel', (event) => {
           if (!event.shiftKey) {
               event.preventDefault();
-              // Forward the event to the canvas for zooming
               const newEvent = new WheelEvent('wheel', {
                   clientX: event.clientX, clientY: event.clientY,
                   deltaX: event.deltaX, deltaY: event.deltaY, deltaZ: event.deltaZ,
@@ -332,7 +340,6 @@ export default class Renderer {
               });
               this.canvas.dispatchEvent(newEvent);
           }
-          // If shift is held, do nothing and allow native scroll
       }, { passive: false });
 
       this.markdownContainer.appendChild(overlay);
@@ -428,6 +435,7 @@ export default class Renderer {
   }
 
   _getNodeVisualRect(node) {
+      // CORRECTED: Total height is header + content (if not collapsed)
       const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
       const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
       return { x: node.x, y: node.y, width: NODE_WIDTH, height: totalHeight };
@@ -468,10 +476,11 @@ export default class Renderer {
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
-        // We only check the header for the initial click to avoid clicking "through" an iframe
-        const headerRect = { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
-        if (x > headerRect.x && x < headerRect.x + headerRect.width && y > headerRect.y && y < headerRect.y + headerRect.height) {
-            return { type: 'node', entity: node };
+        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
+            // Check if click is on header to avoid clicking "through" an iframe
+            if (y <= node.y + NODE_HEADER_HEIGHT || document.body.classList.contains('editor-mode')) {
+               return { type: 'node', entity: node };
+            }
         }
     }
       
@@ -564,26 +573,28 @@ export default class Renderer {
     const dx = externalPoint.x - rectCenter.x;
     const dy = externalPoint.y - rectCenter.y;
 
-    if (dx === 0 && dy === 0) return rectCenter;
+    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return rectCenter;
     
-    let t = Infinity;
-    // Top edge
-    if (dy !== 0) { const ty = (rect.y - rectCenter.y) / dy; if(ty > 0) t = Math.min(t, ty); }
-    // Bottom edge
-    if (dy !== 0) { const ty = (rect.y + rect.height - rectCenter.y) / dy; if(ty > 0) t = Math.min(t, ty); }
-    // Left edge
-    if (dx !== 0) { const tx = (rect.x - rectCenter.x) / dx; if(tx > 0) t = Math.min(t, tx); }
-    // Right edge
-    if (dx !== 0) { const tx = (rect.x + rect.width - rectCenter.x) / dx; if(tx > 0) t = Math.min(t, tx); }
+    // Liang-Barsky algorithm for line-rectangle intersection
+    let t0 = 0, t1 = 1;
+    const p = [-dx, dx, -dy, dy];
+    const q = [rectCenter.x - rect.x, rect.x + rect.width - rectCenter.x, rectCenter.y - rect.y, rect.y + rect.height - rectCenter.y];
 
-    let ix = rectCenter.x + t * dx;
-    let iy = rectCenter.y + t * dy;
+    for (let i = 0; i < 4; i++) {
+        if (p[i] === 0) {
+            if (q[i] < 0) return rectCenter; // No intersection
+        } else {
+            const r = q[i] / p[i];
+            if (p[i] < 0) t0 = Math.max(t0, r);
+            else t1 = Math.min(t1, r);
+        }
+        if (t0 > t1) return rectCenter; // No intersection
+    }
 
-    // Clamp to the rectangle edges to correct for floating point inaccuracies
-    ix = Math.max(rect.x, Math.min(rect.x + rect.width, ix));
-    iy = Math.max(rect.y, Math.min(rect.y + rect.height, iy));
-    
-    return { x: ix, y: iy };
+    return {
+        x: rectCenter.x + t1 * dx,
+        y: rectCenter.y + t1 * dy
+    };
   }
   
   drawTemporaryEdge() {
@@ -688,28 +699,24 @@ export default class Renderer {
             const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
             const itemsToMove = new Set();
             
-            // Initial population from selection
             selection.forEach(item => itemsToMove.add(item));
 
-            // Recursively find all children (attached or grouped)
             let currentSize;
             do {
                 currentSize = itemsToMove.size;
                 itemsToMove.forEach(item => {
-                    // Find attached children if it's a node
                     if(item.sourceType) { 
                         this.graphData.decorations.forEach(d => {
                             if (d.attachedToNodeId === item.id) itemsToMove.add(d);
                         });
                     }
-                    // Find grouped children if it's a rectangle
                     if(item.type === 'rectangle') {
                         this.graphData.decorations.forEach(d => {
                             if (d.parentId === item.id) itemsToMove.add(d);
                         });
                     }
                 });
-            } while (itemsToMove.size > currentSize); // loop until no new items are added
+            } while (itemsToMove.size > currentSize);
             
             itemsToMove.forEach(item => {
                 if (getIsDecorationsLocked() && item.type) return;
@@ -717,7 +724,6 @@ export default class Renderer {
                 item.x += dx;
                 item.y += dy;
                 
-                // Update relative offset for attached containers
                 if (item.attachedToNodeId && !item.parentId) {
                   const node = this.graphData.getNodeById(item.attachedToNodeId);
                   if (node) {
