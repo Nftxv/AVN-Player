@@ -63,7 +63,6 @@ canvas:active {
   box-sizing: border-box;
   padding: 15px;
   overflow-y: auto;
-  pointer-events: auto;
   color: var(--dark-text);
   background-color: rgba(45, 45, 45, 0.85);
   backdrop-filter: blur(5px);
@@ -71,7 +70,14 @@ canvas:active {
   border-radius: 6px;
   font-size: 14px;
   line-height: 1.5;
+  pointer-events: auto; /* Clickable in player mode */
 }
+/* In editor mode, make it transparent to clicks so the canvas can handle selection */
+body.editor-mode .markdown-overlay {
+    pointer-events: none;
+    user-select: none;
+}
+
 .markdown-overlay a {
   color: var(--primary-color);
   text-decoration: none;

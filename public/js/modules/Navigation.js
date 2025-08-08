@@ -31,7 +31,7 @@ export default class Navigation {
     this.player.play(node);
 
     if (this.app.isFollowing) {
-      this.renderer.centerOnNode(nodeId, this.app.followScale);
+      this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
   }
 
@@ -89,7 +89,7 @@ export default class Navigation {
         this.player.play(prevNode);
 
         if (this.app.isFollowing) {
-            this.renderer.centerOnNode(prevNodeId, this.app.followScale);
+            this.renderer.centerOnNode(prevNodeId, this.app.followScale, this.app.followScreenOffset);
         }
     }
   }
@@ -106,11 +106,12 @@ export default class Navigation {
     this.player.play(nextNode);
     
     if (this.app.isFollowing) {
-        this.renderer.centerOnNode(nextNode.id, this.app.followScale);
+        this.renderer.centerOnNode(nextNode.id, this.app.followScale, this.app.followScreenOffset);
     }
   }
 
   promptForChoice(options) {
+    //... No changes here
     return new Promise((resolve) => {
       const modal = document.getElementById('choiceModal');
       const optionsContainer = document.getElementById('choiceOptions');

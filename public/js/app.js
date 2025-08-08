@@ -35,7 +35,8 @@ class GraphApp {
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
     this.isFollowing = false;
-    this.followScale = 1.0; // NEW: To store the desired scale for follow mode
+    this.followScale = 1.0;
+    this.followScreenOffset = { x: 0, y: 0 }; // NEW: For smart follow position
   }
 
   async init() {
@@ -57,16 +58,30 @@ class GraphApp {
     }
   }
 
-  // REVISED: Smart Follow Mode logic
+  // REVISED: Smart Follow Mode logic with position memory
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
-          this.followScale = this.renderer.getViewport().scale; // Store current scale on activation
-          console.log(`Follow mode activated. Target scale: ${this.followScale}`);
+          const { scale, offset } = this.renderer.getViewport();
+          this.followScale = scale;
+          
           if (this.navigation.currentNode) {
-              this.renderer.centerOnNode(this.navigation.currentNode.id, this.followScale);
+              const node = this.navigation.currentNode;
+              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
+              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+              
+              this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
+              this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
+              
+              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
+              // Recenter immediately with new settings
+              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
+          } else {
+              // No active node, just center view
+              this.followScreenOffset = { x: 0, y: 0 };
+              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
           }
       } else {
           console.log('Follow mode deactivated.');
@@ -81,7 +96,6 @@ class GraphApp {
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
     }
-    // NEW: When entering player mode, destroy all markdown overlays to ensure clean state
     if (!isEditor) {
       this.renderer.destroyAllMarkdownOverlays();
     }
@@ -105,7 +119,6 @@ class GraphApp {
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
         getSelection: () => this.editorTools.getSelection(),
-        // REVISED: This callback is now gone, manual pan no longer disables follow mode.
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -121,21 +134,14 @@ class GraphApp {
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
     document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
     
-    // NEW: Grouping and Attaching Buttons
-    document.getElementById('groupSelectionBtn').addEventListener('click', () => this.editorTools.groupSelection());
-    document.getElementById('attachToNodeBtn').addEventListener('click', () => this.editorTools.attachSelectionToNode());
-
+    document.getElementById('groupSelectionBtn').addEventListener('click', () => this.editorTools.groupOrUngroupSelection());
+    document.getElementById('attachToNodeBtn').addEventListener('click', () => this.editorTools.attachOrDetachSelection());
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
         selection.forEach(entity => {
-            if (entity.sourceType === 'iframe') {
-                this.player.destroyYtPlayer(entity.id);
-            }
-            // NEW: Clean up HTML overlays on delete
-            if (entity.type === 'markdown') {
-                this.renderer.destroyMarkdownOverlay(entity.id);
-            }
+            if (entity.sourceType === 'iframe') this.player.destroyYtPlayer(entity.id);
+            if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
         });
         this.editorTools.deleteSelection();
     });
@@ -182,6 +188,10 @@ class GraphApp {
     }
   }
 }
+
+// Constants exposed for other modules that need them
+const NODE_WIDTH = 200;
+const NODE_HEADER_HEIGHT = 45;
 
 (async () => {
   try {

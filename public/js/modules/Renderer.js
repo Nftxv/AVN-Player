@@ -566,19 +566,21 @@ export default class Renderer {
   }
   _drawSnapGuides() { /* ... snip ... */ }
 
-  centerOnNode(nodeId, targetScale = null) {
+  centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     if (!this.graphData) return;
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
 
     this.isAnimatingPan = true;
     const finalScale = targetScale !== null ? targetScale : this.scale;
+    const finalScreenOffset = screenOffset || { x: 0, y: 0 };
     
+    const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
     const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
+    const nodeCenterY = node.y - contentHeight/2 + NODE_HEADER_HEIGHT / 2;
     
-    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale);
-    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale);
+    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) + finalScreenOffset.x;
+    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) + finalScreenOffset.y;
 
     const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
     const startScale = this.scale;
@@ -590,9 +592,16 @@ export default class Renderer {
     let startTime = null;
 
     const animate = (timestamp) => {
-        if (!this.isAnimatingPan) return;
         if (!startTime) startTime = timestamp;
         const elapsed = timestamp - startTime;
+        if (elapsed >= duration || !this.isAnimatingPan) {
+            this.offset.x = targetOffsetX;
+            this.offset.y = targetOffsetY;
+            this.scale = finalScale;
+            this.isAnimatingPan = false;
+            return;
+        }
+
         let progress = Math.min(elapsed / duration, 1);
         progress = progress * (2 - progress); // Ease-out
 
@@ -600,19 +609,11 @@ export default class Renderer {
         this.offset.y = startOffsetY + diffY * progress;
         this.scale = startScale + diffScale * progress;
         
-        requestAnimationFrame(this.renderLoop.bind(this));
-
-        if (elapsed < duration) {
-            requestAnimationFrame(animate);
-        } else {
-            this.isAnimatingPan = false;
-            requestAnimationFrame(this.renderLoop.bind(this));
-        }
+        requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
   }
-
-  // REWRITTEN: setupCanvasInteraction with grouping logic
+  
   setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
     window.addEventListener('resize', () => this.resizeCanvas());
@@ -630,32 +631,32 @@ export default class Renderer {
         } else if (this.draggingEntity) {
             const dx = this.mousePos.x - oldMousePos.x;
             const dy = this.mousePos.y - oldMousePos.y;
-            if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return;
+            if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
 
             const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
-            const movedItems = new Set(); // Prevent moving items multiple times
+            const movedItems = new Set();
 
             selection.forEach(entity => {
                 if (movedItems.has(entity.id)) return;
-
-                // Determine the root object to move (parent group or node)
+                
                 let rootToMove = entity;
                 if (entity.parentId) {
                     rootToMove = this.graphData.getDecorationById(entity.parentId) || entity;
                 }
                 
-                // Collect all items to move
                 const itemsToMove = new Set([rootToMove]);
                 
-                // Add children if dragging a group
-                this.graphData.decorations.forEach(d => {
-                    if (d.parentId === rootToMove.id) itemsToMove.add(d);
-                });
+                // Add children if dragging a group container
+                if (rootToMove.type === 'rectangle') {
+                    this.graphData.decorations.forEach(d => {
+                        if (d.parentId === rootToMove.id) itemsToMove.add(d);
+                    });
+                }
 
                 // Add attached groups if dragging a node
                 if (rootToMove.sourceType) { // it's a node
                     this.graphData.decorations.forEach(d => {
-                        if (d.attachedToNodeId === rootToMove.id) {
+                        if (d.attachedToNodeId === rootToMove.id && d.type === 'rectangle' && !d.parentId) {
                             itemsToMove.add(d);
                             // and their children
                             this.graphData.decorations.forEach(child => {
@@ -665,10 +666,19 @@ export default class Renderer {
                     });
                 }
                 
-                // Apply the delta to all collected items
                 itemsToMove.forEach(item => {
+                    if (getIsDecorationsLocked() && (item.type === 'rectangle' || item.type === 'markdown')) return;
                     if (item.x !== undefined) item.x += dx;
                     if (item.y !== undefined) item.y += dy;
+                    
+                    // Update attachment offset if the group is attached
+                    if (item.attachedToNodeId) {
+                      const node = this.graphData.getNodeById(item.attachedToNodeId);
+                      if (node) {
+                        item.attachOffsetX = item.x - node.x;
+                        item.attachOffsetY = item.y - node.y;
+                      }
+                    }
                     movedItems.add(item.id);
                 });
             });
