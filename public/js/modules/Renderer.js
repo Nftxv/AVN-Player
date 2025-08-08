@@ -45,7 +45,7 @@ export default class Renderer {
   setData(graphData) { this.graphData = graphData; }
   
   render() {
-      // The render loop is now self-driving.
+    // The render loop is now self-driving.
   }
 
   renderLoop() {
@@ -71,15 +71,13 @@ export default class Renderer {
     
     this.ctx.restore();
     
-    this.updateIframes();
-    this.updateMarkdownOverlays(isLodActive);
+    this.updateHtmlOverlays(isLodActive);
 
     requestAnimationFrame(this.renderLoop);
   }
 
   drawDecoration(deco, isLodActive) {
     if (isLodActive) {
-        // REVISED: Use a fixed color for LOD dots to ignore transparency
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
         this.ctx.globalAlpha = 0.9;
         this.ctx.beginPath();
@@ -170,7 +168,7 @@ export default class Renderer {
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = '12px "Segoe UI"'; // REVISED: Fixed font size
+        ctx.font = '12px "Segoe UI"';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -242,59 +240,60 @@ export default class Renderer {
     ctx.restore();
   }
 
-  updateIframes() {
-    if (!this.graphData) return;
-    this.graphData.nodes.forEach(node => {
-        if (node.sourceType !== 'iframe') return;
-        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
-        if (!wrapper) return;
-        const isInView = this._isNodeInView(node);
-        const shouldBeVisible = !node.isCollapsed && isInView;
-        if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
-            wrapper.style.display = shouldBeVisible ? 'block' : 'none';
-        }
-        if (shouldBeVisible) {
-            const screenX = (node.x) * this.scale + this.offset.x;
-            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
-            const screenWidth = NODE_WIDTH * this.scale;
-            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
-            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-            wrapper.style.width = `${screenWidth}px`;
-            wrapper.style.height = `${screenHeight}px`;
-        }
-    });
+  updateHtmlOverlays(isLodActive) {
+      if (!this.graphData) return;
+
+      this.graphData.nodes.forEach(node => {
+          if (node.sourceType === 'iframe') this.updateIframeOverlay(node);
+      });
+
+      this.graphData.decorations.forEach(deco => {
+          if (deco.type === 'markdown') this.updateMarkdownOverlay(deco, isLodActive);
+      });
   }
 
-  updateMarkdownOverlays(isLodActive) {
-      if (!this.graphData) return;
-      this.graphData.decorations.forEach(deco => {
-          if (deco.type !== 'markdown') return;
-          
-          const isInView = this._isDecorationInView(deco);
-          const shouldBeVisible = !isLodActive && isInView;
-          
-          let overlay = this.markdownOverlays.get(deco.id);
+  updateIframeOverlay(node) {
+      const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+      if (!wrapper) return;
+      const isInView = this._isNodeInView(node);
+      const shouldBeVisible = !node.isCollapsed && isInView;
+      if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
+          wrapper.style.display = shouldBeVisible ? 'block' : 'none';
+      }
+      if (shouldBeVisible) {
+          const screenX = node.x * this.scale + this.offset.x;
+          const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+          const screenWidth = NODE_WIDTH * this.scale;
+          const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+          wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+          wrapper.style.width = `${screenWidth}px`;
+          wrapper.style.height = `${screenHeight}px`;
+      }
+  }
 
-          if (shouldBeVisible) {
-              if (!overlay) {
-                  overlay = this._createMarkdownOverlay(deco);
-              }
-              const screenX = deco.x * this.scale + this.offset.x;
-              const screenY = deco.y * this.scale + this.offset.y;
-              const screenWidth = deco.width * this.scale;
-              const screenHeight = deco.height * this.scale;
-              
-              overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
-              overlay.style.width = `${screenWidth}px`;
-              overlay.style.height = `${screenHeight}px`;
-              // REVISED: Apply font scaling
-              overlay.style.fontSize = `${(deco.fontSize || 14) / this.scale}px`;
-              overlay.classList.toggle('selected', !!deco.selected);
+  updateMarkdownOverlay(deco, isLodActive) {
+      const isInView = this._isDecorationInView(deco);
+      const shouldBeVisible = !isLodActive && isInView;
+      let overlay = this.markdownOverlays.get(deco.id);
 
-          } else if (overlay) {
-              this.destroyMarkdownOverlay(deco.id);
+      if (shouldBeVisible) {
+          if (!overlay) {
+              overlay = this._createMarkdownOverlay(deco);
           }
-      });
+          const screenX = deco.x * this.scale + this.offset.x;
+          const screenY = deco.y * this.scale + this.offset.y;
+          const screenWidth = deco.width * this.scale;
+          const screenHeight = deco.height * this.scale;
+          
+          overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
+          overlay.style.width = `${screenWidth}px`;
+          overlay.style.height = `${screenHeight}px`;
+          overlay.style.fontSize = `${(deco.fontSize || 14) / this.scale}px`;
+          overlay.classList.toggle('selected', !!deco.selected);
+
+      } else if (overlay) {
+          this.destroyMarkdownOverlay(deco.id);
+      }
   }
 
   _createMarkdownOverlay(deco) {
@@ -303,6 +302,11 @@ export default class Renderer {
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
       
+      const handle = document.createElement('div');
+      handle.className = 'markdown-drag-handle';
+      handle.dataset.decoId = deco.id;
+      overlay.appendChild(handle);
+      
       this.updateMarkdownOverlayContent(overlay, deco);
 
       this.markdownContainer.appendChild(overlay);
@@ -310,7 +314,7 @@ export default class Renderer {
       return overlay;
   }
   
-  updateMarkdownOverlay(decoId) {
+  refreshMarkdownOverlay(decoId) {
       const deco = this.graphData.getDecorationById(decoId);
       const overlay = this.markdownOverlays.get(decoId);
       if (deco && overlay) {
@@ -320,10 +324,10 @@ export default class Renderer {
   }
 
   updateMarkdownOverlayContent(overlay, deco) {
-      const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), {
-        ADD_ATTR: ['target'],
-      });
+      const handle = overlay.querySelector('.markdown-drag-handle');
+      const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), { ADD_ATTR: ['target'] });
       overlay.innerHTML = content;
+      if (handle) overlay.prepend(handle);
       overlay.querySelectorAll('a').forEach(a => {
         a.target = '_blank';
         a.rel = 'noopener nofollow';
@@ -408,7 +412,7 @@ export default class Renderer {
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                 const deco = this.graphData.decorations[i];
                 const bounds = this._getDecorationBounds(deco);
-                if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
+                if (deco.type === 'rectangle' && x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
                     return { type: 'decoration', entity: deco };
                 }
             }
@@ -564,220 +568,148 @@ export default class Renderer {
   resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
   wasDragged() { return this.dragged; }
   
-  _getSnappedPosition(pos, movingEntity) {
-      return pos;
-  }
+  _getSnappedPosition(pos, movingEntity) { return pos; }
   _drawSnapGuides() { }
 
-  centerOnNode(nodeId, targetScale = null, screenOffset = null) {
-    if (!this.graphData) return;
-    const node = this.graphData.getNodeById(nodeId);
-    if (!node) return;
-
-    this.isAnimatingPan = true;
-    const finalScale = targetScale !== null ? targetScale : this.scale;
-    const finalScreenOffset = screenOffset || { x: 0, y: 0 };
-    
-    const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-    
-    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) + finalScreenOffset.x;
-    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) + finalScreenOffset.y;
-
-    const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
-    const startScale = this.scale;
-
-    const diffX = targetOffsetX - startOffsetX, diffY = targetOffsetY - startOffsetY;
-    const diffScale = finalScale - startScale;
-
-    const duration = 500;
-    let startTime = null;
-
-    const animate = (timestamp) => {
-        if (!startTime) startTime = timestamp;
-        const elapsed = timestamp - startTime;
-        if (elapsed >= duration || !this.isAnimatingPan) {
-            this.offset.x = targetOffsetX;
-            this.offset.y = targetOffsetY;
-            this.scale = finalScale;
-            this.isAnimatingPan = false;
-            return;
-        }
-
-        let progress = Math.min(elapsed / duration, 1);
-        progress = progress * (2 - progress); // Ease-out
-
-        this.offset.x = startOffsetX + diffX * progress;
-        this.offset.y = startOffsetY + diffY * progress;
-        this.scale = startScale + diffScale * progress;
-        
-        requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }
-  
   setupCanvasInteraction(callbacks) {
-    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
-    window.addEventListener('resize', () => this.resizeCanvas());
-    this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+    const { onClick, onDblClick } = callbacks;
     
-    const handleMouseMove = (e) => {
-        const oldMousePos = this.mousePos;
-        this.mousePos = this.getCanvasCoords(e);
-        if (e.buttons === 0) { handleMouseUp(e); return; }
-        this.dragged = true;
-
-        if (this.dragging) {
-            this.offset.x = e.clientX - this.dragStart.x;
-            this.offset.y = e.clientY - this.dragStart.y;
-        } else if (this.draggingEntity) {
-            const dx = this.mousePos.x - oldMousePos.x;
-            const dy = this.mousePos.y - oldMousePos.y;
-            if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
-
-            const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
-            const movedItems = new Set();
-
-            selection.forEach(entity => {
-                if (movedItems.has(entity.id)) return;
-                
-                let rootToMove = entity;
-                if (entity.parentId) {
-                    rootToMove = this.graphData.getDecorationById(entity.parentId) || entity;
-                }
-                
-                const itemsToMove = new Set([rootToMove]);
-                
-                if (rootToMove.type === 'rectangle') {
-                    this.graphData.decorations.forEach(d => {
-                        if (d.parentId === rootToMove.id) itemsToMove.add(d);
-                    });
-                }
-
-                if (rootToMove.sourceType) { // it's a node
-                    this.graphData.decorations.forEach(d => {
-                        if (d.attachedToNodeId === rootToMove.id && d.type === 'rectangle' && !d.parentId) {
-                            itemsToMove.add(d);
-                            this.graphData.decorations.forEach(child => {
-                                if (child.parentId === d.id) itemsToMove.add(child);
-                            });
-                        }
-                    });
-                }
-                
-                itemsToMove.forEach(item => {
-                    if (getIsDecorationsLocked() && (item.type === 'rectangle' || item.type === 'markdown')) return;
-                    if (item.x !== undefined) item.x += dx;
-                    if (item.y !== undefined) item.y += dy;
-                    
-                    if (item.attachedToNodeId) {
-                      const node = this.graphData.getNodeById(item.attachedToNodeId);
-                      if (node) {
-                        item.attachOffsetX = item.x - node.x;
-                        item.attachOffsetY = item.y - node.y;
-                      }
-                    }
-                    movedItems.add(item.id);
-                });
-            });
-
-        } else if (this.draggingControlPoint) {
-            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].x = this.mousePos.x;
-            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].y = this.mousePos.y;
-        } else if (this.isMarqueeSelecting) {
-            this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
-            this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
-        }
-    };
-
-    const handleMouseUp = (e) => {
-        if (this.isMarqueeSelecting) {
-            const normalizedRect = this.normalizeRect(this.marqueeRect);
-            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
-        }
-        if (this.isCreatingEdge && e.button === 2) {
-            const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-            if (targetClick && targetClick.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) {
-                onEdgeCreated(this.edgeCreationSource, targetClick.entity);
-            }
-        }
-        
-        this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
-        this.canvas.style.cursor = 'grab';
-        
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-
-        setTimeout(() => { this.dragged = false; }, 0);
-    };
-    
-    this.canvas.addEventListener('mousedown', (e) => {
-        this.isAnimatingPan = false; 
-        const isEditor = getIsEditorMode();
-        this.mousePos = this.getCanvasCoords(e);
-        this.dragged = false;
-        
-        const handlePanStart = () => {
-            this.dragging = true;
-            this.dragStart.x = e.clientX - this.offset.x;
-            this.dragStart.y = e.clientY - this.offset.y;
-        };
-
-        if (e.button === 0) { // Left
-            if (!isEditor) { handlePanStart(); }
-            else {
-                 const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
-                 if (cp) { this.draggingControlPoint = cp; }
-                 else {
-                     const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-                     if (clicked) {
-                         const entity = clicked.entity;
-                         if (entity.selected) this.isDraggingSelection = true;
-                         this.draggingEntity = entity;
-                     } else {
-                         this.isMarqueeSelecting = true;
-                         this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
-                     }
-                 }
-            }
-        } else if (e.button === 1) { handlePanStart(); } // Middle
-        else if (e.button === 2) { // Right
-            e.preventDefault();
-            if (isEditor) {
-                const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
-                if (cp) cp.edge.controlPoints.splice(cp.pointIndex, 1);
-                else {
-                    const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-                    if (clickedNode && clickedNode.type === 'node') {
-                        this.isCreatingEdge = true;
-                        this.edgeCreationSource = clickedNode.entity;
-                    }
-                }
-            }
-        }
-
-        if (this.dragging || this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
-            this.canvas.style.cursor = this.dragging ? 'grabbing' : 'crosshair';
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousedown', (e) => this.handleMouseDown(e, callbacks));
+    this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('.markdown-drag-handle')) return;
+        const clickedOnCanvas = e.target === this.canvas;
+        if (clickedOnCanvas) {
+            onClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
         }
     });
-
-    this.canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        this.isAnimatingPan = false;
-        const zoomIntensity = 0.1;
-        const wheel = e.deltaY < 0 ? 1 : -1;
-        const zoom = Math.exp(wheel * zoomIntensity);
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
-        this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
-        this.scale *= zoom;
-        this.scale = Math.max(0.1, Math.min(5, this.scale));
+    this.canvas.addEventListener('dblclick', (e) => {
+        onDblClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
     });
+  }
 
-    this.canvas.addEventListener('click', onClick);
-    this.canvas.addEventListener('dblclick', onDblClick);
+  handleMouseDown(e, callbacks) {
+      const { getIsEditorMode, getIsDecorationsLocked, getSelection, onEdgeCreated } = callbacks;
+      const isHandle = e.target.classList.contains('markdown-drag-handle');
+      const onCanvas = e.target === this.canvas;
+
+      // Only proceed if the event is on the canvas or a drag handle
+      if (!onCanvas && !isHandle) return;
+
+      e.stopPropagation();
+      this.isAnimatingPan = false;
+      this.mousePos = this.getCanvasCoords(e);
+      this.dragged = false;
+
+      const startPan = () => {
+          this.dragging = true;
+          this.dragStart.x = e.clientX - this.offset.x;
+          this.dragStart.y = e.clientY - this.offset.y;
+      };
+
+      if (e.button === 0) { // Left-click
+          if (!getIsEditorMode()) { startPan(); }
+          else {
+              let clicked = null;
+              if (isHandle) {
+                  const deco = this.graphData.getDecorationById(e.target.dataset.decoId);
+                  if (deco) clicked = { type: 'decoration', entity: deco };
+              } else {
+                  clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
+              }
+              
+              if (clicked) {
+                  this.draggingEntity = clicked.entity;
+                  if (clicked.entity.selected) this.isDraggingSelection = true;
+              } else {
+                  this.isMarqueeSelecting = true;
+                  this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
+              }
+          }
+      } else if (e.button === 1) { // Middle-click
+          startPan();
+      } else if (e.button === 2) { // Right-click
+          e.preventDefault();
+          if (getIsEditorMode()) {
+              const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+              if (clickedNode && clickedNode.type === 'node') {
+                  this.isCreatingEdge = true;
+                  this.edgeCreationSource = clickedNode.entity;
+              }
+          }
+      }
+
+      if (this.dragging || this.draggingEntity || this.isCreatingEdge || this.isMarqueeSelecting) {
+          const handleMouseMove = (moveEvent) => this.handleMouseMove(moveEvent, callbacks);
+          const handleMouseUp = () => {
+              window.removeEventListener('mousemove', handleMouseMove);
+              this.handleMouseUp(callbacks);
+          };
+          window.addEventListener('mousemove', handleMouseMove);
+          window.addEventListener('mouseup', handleMouseUp, { once: true });
+      }
+  }
+
+  handleMouseMove(e, callbacks) {
+      const { getIsDecorationsLocked, getSelection } = callbacks;
+      const oldMousePos = this.mousePos;
+      this.mousePos = this.getCanvasCoords(e);
+      this.dragged = true;
+      e.preventDefault();
+
+      if (this.dragging) {
+          this.offset.x = e.clientX - this.dragStart.x;
+          this.offset.y = e.clientY - this.dragStart.y;
+      } else if (this.draggingEntity) {
+          const dx = this.mousePos.x - oldMousePos.x;
+          const dy = this.mousePos.y - oldMousePos.y;
+          if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
+
+          const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
+          const movedItems = new Set();
+          selection.forEach(entity => {
+              if (movedItems.has(entity.id)) return;
+              let root = entity.parentId ? this.graphData.getDecorationById(entity.parentId) || entity : entity;
+              const itemsToMove = new Set([root]);
+              if (root.type === 'rectangle') this.graphData.decorations.forEach(d => { if (d.parentId === root.id) itemsToMove.add(d); });
+              if (root.sourceType) this.graphData.decorations.forEach(d => { if (d.attachedToNodeId === root.id && !d.parentId) { itemsToMove.add(d); this.graphData.decorations.forEach(c => { if(c.parentId === d.id) itemsToMove.add(c); }); } });
+              itemsToMove.forEach(item => {
+                  if (!getIsDecorationsLocked() || !item.type) {
+                      if(item.x !== undefined) item.x += dx;
+                      if(item.y !== undefined) item.y += dy;
+                      if(item.attachedToNodeId) { const node = this.graphData.getNodeById(item.attachedToNodeId); if(node){item.attachOffsetX = item.x - node.x; item.attachOffsetY = item.y - node.y;}}
+                      movedItems.add(item.id);
+                  }
+              });
+          });
+      } else if (this.isMarqueeSelecting) {
+          this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
+          this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
+      }
+  }
+
+  handleMouseUp(callbacks) {
+      const { onMarqueeSelect } = callbacks;
+      if (this.isMarqueeSelecting) {
+          const norm = this.normalizeRect(this.marqueeRect);
+          if (norm.w > 5 || norm.h > 5) onMarqueeSelect(this.marqueeRect, false, false); // Simplified mode
+      }
+      this.dragging = this.draggingEntity = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+      setTimeout(() => { this.dragged = false; }, 0);
+  }
+
+  handleWheel(e) {
+      e.preventDefault();
+      this.isAnimatingPan = false;
+      const zoomIntensity = 0.1;
+      const wheel = e.deltaY < 0 ? 1 : -1;
+      const zoom = Math.exp(wheel * zoomIntensity);
+      const rect = this.canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
+      this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
+      this.scale *= zoom;
+      this.scale = Math.max(0.1, Math.min(5, this.scale));
   }
 }

@@ -36,7 +36,7 @@ class GraphApp {
     this.isEditorMode = false;
     this.isFollowing = false;
     this.followScale = 1.0;
-    this.followScreenOffset = { x: 0, y: 0 }; // NEW: For smart follow position
+    this.followScreenOffset = { x: 0, y: 0 };
   }
 
   async init() {
@@ -58,7 +58,6 @@ class GraphApp {
     }
   }
 
-  // REVISED: Smart Follow Mode logic with position memory
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
@@ -69,21 +68,26 @@ class GraphApp {
           
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
-              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
-              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+              const NODE_WIDTH = 200;
+              const NODE_HEADER_HEIGHT = 45;
+              const NODE_CONTENT_ASPECT_RATIO = 9/16;
+              const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+
+              const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
+              const nodeCenterX = node.x + NODE_WIDTH / 2;
+              const nodeCenterY = node.y - contentHeight / 2 + NODE_HEADER_HEIGHT / 2;
+
+              const nodeScreenX = nodeCenterX * scale + offset.x;
+              const nodeScreenY = nodeCenterY * scale + offset.y;
               
               this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
               
-              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
-              
-              // Do not recenter immediately. Settings will apply on the next navigation.
+              console.log(`Follow mode activated. Target scale: ${this.followScale}`);
           } else {
-              // If no node is active, default to a centered view for the next node.
               this.followScreenOffset = { x: 0, y: 0 };
               console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
           }
-
       } else {
           console.log('Follow mode deactivated.');
       }
@@ -96,8 +100,6 @@ class GraphApp {
     this.navigation.reset();
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
-    }
-    if (!isEditor) {
       this.renderer.destroyAllMarkdownOverlays();
     }
   }
@@ -106,8 +108,8 @@ class GraphApp {
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
-        onClick: (e) => this.handleCanvasClick(e),
-        onDblClick: (e) => this.handleCanvasDblClick(e),
+        onClick: (e, entity) => this.handleCanvasClick(e, entity),
+        onDblClick: (e, entity) => this.handleCanvasDblClick(e, entity),
         onEdgeCreated: (source, target) => {
             if (this.isEditorMode) this.editorTools.createEdge(source, target);
         },
@@ -157,10 +159,8 @@ class GraphApp {
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
-  handleCanvasClick(event) {
+  handleCanvasClick(event, clicked) {
     if (this.renderer.wasDragged()) return;
-    const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
@@ -177,10 +177,9 @@ class GraphApp {
     }
   }
   
-  handleCanvasDblClick(event) {
+  handleCanvasDblClick(event, clicked) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
     
     if (clicked && clicked.type === 'node') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
@@ -189,10 +188,6 @@ class GraphApp {
     }
   }
 }
-
-// Constants exposed for other modules that need them
-const NODE_WIDTH = 200;
-const NODE_HEADER_HEIGHT = 45;
 
 (async () => {
   try {
