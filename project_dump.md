@@ -12,6 +12,8 @@
 <body>
   <!-- Container for HTML overlays (iframes) -->
   <div id="iframe-container"></div>
+  <!-- NEW: Container for Markdown overlays -->
+  <div id="markdown-container"></div>
 
   <canvas id="graphCanvas" title="Graph"></canvas>
 
@@ -40,8 +42,11 @@
       <button id="addNodeBtn" title="Add New Node">Add Node</button>
       <div class="divider"></div>
       <button id="addRectBtn" title="Add Rectangle Shape">Add Rect</button>
-      <button id="addTextBtn" title="Add Text Label">Add Text</button>
+      <button id="addTextBtn" title="Add Markdown Block">Add Text</button>
       <button id="lockDecorationsBtn" title="Lock/Unlock Decorations">🔓</button>
+      <div class="divider"></div>
+      <button id="groupSelectionBtn" title="Group Selected Decorations" disabled>Group</button>
+      <button id="attachToNodeBtn" title="Attach Group to Node" disabled>Attach</button>
       <div class="divider"></div>
       <button id="exportBtn">Export Graph</button>
       <button id="resetBtn">Reset</button>
@@ -60,7 +65,6 @@
 
   <!-- Player and other UI -->
   <div id="player">
-    <img id="currentCover" src="placeholder.svg" alt="Album cover">
     <div id="playerContent">
       <div id="songTitle">Select a node to begin...</div>
       <div id="playerControls">
@@ -69,7 +73,6 @@
         <button id="nextBtn" title="Next">⏭</button>
         <input type="range" id="progress" value="0">
         <span id="currentTime">0:00</span>
-        <button id="lyricsBtn" title="Show Lyrics">📜</button>
       </div>
     </div>
   </div>
@@ -86,14 +89,14 @@
     </div>
   </div>
   
-  <!--
-    The YouTube API script is now loaded programmatically by app.js
-    to prevent race conditions on page refresh.
-  -->
+  <!-- External Libraries for Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+
   <script src="js/app.js" type="module"></script>
 
   <footer id="copyright">
-    AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank">AbyssVoid.com</a>
+    AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank" rel="noopener nofollow">AbyssVoid.com</a>
   </footer>
 </body>
 </html>
@@ -102,7 +105,7 @@
 ## ./public/style.css
 
 :root {
-  --player-height: 80px;
+  --player-height: 60px;
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
   --dark-bg: #1e1e1e;
@@ -117,7 +120,7 @@
 body {
   margin: 0;
   overflow: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   background-color: var(--dark-bg);
   color: var(--dark-text);
 }
@@ -126,7 +129,7 @@ canvas {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1; /* Canvas is the base layer */
+  z-index: 1;
   display: block;
   cursor: grab;
 }
@@ -134,14 +137,14 @@ canvas:active {
   cursor: grabbing;
 }
 
-#iframe-container {
+#iframe-container, #markdown-container {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 2; /* Higher than canvas */
-  pointer-events: none; /* Click-through by default */
+  z-index: 2; 
+  pointer-events: none; /* Pass clicks through to the canvas by default */
   overflow: hidden;
 }
 
@@ -150,267 +153,110 @@ canvas:active {
   box-sizing: border-box;
   background-color: #000;
   border: 1px solid #444;
+  pointer-events: auto; /* IFrames are always interactive */
 }
 
 .iframe-wrapper iframe {
   width: 100%;
   height: 100%;
   border: none;
-  pointer-events: auto; /* Iframes are clickable */
 }
 
-.iframe-wrapper .drag-overlay {
+/* REVISED: Markdown overlay interaction model */
+.markdown-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10;
-  display: none; /* Hidden by default */
-}
-
-body.is-dragging .drag-overlay {
-  display: block;
-  pointer-events: auto; /* It catches the click */
-}
-
-button, .button-like {
-  padding: 8px 12px;
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  font-size: 14px;
-}
-
-button:hover, .button-like:hover {
-  background: var(--primary-hover);
-  transform: translateY(-1px);
-}
-
-button:disabled {
-    background: #555;
-    cursor: not-allowed;
-    transform: none;
-}
-
-/* NEW: Style for the active lock button */
-button#lockDecorationsBtn.active {
-    background-color: var(--danger-color);
-}
-button#lockDecorationsBtn.active:hover {
-    background-color: var(--danger-hover);
-}
-
-#player {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: var(--player-height);
-  background: rgba(45, 45, 45, 0.9);
-  border-top: 1px solid var(--dark-border);
-  padding: 10px 20px;
-  display: flex;
-  align-items: center;
-  z-index: 100;
-  gap: 15px;
-}
-
-#currentCover {
-  width: 60px;
-  height: 60px;
-  border-radius: 5px;
-  object-fit: cover;
-  background-color: #333;
-  flex-shrink: 0;
-}
-
-#playerContent {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-#songTitle {
-  font-weight: 600;
-  font-size: 1em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--dark-text);
-}
-
-#playerControls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
-
-#progress { flex-grow: 1; }
-
-#lyricsContainer {
-  position: fixed;
-  bottom: calc(var(--player-height) + 10px);
-  left: 10px;
-  right: 10px;
-  max-height: 40vh;
-  background: var(--dark-surface);
-  border: 1px solid var(--dark-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  z-index: 300;
+  box-sizing: border-box;
+  padding: 15px;
   overflow-y: auto;
-  padding: 20px;
   color: var(--dark-text);
-}
-#closeLyricsBtn { color: var(--dark-text); }
-#closeLyricsBtn:hover { color: #e74c3c; }
-
-
-.hidden { display: none !important; }
-
-#choiceModal {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
-  justify-content: center; align-items: center; padding: 15px;
-}
-
-.modal-content {
-  background: var(--dark-surface);
-  padding: 25px;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 400px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+  background-color: rgba(45, 45, 45, 0.85);
+  backdrop-filter: blur(5px);
   border: 1px solid var(--dark-border);
-}
-#choiceOptions button {
-  background-color: #3c3c3c;
-  color: var(--dark-text);
-}
-#choiceOptions button:hover {
-  background-color: #4f4f4f;
+  border-radius: 6px;
+  line-height: 1.5;
+  pointer-events: auto; /* Always allow text selection and scrolling inside */
 }
 
-@media (max-width: 768px) {
-  #player { height: auto; flex-direction: column; padding: 10px; gap: 10px; }
-  #playerContent { width: 100%; }
-  #songTitle { text-align: center; }
+.markdown-overlay.selected {
+  border: 2px solid #e74c3c !important;
+  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
 }
 
-#copyright {
-  position: fixed;
-  bottom: 5px;
-  right: 15px;
-  font-size: 12px;
-  color: var(--dark-subtle-text);
-  z-index: 99;
+/* NEW: Drag handle for markdown overlays in editor mode */
+.markdown-drag-handle {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    width: 24px;
+    height: 24px;
+    background-color: var(--primary-color);
+    border: 2px solid var(--dark-bg);
+    border-radius: 50%;
+    cursor: move;
+    z-index: 10;
+    pointer-events: auto; /* This is the only part that intercepts clicks for moving/selecting */
+    display: none; /* Hidden by default */
+    transition: transform 0.2s;
 }
+.markdown-drag-handle:hover {
+    transform: scale(1.2);
+}
+body.editor-mode .markdown-drag-handle {
+    display: block; /* Visible only in editor mode */
+}
+
+.markdown-overlay a { color: var(--primary-color); text-decoration: none; }
+.markdown-overlay a:hover { text-decoration: underline; }
+.markdown-overlay img { max-width: 100%; height: auto; border-radius: 4px; }
+.markdown-overlay h1, .markdown-overlay h2, .markdown-overlay h3 { margin-top: 0.5em; margin-bottom: 0.5em; border-bottom: 1px solid var(--dark-border); padding-bottom: 0.3em; }
+.markdown-overlay pre { background-color: var(--dark-bg); padding: 10px; border-radius: 4px; overflow-x: auto; }
+
+button, .button-like { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px; }
+button:hover, .button-like:hover { background: var(--primary-hover); transform: translateY(-1px); }
+button:disabled { background: #555; cursor: not-allowed; transform: none; }
+button#lockDecorationsBtn.active { background-color: var(--danger-color); }
+button#lockDecorationsBtn.active:hover { background-color: var(--danger-hover); }
+
+#player { position: fixed; bottom: 0; left: 0; right: 0; height: var(--player-height); background: rgba(45, 45, 45, 0.9); border-top: 1px solid var(--dark-border); padding: 10px 20px; display: flex; align-items: center; z-index: 100; gap: 15px; }
+#playerContent { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 0; align-items: center; }
+#songTitle { font-weight: 600; font-size: 1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dark-text); width: 100%; text-align: center; }
+#playerControls { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 500px; justify-content: center; }
+#progress { flex-grow: 1; }
+.hidden { display: none !important; }
+#choiceModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 400; display: flex; justify-content: center; align-items: center; padding: 15px; }
+.modal-content { background: var(--dark-surface); padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3); border: 1px solid var(--dark-border); }
+#choiceOptions button { background-color: #3c3c3c; color: var(--dark-text); }
+#choiceOptions button:hover { background-color: #4f4f4f; }
+@media (max-width: 768px) { #player { flex-direction: column; height: auto; padding-bottom: 15px;} #songTitle { text-align: center; } #playerControls { width: 100%; } }
+#copyright { position: fixed; bottom: 5px; right: 15px; font-size: 12px; color: var(--dark-subtle-text); z-index: 99; }
 #copyright a { color: var(--primary-color); text-decoration: none; }
 #copyright a:hover { text-decoration: underline; }
-
-#topToolbar {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  background: rgba(45, 45, 45, 0.9);
-  border: 1px solid var(--dark-border);
-  padding: 8px;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-#playerModeControls, #editorModeControls { display: flex; gap: 10px; }
+#topToolbar { position: fixed; top: 10px; left: 10px; background: rgba(45, 45, 45, 0.9); border: 1px solid var(--dark-border); padding: 8px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 200; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
 .editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
 .divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
-
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .4s; border-radius: 24px; }
 .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #e0e0e0; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--primary-color); }
 input:checked + .slider:before { transform: translateX(20px); }
-
-#inspectorPanel {
-  position: fixed; top: 60px; right: 10px; width: 300px;
-  max-height: calc(100vh - 80px); background: var(--dark-surface);
-  border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-  border: 1px solid var(--dark-border);
-  z-index: 250; padding: 15px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 10px;
-}
+#inspectorPanel { position: fixed; top: 60px; right: 10px; width: 300px; max-height: calc(100vh - 80px); background: var(--dark-surface); border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); border: 1px solid var(--dark-border); z-index: 250; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input, #inspectorContent select, #inspectorContent textarea {
-  width: 95%; padding: 8px; border-radius: 4px;
-  background-color: #3c3c3c;
-  border: 1px solid #555;
-  color: var(--dark-text);
-  margin-top: 2px;
-}
-#inspectorContent input[type="color"]{
-    width: 100%;
-    height: 30px;
-    padding: 2px;
-}
-#inspectorContent textarea {
-    resize: vertical;
-    min-height: 60px;
-}
-.toggle-switch {
-    display: flex;
-    border: 1px solid #555;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-top: 5px;
-}
-.toggle-switch button {
-    flex: 1;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    padding: 8px;
-}
-.toggle-switch button.active {
-    background: var(--primary-color);
-    color: white;
-}
-
+#inspectorContent input, #inspectorContent select, #inspectorContent textarea { width: 95%; padding: 8px; border-radius: 4px; background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text); margin-top: 2px; }
+#inspectorContent input[type="color"]{ width: 100%; height: 30px; padding: 2px; }
+#inspectorContent textarea { resize: vertical; min-height: 120px; font-family: Consolas, "Courier New", monospace; }
+.toggle-switch { display: flex; border: 1px solid #555; border-radius: 6px; overflow: hidden; margin-top: 5px; }
+.toggle-switch button { flex: 1; background: transparent; border: none; border-radius: 0; padding: 8px; }
+.toggle-switch button.active { background: var(--primary-color); color: white; }
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
-
-/* Style for the new follow mode button */
-#followModeBtn {
-    background: #3c3c3c;
-    color: var(--dark-subtle-text);
-    padding: 6px 10px;
-    font-size: 18px;
-    line-height: 1;
-}
-
-#followModeBtn:hover {
-    background: #4f4f4f;
-    transform: none;
-}
-
-#followModeBtn.active {
-    background: var(--primary-color);
-    color: white;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
-}
+#followModeBtn { background: #3c3c3c; color: var(--dark-subtle-text); padding: 6px 10px; font-size: 18px; line-height: 1; }
+#followModeBtn:hover { background: #4f4f4f; transform: none; }
+#followModeBtn.active { background: var(--primary-color); color: white; box-shadow: inset 0 0 5px rgba(0,0,0,0.3); }
 
 
 ## ./public/data/default.jsonld
@@ -650,16 +496,18 @@ function loadYouTubeAPI() {
 class GraphApp {
   constructor() {
     this.iframeContainer = document.getElementById('iframe-container');
+    this.markdownContainer = document.getElementById('markdown-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas', this.iframeContainer);
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer);
     this.player = new Player(this.graphData, this.iframeContainer);
-    // CORRECTED: Pass the 'app' instance (this) to Navigation
     this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
-    this.editorTools = new EditorTools(this.graphData, this.renderer);
+    this.editorTools = new EditorTools(this.graphData, this.renderer, this);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
     this.isFollowing = false;
+    this.followScale = 1.0;
+    this.followScreenOffset = { x: 0, y: 0 };
   }
 
   async init() {
@@ -667,12 +515,10 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
-      // Apply saved viewport settings if they exist
       if (this.graphData.view) {
         this.renderer.setViewport(this.graphData.view);
       }
       
-      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -685,9 +531,35 @@ class GraphApp {
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
-      console.log(`Follow mode is now: ${this.isFollowing}`);
-      if (this.isFollowing && this.navigation.currentNode) {
-          this.renderer.centerOnNode(this.navigation.currentNode.id);
+
+      if (this.isFollowing) {
+          const { scale, offset } = this.renderer.getViewport();
+          this.followScale = scale;
+          
+          if (this.navigation.currentNode) {
+              const node = this.navigation.currentNode;
+              const NODE_WIDTH = 200;
+              const NODE_HEADER_HEIGHT = 45;
+              const NODE_CONTENT_ASPECT_RATIO = 9/16;
+              const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+
+              const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
+              const nodeCenterX = node.x + NODE_WIDTH / 2;
+              const nodeCenterY = node.y - contentHeight / 2 + NODE_HEADER_HEIGHT / 2;
+
+              const nodeScreenX = nodeCenterX * scale + offset.x;
+              const nodeScreenY = nodeCenterY * scale + offset.y;
+              
+              this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
+              this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
+              
+              console.log(`Follow mode activated. Target scale: ${this.followScale}`);
+          } else {
+              this.followScreenOffset = { x: 0, y: 0 };
+              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
+          }
+      } else {
+          console.log('Follow mode deactivated.');
       }
   }
 
@@ -698,6 +570,7 @@ class GraphApp {
     this.navigation.reset();
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
+      this.renderer.destroyAllMarkdownOverlays();
     }
   }
 
@@ -705,8 +578,8 @@ class GraphApp {
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
-        onClick: (e) => this.handleCanvasClick(e),
-        onDblClick: (e) => this.handleCanvasDblClick(e),
+        onClick: (e, entity) => this.handleCanvasClick(e, entity),
+        onDblClick: (e, entity) => this.handleCanvasDblClick(e, entity),
         onEdgeCreated: (source, target) => {
             if (this.isEditorMode) this.editorTools.createEdge(source, target);
         },
@@ -719,12 +592,6 @@ class GraphApp {
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
         getSelection: () => this.editorTools.getSelection(),
-        // CORRECTED: This callback is now correctly passed and used
-        onManualPan: () => {
-            if (this.isFollowing) {
-                this.toggleFollowMode(false);
-            }
-        }
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -739,13 +606,15 @@ class GraphApp {
     document.getElementById('addRectBtn').addEventListener('click', () => this.editorTools.createRectangle());
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
     document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
+    
+    document.getElementById('groupSelectionBtn').addEventListener('click', () => this.editorTools.groupOrUngroupSelection());
+    document.getElementById('attachToNodeBtn').addEventListener('click', () => this.editorTools.attachOrDetachSelection());
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
         selection.forEach(entity => {
-            if (entity.sourceType === 'iframe') {
-                this.player.destroyYtPlayer(entity.id);
-            }
+            if (entity.sourceType === 'iframe') this.player.destroyYtPlayer(entity.id);
+            if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
         });
         this.editorTools.deleteSelection();
     });
@@ -760,15 +629,8 @@ class GraphApp {
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
-  handleCanvasClick(event) {
+  handleCanvasClick(event, clicked) {
     if (this.renderer.wasDragged()) return;
-    const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
-
-    if (clicked && clicked.type === 'collapse_toggle') {
-        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
-        return;
-    }
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
@@ -785,10 +647,9 @@ class GraphApp {
     }
   }
   
-  handleCanvasDblClick(event) {
+  handleCanvasDblClick(event, clicked) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
-    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
     
     if (clicked && clicked.type === 'node') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
@@ -823,12 +684,24 @@ const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
 
 
 export default class EditorTools {
-  constructor(graphData, renderer) {
+  constructor(graphData, renderer, app) {
     this.graphData = graphData;
     this.renderer = renderer;
+    this.app = app;
     this.inspectedEntity = null;
     this.selectedEntities = [];
-    this.decorationsLocked = false;
+    this.decorationsLocked = true; // REVISED: Start with decorations locked by default
+    this.initLockState(); // Apply initial state to UI
+  }
+    
+  // NEW: Helper to set initial lock button state
+  initLockState() {
+      const lockBtn = document.getElementById('lockDecorationsBtn');
+      lockBtn.textContent = this.decorationsLocked ? '🔒' : '🔓';
+      lockBtn.classList.toggle('active', this.decorationsLocked);
+      lockBtn.title = this.decorationsLocked ? 'Decorations Locked (Click to Unlock)' : 'Decorations Unlocked (Click to Lock)';
+      document.getElementById('addRectBtn').disabled = this.decorationsLocked;
+      document.getElementById('addTextBtn').disabled = this.decorationsLocked;
   }
 
   collapseAllNodes() {
@@ -841,26 +714,16 @@ export default class EditorTools {
 
   toggleDecorationsLock() {
     this.decorationsLocked = !this.decorationsLocked;
-    
-    const lockBtn = document.getElementById('lockDecorationsBtn');
-    const addRectBtn = document.getElementById('addRectBtn');
-    const addTextBtn = document.getElementById('addTextBtn');
-    
-    lockBtn.textContent = this.decorationsLocked ? '🔒' : '🔓';
-    lockBtn.classList.toggle('active', this.decorationsLocked);
-    addRectBtn.disabled = this.decorationsLocked;
-    addTextBtn.disabled = this.decorationsLocked;
+    this.initLockState(); // Use the helper to update UI
 
     if (this.decorationsLocked) {
-      const nonDecorationSelection = this.selectedEntities.filter(e => e.type !== 'rectangle' && e.type !== 'text');
+      const nonDecorationSelection = this.selectedEntities.filter(e => !e.type);
       this.updateSelection(nonDecorationSelection, 'set');
     }
   }
 
   createNode() {
     const center = this.renderer.getViewportCenter();
-    // A new node is expanded, so we account for the content height to center it visually.
-    // node.y is the top of the header.
     const visualCenterOffset = (NODE_HEADER_HEIGHT - NODE_CONTENT_HEIGHT) / 2;
 
     const newNode = {
@@ -870,7 +733,7 @@ export default class EditorTools {
       y: center.y - visualCenterOffset,
       isCollapsed: false,
       sourceType: 'audio',
-      audioUrl: '', coverUrl: '', lyricsUrl: '', iframeUrl: '',
+      audioUrl: '', coverUrl: '', iframeUrl: '',
     };
     this.graphData.nodes.push(newNode);
     this.selectEntity(newNode);
@@ -884,7 +747,8 @@ export default class EditorTools {
         type: 'rectangle',
         x: center.x - 150, y: center.y - 100,
         width: 300, height: 200,
-        backgroundColor: '#2c3e50'
+        backgroundColor: '#2c3e50',
+        parentId: null, attachedToNodeId: null,
     };
     this.graphData.decorations.push(newRect);
     this.selectEntity(newRect);
@@ -895,14 +759,13 @@ export default class EditorTools {
     const center = this.renderer.getViewportCenter();
     const newText = {
         id: `deco-text-${Date.now()}`,
-        type: 'text',
-        x: center.x, y: center.y,
-        textContent: 'New Text Label',
-        fontSize: 16,
-        color: '#ecf0f1',
-        textAlign: 'center',
-        width: 250,
-        lineHeight: 1.2,
+        type: 'markdown',
+        x: center.x - 150, y: center.y - 100,
+        width: 300, height: 200,
+        textContent: '### New Block\n\nEdit content in the inspector.',
+        fontSize: 14,
+        backgroundColor: 'rgba(45, 45, 45, 0.85)',
+        parentId: null,
     };
     this.graphData.decorations.push(newText);
     this.selectEntity(newText);
@@ -922,6 +785,65 @@ export default class EditorTools {
     this.graphData.edges.push(newEdge);
     this.selectEntity(newEdge);
   }
+  
+  groupOrUngroupSelection() {
+      const groupBtn = document.getElementById('groupSelectionBtn');
+      const isUngroupAction = groupBtn.textContent === 'Ungroup';
+
+      if (isUngroupAction) {
+          const container = this.selectedEntities.find(e => e.type === 'rectangle');
+          if (!container) return;
+          this.graphData.decorations.forEach(deco => {
+              if (deco.parentId === container.id) {
+                  deco.parentId = null;
+              }
+          });
+          console.log(`Ungrouped items from parent ${container.id}`);
+      } else {
+          const decorations = this.selectedEntities.filter(e => e.type === 'rectangle' || e.type === 'markdown');
+          const parent = decorations.find(d => d.type === 'rectangle');
+          if (!parent || decorations.length < 2) {
+            alert('To group, select one rectangle (as container) and at least one other decoration.');
+            return;
+          }
+          decorations.forEach(deco => {
+              if (deco.id !== parent.id) {
+                  deco.parentId = parent.id;
+              }
+          });
+          console.log(`Grouped ${decorations.length - 1} items under parent ${parent.id}`);
+          this.updateSelection([parent], 'set');
+      }
+      this.updateUIState();
+  }
+
+  attachOrDetachSelection() {
+      const attachBtn = document.getElementById('attachToNodeBtn');
+      const isDetachAction = attachBtn.textContent === 'Detach';
+      const container = this.selectedEntities.find(e => e.type === 'rectangle' && !e.parentId);
+
+      if (isDetachAction) {
+          if (container) {
+              container.attachedToNodeId = null;
+              container.attachOffsetX = null;
+              container.attachOffsetY = null;
+              console.log(`Detached container ${container.id}`);
+          }
+      } else {
+          const node = this.selectedEntities.find(e => e.sourceType);
+          if (!node || !container) {
+            alert('To attach, select one node and one parent container (a rectangle).');
+            return;
+          }
+          container.attachedToNodeId = node.id;
+          container.attachOffsetX = container.x - node.x;
+          container.attachOffsetY = container.y - node.y;
+          console.log(`Attached container ${container.id} to node ${node.id}`);
+          this.updateSelection([node, container], 'set');
+      }
+      this.updateUIState();
+  }
+
 
   deleteSelection() {
     if (this.selectedEntities.length === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.length} item(s)?`)) {
@@ -932,6 +854,11 @@ export default class EditorTools {
     const selectedIds = new Set(this.selectedEntities.map(e => e.id));
     const nodesToDelete = new Set(this.selectedEntities.filter(e => e.sourceType).map(n => n.id));
     
+    this.graphData.decorations.forEach(deco => {
+        if (selectedIds.has(deco.parentId)) deco.parentId = null;
+        if (nodesToDelete.has(deco.attachedToNodeId)) deco.attachedToNodeId = null;
+    });
+
     this.graphData.nodes = this.graphData.nodes.filter(n => !selectedIds.has(n.id));
     this.graphData.edges = this.graphData.edges.filter(e => !selectedIds.has(e.id) && !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target));
     this.graphData.decorations = this.graphData.decorations.filter(d => !selectedIds.has(d.id));
@@ -962,6 +889,10 @@ export default class EditorTools {
           }
           finalSelection = Array.from(currentSelection.values());
       }
+      
+      this.selectedEntities.forEach(e => { if(e.id) e.selected = false });
+      this.graphData.edges.forEach(e => e.selected = false);
+
       this.selectedEntities = finalSelection;
       const selectedIds = new Set(this.selectedEntities.map(e => entityToId(e)));
       
@@ -974,6 +905,33 @@ export default class EditorTools {
   
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
+
+      const groupBtn = document.getElementById('groupSelectionBtn');
+      const attachBtn = document.getElementById('attachToNodeBtn');
+      const decos = this.selectedEntities.filter(e => e.type);
+      const nodes = this.selectedEntities.filter(e => e.sourceType);
+      const container = this.selectedEntities.find(e => e.type === 'rectangle' && !e.parentId);
+      
+      if (container && this.selectedEntities.length === 1 && this.graphData.decorations.some(d => d.parentId === container.id)) {
+          groupBtn.textContent = 'Ungroup';
+          groupBtn.disabled = false;
+          groupBtn.title = 'Ungroup all items from this container';
+      } else {
+          groupBtn.textContent = 'Group';
+          groupBtn.disabled = !(decos.length > 1 && container);
+          groupBtn.title = 'Group selected items under the selected rectangle';
+      }
+
+      if (container && container.attachedToNodeId) {
+          attachBtn.textContent = 'Detach';
+          attachBtn.disabled = this.selectedEntities.length > 1;
+          attachBtn.title = 'Detach this container from its node';
+      } else {
+          attachBtn.textContent = 'Attach';
+          attachBtn.disabled = !(nodes.length === 1 && container);
+          attachBtn.title = 'Attach selected container to the selected node';
+      }
+
       if (this.selectedEntities.length === 1) {
           this.openInspector(this.selectedEntities[0]);
       } else {
@@ -994,69 +952,39 @@ export default class EditorTools {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `
-            <label for="nodeTitle">Title:</label>
-            <input type="text" id="nodeTitle" value="${entity.title || ''}">
-            <label>Source Type:</label>
-            <div class="toggle-switch">
-                <button id="type-audio" class="${entity.sourceType === 'audio' ? 'active' : ''}">Audio File</button>
-                <button id="type-iframe" class="${entity.sourceType === 'iframe' ? 'active' : ''}">YouTube</button>
-            </div>
-            <div id="audio-fields" class="${entity.sourceType === 'audio' ? '' : 'hidden'}">
-                <label for="audioUrl">Audio URL:</label>
-                <input type="text" id="audioUrl" value="${entity.audioUrl || ''}" placeholder="https://.../track.mp3">
-                <label for="coverUrl">Cover URL:</label>
-                <input type="text" id="coverUrl" value="${entity.coverUrl || ''}" placeholder="https://.../cover.jpg">
-                <label for="lyricsUrl">Lyrics URL:</label>
-                <input type="text" id="lyricsUrl" value="${entity.lyricsUrl || ''}" placeholder="https://.../lyrics.txt">
-            </div>
-            <div id="iframe-fields" class="${entity.sourceType === 'iframe' ? '' : 'hidden'}">
-                <label for="iframeUrl">YouTube URL or Video ID:</label>
-                <input type="text" id="iframeUrlInput" value="${entity.iframeUrl || ''}" placeholder="dQw4w9WgXcQ">
-            </div>
-        `;
+        html = `...`; 
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
-        html = `
-            <label for="edgeLabel">Label:</label>
-            <input type="text" id="edgeLabel" value="${entity.label || ''}">
-            <label for="edgeColor">Color:</label>
-            <input type="color" id="edgeColor" value="${entity.color || '#888888'}">
-            <label for="edgeWidth">Line Width:</label>
-            <input type="number" id="edgeWidth" value="${entity.lineWidth || 2}" min="1" max="10">
-        `;
+        html = `...`; 
     } else if (entity.type === 'rectangle') {
         title.textContent = 'Rectangle Properties';
+        html = `...`; 
+    } else if (entity.type === 'markdown') {
+        title.textContent = 'Markdown Block Properties';
         html = `
-            <label for="rectColor">Background Color:</label>
-            <input type="color" id="rectColor" value="${entity.backgroundColor}">
+            <label for="textContent">Markdown Content:</label>
+            <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
+            <label for="fontSize">Base Font Size (px):</label>
+            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
             <label for="rectWidth">Width:</label>
             <input type="number" id="rectWidth" value="${entity.width}" min="10">
             <label for="rectHeight">Height:</label>
             <input type="number" id="rectHeight" value="${entity.height}" min="10">
-        `;
-    } else if (entity.type === 'text') {
-        title.textContent = 'Text Properties';
-        html = `
-            <label for="textContent">Text:</label>
-            <textarea id="textContent" rows="4">${entity.textContent || ''}</textarea>
-            <label for="textWidth">Width (px, 0=auto):</label>
-            <input type="number" id="textWidth" value="${entity.width || 0}" min="0">
-            <label for="textColor">Text Color:</label>
-            <input type="color" id="textColor" value="${entity.color || '#FFFFFF'}">
-            <label for="textSize">Font Size:</label>
-            <input type="number" id="textSize" value="${entity.fontSize || 16}" min="8">
-             <label for="textLineHeight">Line Height:</label>
-            <input type="number" id="textLineHeight" value="${entity.lineHeight || 1.2}" step="0.1" min="0.8">
-            <label for="textAlign">Alignment:</label>
-            <select id="textAlign">
-                <option value="left" ${entity.textAlign === 'left' ? 'selected' : ''}>Left</option>
-                <option value="center" ${entity.textAlign === 'center' ? 'selected' : ''}>Center</option>
-                <option value="right" ${entity.textAlign === 'right' ? 'selected' : ''}>Right</option>
-            </select>
+            <label for="bgColor">Background Color (CSS value):</label>
+            <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="e.g., #333 or rgba(45,45,45,0.8)">
         `;
     }
     
+    // Snipped parts for brevity, logic unchanged
+    if (entity.sourceType) { // Node
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
+    } else if (entity.source) { // Edge
+        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
+    } else if (entity.type === 'rectangle') {
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${entity.backgroundColor}"><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
+    }
+
+
     content.innerHTML = html;
     panel.classList.remove('hidden');
     if (entity.sourceType) this._setupInspectorLogic(entity);
@@ -1089,14 +1017,12 @@ export default class EditorTools {
         if (entity.sourceType === 'audio') {
             entity.audioUrl = document.getElementById('audioUrl').value || null;
             entity.coverUrl = document.getElementById('coverUrl').value || null;
-            entity.lyricsUrl = document.getElementById('lyricsUrl').value || null;
             entity.iframeUrl = null;
         } else if (entity.sourceType === 'iframe') {
             const userInput = document.getElementById('iframeUrlInput').value;
-            entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null; // CORRECTED
+            entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null;
             entity.audioUrl = null;
             entity.coverUrl = null;
-            entity.lyricsUrl = null;
         }
     } else if (entity.source) { // Edge
         entity.label = document.getElementById('edgeLabel').value;
@@ -1106,13 +1032,13 @@ export default class EditorTools {
         entity.backgroundColor = document.getElementById('rectColor').value;
         entity.width = parseInt(document.getElementById('rectWidth').value, 10);
         entity.height = parseInt(document.getElementById('rectHeight').value, 10);
-    } else if (entity.type === 'text') {
+    } else if (entity.type === 'markdown') {
         entity.textContent = document.getElementById('textContent').value;
-        entity.width = parseInt(document.getElementById('textWidth').value, 10);
-        entity.color = document.getElementById('textColor').value;
-        entity.fontSize = parseInt(document.getElementById('textSize').value, 10);
-        entity.lineHeight = parseFloat(document.getElementById('textLineHeight').value);
-        entity.textAlign = document.getElementById('textAlign').value;
+        entity.fontSize = parseInt(document.getElementById('fontSize').value, 10);
+        entity.width = parseInt(document.getElementById('rectWidth').value, 10);
+        entity.height = parseInt(document.getElementById('rectHeight').value, 10);
+        entity.backgroundColor = document.getElementById('bgColor').value;
+        this.renderer.updateMarkdownOverlay(entity.id);
     }
   }
 
@@ -1128,7 +1054,6 @@ export default class EditorTools {
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
       
-      // The "center" for an edge connection is the middle of the header.
       const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEADER_HEIGHT / 2 };
       const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEADER_HEIGHT / 2 };
 
@@ -1184,13 +1109,9 @@ export default class GraphData {
     this.edges = [];
     this.decorations = [];
     this.meta = {};
-    this.view = null; // To store viewport data (pan/zoom)
+    this.view = null;
   }
 
-  /**
-   * Loads graph data from a given URL.
-   * @param {string} url - The URL of the JSON/JSON-LD file.
-   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -1198,16 +1119,11 @@ export default class GraphData {
     this.parseData(data);
   }
 
-  /**
-   * Parses the raw JSON-LD data and populates nodes, edges, and decorations.
-   * @param {object} data - The raw data object from the JSON file.
-   */
   parseData(data) {
     this.meta = data.meta || {};
     this.view = data.view || null;
     const graph = data['@graph'] || [];
 
-    // Clear existing data
     this.nodes = [];
     this.edges = [];
     this.decorations = [];
@@ -1224,7 +1140,6 @@ export default class GraphData {
             sourceType: item.sourceType || 'audio',
             audioUrl: item.audioUrl || null,
             coverUrl: item.coverUrl || null,
-            lyricsUrl: item.lyricsUrl || null,
             iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
           });
           break;
@@ -1247,31 +1162,31 @@ export default class GraphData {
             width: item.size?.width || 200,
             height: item.size?.height || 100,
             backgroundColor: item.backgroundColor || '#333333',
+            // NEW: Grouping properties
+            parentId: item.parentId || null,
+            attachedToNodeId: item.attachedToNodeId || null,
           });
           break;
-        case 'TextAnnotation':
+        case 'TextAnnotation': // Legacy support
+        case 'MarkdownAnnotation': // NEW
           this.decorations.push({
             id: item['@id'],
-            type: 'text',
+            type: 'markdown', // REVISED: Unifying to markdown
             x: item.position?.x || 0,
             y: item.position?.y || 0,
+            width: item.size?.width || 300,
+            height: item.size?.height || 200,
             textContent: item.textContent || '',
-            fontSize: item.fontSize || 16,
-            color: item.color || '#FFFFFF',
-            textAlign: item.textAlign || 'left',
-            width: item.width,
-            lineHeight: item.lineHeight || 1.2,
+            fontSize: item.fontSize || 14,
+            backgroundColor: item.backgroundColor || 'rgba(45, 45, 45, 0.85)',
+            // NEW: Grouping properties
+            parentId: item.parentId || null,
           });
           break;
       }
     });
   }
 
-  /**
-   * Serializes the current graph data back into a JSON-LD format for export.
-   * @param {object|null} viewport - Optional viewport data to include.
-   * @returns {object} - The complete graph object.
-   */
   getGraph(viewport = null) {
     const graph = [
       ...this.nodes.map(n => ({
@@ -1282,8 +1197,7 @@ export default class GraphData {
         isCollapsed: n.isCollapsed,
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,
-        coverUrl: n.coverUrl,
-        lyricsUrl: n.lyricsUrl,
+        coverUrl: n.coverUrl, // Keep for data, not for UI
         iframeUrl: n.iframeUrl,
       })),
       ...this.edges.map(e => ({
@@ -1296,7 +1210,12 @@ export default class GraphData {
         controlPoints: e.controlPoints,
       })),
       ...this.decorations.map(d => {
-        const common = { '@id': d.id, position: { x: d.x, y: d.y } };
+        const common = { 
+            '@id': d.id, 
+            position: { x: d.x, y: d.y },
+            ...(d.parentId && { parentId: d.parentId }),
+            ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId })
+        };
         if (d.type === 'rectangle') {
           return {
             ...common,
@@ -1305,16 +1224,14 @@ export default class GraphData {
             backgroundColor: d.backgroundColor,
           };
         }
-        if (d.type === 'text') {
+        if (d.type === 'markdown') { // REVISED
           return {
             ...common,
-            '@type': 'TextAnnotation',
+            '@type': 'MarkdownAnnotation',
+            size: { width: d.width, height: d.height },
             textContent: d.textContent,
             fontSize: d.fontSize,
-            color: d.color,
-            textAlign: d.textAlign,
-            width: d.width,
-            lineHeight: d.lineHeight,
+            backgroundColor: d.backgroundColor,
           };
         }
         return null;
@@ -1334,33 +1251,22 @@ export default class GraphData {
     return data;
   }
   
-  /**
-   * Parses various YouTube URL formats and returns only the video ID.
-   * @param {string} input - The URL or ID provided by the user.
-   * @returns {string|null} - The 11-character video ID or null.
-   */
   parseYoutubeUrl(input) {
       if (!input || typeof input !== 'string') return null;
-      
-      // Regular expression to find the YouTube video ID in various URL formats
       const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       const match = input.match(regex);
-      
-      if (match && match[1]) {
-          return match[1];
-      }
-      
-      // If no match from URL, check if the input itself is a valid ID
-      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) {
-          return input.trim();
-      }
-      
+      if (match && match[1]) return match[1];
+      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim();
       console.warn("Could not parse YouTube URL/ID:", input);
       return null;
   }
 
   getNodeById(id) {
     return this.nodes.find(node => node.id === id);
+  }
+
+  getDecorationById(id) {
+    return this.decorations.find(deco => deco.id === id);
   }
   
   getEdgesFromNode(nodeId) {
@@ -1375,7 +1281,6 @@ export default class GraphData {
  * Manages the user's journey through the graph, handling history and branching choices.
  */
 export default class Navigation {
-  // CORRECTED: Constructor now properly receives and stores the 'app' instance
   constructor(graphData, player, renderer, app) {
     this.graphData = graphData;
     this.player = player;
@@ -1405,7 +1310,7 @@ export default class Navigation {
     this.player.play(node);
 
     if (this.app.isFollowing) {
-      this.renderer.centerOnNode(nodeId);
+      this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
   }
 
@@ -1463,7 +1368,7 @@ export default class Navigation {
         this.player.play(prevNode);
 
         if (this.app.isFollowing) {
-            this.renderer.centerOnNode(prevNodeId);
+            this.renderer.centerOnNode(prevNodeId, this.app.followScale, this.app.followScreenOffset);
         }
     }
   }
@@ -1480,11 +1385,12 @@ export default class Navigation {
     this.player.play(nextNode);
     
     if (this.app.isFollowing) {
-        this.renderer.centerOnNode(nextNode.id);
+        this.renderer.centerOnNode(nextNode.id, this.app.followScale, this.app.followScreenOffset);
     }
   }
 
   promptForChoice(options) {
+    //... No changes here
     return new Promise((resolve) => {
       const modal = document.getElementById('choiceModal');
       const optionsContainer = document.getElementById('choiceOptions');
@@ -1546,8 +1452,7 @@ export default class Navigation {
 ## ./public/js/modules/Player.js
 
 /**
- * Manages audio playback, player UI updates, and lyrics loading.
- * NEW: Implements "lazy loading" for YouTube players to handle large graphs.
+ * Manages audio playback and player UI updates.
  */
 export default class Player {
   constructor(graphData, iframeContainer) {
@@ -1556,13 +1461,9 @@ export default class Player {
     this.navigation = null;
     this.currentNode = null;
     
-    // Audio player
     this.audio = new Audio();
     
-    // --- YouTube Player Management ---
-    // Stores the ready-to-use YT.Player objects
     this.ytPlayers = new Map(); 
-    // Tracks nodes for which a player is currently being created, to prevent duplicates
     this.ytPlayersCreating = new Set(); 
     this.currentYtPlayer = null;
 
@@ -1570,11 +1471,6 @@ export default class Player {
   }
 
   setNavigation(navigation) { this.navigation = navigation; }
-  
-  /**
-   * This function is now gone. Players are created on-demand.
-   * initializeAllYouTubePlayers() has been removed.
-   */
 
   async play(node) {
     if (!node) return;
@@ -1595,7 +1491,6 @@ export default class Player {
     const progress = document.getElementById('progress');
 
     if (node.sourceType === 'audio') {
-        document.getElementById('currentCover').src = node.coverUrl || 'placeholder.svg';
         if (!node.audioUrl) {
           console.warn(`Audio URL is missing for "${node.title}".`);
           this.stop();
@@ -1607,30 +1502,22 @@ export default class Player {
         progress.disabled = false;
         this.audio.src = node.audioUrl;
         this.audio.play().catch(e => console.error("Playback error:", e));
-        this.loadAndShowLyrics(node.lyricsUrl);
 
     } else if (node.sourceType === 'iframe') {
-        document.getElementById('currentCover').src = `https://i.ytimg.com/vi/${node.iframeUrl}/mqdefault.jpg`;
         playBtn.disabled = false;
         playBtn.textContent = '⏸';
         progress.value = 0;
         progress.disabled = true;
 
         if (this.ytPlayers.has(node.id)) {
-            // Player already exists, get it.
             this.currentYtPlayer = this.ytPlayers.get(node.id);
-            
-            // If the video has ended, seek to the beginning before playing.
             if (this.currentYtPlayer.getPlayerState() === YT.PlayerState.ENDED) {
                 this.currentYtPlayer.seekTo(0);
             }
             this.currentYtPlayer.playVideo();
-
         } else {
-            // Player doesn't exist, create it on-demand (it will auto-play).
             this.currentYtPlayer = await this.createAndPlayYtPlayer(node);
         }
-        this.loadAndShowLyrics(null);
     }
   }
 
@@ -1671,19 +1558,11 @@ export default class Player {
     document.getElementById('playBtn').disabled = true;
     document.getElementById('progress').disabled = true;
     document.getElementById('songTitle').textContent = 'Select a node to begin...';
-    document.getElementById('currentCover').src = 'placeholder.svg';
     document.getElementById('progress').value = 0;
     document.getElementById('currentTime').textContent = '0:00';
   }
 
-  /**
-   * Creates a new YouTube player on-demand.
-   * Returns a promise that resolves with the player object once it's ready.
-   * @param {object} node The node for which to create a player.
-   * @returns {Promise<YT.Player>}
-   */
   createAndPlayYtPlayer(node) {
-    // If we are already in the process of creating this player, do nothing.
     if (this.ytPlayersCreating.has(node.id)) {
         console.warn(`Player creation for ${node.id} already in progress.`);
         return;
@@ -1691,15 +1570,12 @@ export default class Player {
 
     return new Promise((resolve) => {
         this.ytPlayersCreating.add(node.id);
-
         const wrapper = document.createElement('div');
         wrapper.id = `iframe-wrapper-${node.id}`;
         wrapper.className = 'iframe-wrapper';
         wrapper.style.display = 'none';
-        
         const playerDiv = document.createElement('div');
         playerDiv.id = `yt-player-${node.id}`;
-
         const dragOverlay = document.createElement('div');
         dragOverlay.className = 'drag-overlay';
 
@@ -1715,10 +1591,10 @@ export default class Player {
             events: {
                 'onReady': (event) => {
                     console.log(`Lazy-loaded player for ${node.id} is ready.`);
-                    this.ytPlayers.set(node.id, player); // Add to the map of ready players
-                    this.ytPlayersCreating.delete(node.id); // Remove from the "in-progress" set
-                    event.target.playVideo(); // Play it immediately
-                    resolve(player); // Resolve the promise with the new player object
+                    this.ytPlayers.set(node.id, player);
+                    this.ytPlayersCreating.delete(node.id);
+                    event.target.playVideo();
+                    resolve(player);
                 },
                 'onStateChange': (event) => this.onPlayerStateChange(event, node)
             }
@@ -1731,17 +1607,14 @@ export default class Player {
           this.ytPlayers.get(nodeId).destroy();
           this.ytPlayers.delete(nodeId);
       }
-      this.ytPlayersCreating.delete(nodeId); // Also clear from the creation set
-
+      this.ytPlayersCreating.delete(nodeId);
       const wrapper = document.getElementById(`iframe-wrapper-${nodeId}`);
       if (wrapper) wrapper.remove();
-      
       console.log(`Destroyed player and wrapper for node ${nodeId}`);
   }
 
   onPlayerStateChange(event, node) {
     if (this.currentNode?.id !== node.id) return;
-    
     const playBtn = document.getElementById('playBtn');
     switch(event.data) {
         case YT.PlayerState.ENDED:
@@ -1756,24 +1629,6 @@ export default class Player {
     }
   }
 
-  async loadAndShowLyrics(url) {
-      const lyricsTextElem = document.getElementById('lyricsText');
-      lyricsTextElem.textContent = 'Loading lyrics...';
-      if (!url) {
-          lyricsTextElem.textContent = 'No lyrics available for this track.';
-          return;
-      }
-      try {
-          const response = await fetch(url);
-          if(!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const text = await response.text();
-          lyricsTextElem.textContent = text;
-      } catch (e) {
-          lyricsTextElem.textContent = 'Could not load lyrics.';
-          console.error('Lyrics loading failed:', e);
-      }
-  }
-
   setupEventListeners() {
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('ended', () => {
@@ -1784,14 +1639,6 @@ export default class Player {
         if (this.currentNode?.sourceType === 'audio' && this.audio.duration && isFinite(this.audio.duration)) {
             this.audio.currentTime = (e.target.value / 100) * this.audio.duration;
         }
-    });
-
-    const lyricsContainer = document.getElementById('lyricsContainer');
-    document.getElementById('lyricsBtn').addEventListener('click', () => {
-        lyricsContainer.classList.remove('hidden');
-    });
-    document.getElementById('closeLyricsBtn').addEventListener('click', () => {
-        lyricsContainer.classList.add('hidden');
     });
   }
   
@@ -1814,22 +1661,25 @@ export default class Player {
 ## ./public/js/modules/Renderer.js
 
 /**
- * AVN Player - Renderer Module with Editable & Lockable Decorative Layers
+ * AVN Player - Renderer Module
+ * with HTML Overlays, LOD, and Grouping
  * by Nftxv
  */
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
 const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
 const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+const DECORATION_LOD_THRESHOLD = 0.4;
 
 export default class Renderer {
-  constructor(canvasId, iframeContainer) {
+  constructor(canvasId, iframeContainer, markdownContainer) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
     this.iframeContainer = iframeContainer;
+    this.markdownContainer = markdownContainer;
     
     this.graphData = null; 
-    this.images = {};
+    this.markdownOverlays = new Map();
 
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
@@ -1837,131 +1687,81 @@ export default class Renderer {
     this.dragged = false;
     this.dragging = false;
     this.draggingEntity = null;
-    this.dragOffset = { x: 0, y: 0 };
     this.isDraggingSelection = false;
     
     this.draggingControlPoint = null;
     this.isCreatingEdge = false;
     this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
-    this.snapThreshold = 10;
-    this.snapLines = [];
+    
     this.isMarqueeSelecting = false;
     
     this.isAnimatingPan = false;
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
+    requestAnimationFrame(this.renderLoop);
   }
 
   setData(graphData) { this.graphData = graphData; }
   
-  async render() {
-    await this.loadImages();
-    this.renderLoop();
-  }
-
-  async loadImages() {
-    if (!this.graphData) return;
-    const promises = this.graphData.nodes
-      .filter(node => node.sourceType === 'audio' && node.coverUrl)
-      .map(async node => {
-        const url = node.coverUrl;
-        if (url && !this.images[url]) {
-          try {
-            const img = new Image();
-            img.src = url;
-            await img.decode();
-            this.images[url] = img;
-          } catch (e) {
-            console.warn(`Failed to load cover image: ${url}`, e);
-          }
-        }
-      });
-    await Promise.all(promises);
-  }
-
   renderLoop() {
-    if (!this.graphData) return;
+    if (!this.graphData) {
+        requestAnimationFrame(this.renderLoop);
+        return;
+    }
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
-    this.graphData.decorations.forEach(deco => this.drawDecoration(deco));
+    const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+
+    this.graphData.decorations.forEach(deco => this.drawDecoration(deco, isLodActive));
     this.graphData.nodes.forEach(node => this._drawNodeContent(node));
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
     this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
 
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
-    this._drawSnapGuides();
     
     this.ctx.restore();
     
-    this.updateIframes();
-    if(!this.isAnimatingPan) requestAnimationFrame(this.renderLoop);
+    this.updateHtmlOverlays(isLodActive);
+
+    requestAnimationFrame(this.renderLoop);
   }
 
-  drawDecoration(deco) {
+  drawDecoration(deco, isLodActive) {
+    if (isLodActive) {
+        this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
+        this.ctx.globalAlpha = 0.9;
+        this.ctx.beginPath();
+        const radius = deco.selected ? 7 / this.scale : 5 / this.scale;
+        this.ctx.arc(deco.x + deco.width/2, deco.y + deco.height/2, radius, 0, 2*Math.PI);
+        this.ctx.fill();
+        this.ctx.globalAlpha = 1.0;
+        return;
+    }
+
     if (deco.type === 'rectangle') this.drawRectangle(deco);
-    else if (deco.type === 'text') this.drawText(deco);
   }
 
   drawRectangle(rect) {
     const ctx = this.ctx;
     ctx.save();
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = rect.selected ? 0.8 : 0.5;
     ctx.fillStyle = rect.backgroundColor;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     
     if (rect.selected) {
-        ctx.restore();
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(rect.x, rect.y, rect.width, rect.height);
-        ctx.clip();
         ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = (2 / this.scale) * 2;
-        ctx.stroke();
+        ctx.lineWidth = 4 / this.scale;
+        ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
     }
     ctx.restore();
   }
-
-  drawText(text) {
-      const ctx = this.ctx;
-      ctx.save();
-      ctx.font = `${text.fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-      ctx.fillStyle = text.color;
-      ctx.textAlign = text.textAlign;
-      ctx.textBaseline = 'top';
-      const lines = this._getWrappedLines(text);
-      const bounds = this._getTextBounds(text, lines);
-      const topLeftX = text.x - bounds.width / 2;
-      const topLeftY = text.y - bounds.height / 2;
-      let drawX;
-      if (text.textAlign === 'left') drawX = topLeftX;
-      else if (text.textAlign === 'center') drawX = text.x;
-      else drawX = topLeftX + bounds.width;
-      let currentY = topLeftY;
-      for (const line of lines) {
-          ctx.fillText(line, drawX, currentY);
-          currentY += text.fontSize * text.lineHeight;
-      }
-      if (text.selected) {
-          const rectX = topLeftX - 2, rectY = topLeftY - 2, rectW = bounds.width + 4, rectH = bounds.height + 4;
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(rectX, rectY, rectW, rectH);
-          ctx.clip();
-          ctx.strokeStyle = '#e74c3c';
-          ctx.lineWidth = (1 / this.scale) * 2;
-          ctx.stroke();
-          ctx.restore();
-      }
-      ctx.restore();
-  }
-
+  
   drawEdge(edge) {
       const src = this.graphData.getNodeById(edge.source);
       const trg = this.graphData.getNodeById(edge.target);
@@ -2016,15 +1816,18 @@ export default class Renderer {
       
       controlPoints.forEach(point => {
           ctx.beginPath();
-          ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = color;
+          ctx.arc(point.x, point.y, 5 / this.scale, 0, 2 * Math.PI);
+          ctx.fillStyle = edge.selected ? '#e74c3c' : color;
           ctx.fill();
       });
       
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = '12px Segoe UI'; ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.font = '12px "Segoe UI"';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
         ctx.save();
         ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
         const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
@@ -2045,26 +1848,7 @@ export default class Renderer {
     const containerH = NODE_CONTENT_HEIGHT;
     ctx.fillStyle = '#1e1e1e';
     ctx.fillRect(containerX, containerY, containerW, containerH);
-    if (node.sourceType === 'audio') {
-        const img = this.images[node.coverUrl];
-        if (img) {
-            const containerRatio = containerW / containerH;
-            const imgRatio = img.naturalWidth / img.naturalHeight;
-            let drawW, drawH, drawX, drawY;
-            if (imgRatio > containerRatio) {
-                drawW = containerW;
-                drawH = drawW / imgRatio;
-                drawX = containerX;
-                drawY = containerY + (containerH - drawH) / 2;
-            } else {
-                drawH = containerH;
-                drawW = drawH * imgRatio;
-                drawY = containerY;
-                drawX = containerX + (containerW - drawW) / 2;
-            }
-            ctx.drawImage(img, drawX, drawY, drawW, drawH);
-        }
-    } else if (node.sourceType === 'iframe') {
+    if (node.sourceType === 'iframe') {
         ctx.fillStyle = '#000000';
         ctx.fillRect(containerX, containerY, containerW, containerH);
     }
@@ -2081,7 +1865,7 @@ export default class Renderer {
         ctx.save();
         ctx.clip();
         ctx.strokeStyle = node.selected ? '#e74c3c' : '#FFD700';
-        ctx.lineWidth = 3 * 2;
+        ctx.lineWidth = 4;
         ctx.stroke();
         ctx.restore();
     } else {
@@ -2090,7 +1874,7 @@ export default class Renderer {
         ctx.stroke();
     }
     ctx.fillStyle = '#e0e0e0';
-    ctx.font = '14px Segoe UI';
+    ctx.font = '14px "Segoe UI"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const fittedTitle = this._fitText(node.title, NODE_WIDTH - 20); 
@@ -2112,64 +1896,114 @@ export default class Renderer {
     ctx.restore();
   }
 
-  updateIframes() {
-    if (!this.graphData) return;
-    this.graphData.nodes.forEach(node => {
-        if (node.sourceType !== 'iframe') return;
-        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
-        if (!wrapper) return;
-        const isInView = this._isNodeInView(node);
-        const shouldBeVisible = !node.isCollapsed && isInView;
-        wrapper.style.display = shouldBeVisible ? 'block' : 'none';
-        if (shouldBeVisible) {
-            const screenX = (node.x) * this.scale + this.offset.x;
-            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
-            const screenWidth = NODE_WIDTH * this.scale;
-            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
-            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-            wrapper.style.width = `${screenWidth}px`;
-            wrapper.style.height = `${screenHeight}px`;
-        }
-    });
+  updateHtmlOverlays(isLodActive) {
+      if (!this.graphData) return;
+
+      this.graphData.nodes.forEach(node => {
+          if (node.sourceType === 'iframe') this.updateIframeOverlay(node);
+      });
+
+      this.graphData.decorations.forEach(deco => {
+          if (deco.type === 'markdown') this.updateMarkdownOverlay(deco, isLodActive);
+      });
   }
 
-  _getWrappedLines(textObj) {
-      const { textContent, fontSize, width } = textObj;
-      this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-      const paragraphs = (textContent || "").split('\n');
-      const allLines = [];
-      for (const paragraph of paragraphs) {
-          if (!width || width <= 0) { allLines.push(paragraph); }
-          else {
-              const words = paragraph.split(' ');
-              let currentLine = '';
-              for (const word of words) {
-                  const testLine = currentLine ? `${currentLine} ${word}` : word;
-                  if (this.ctx.measureText(testLine).width > width && currentLine) {
-                      allLines.push(currentLine);
-                      currentLine = word;
-                  } else { currentLine = testLine; }
-              }
-              allLines.push(currentLine);
-          }
+  updateIframeOverlay(node) {
+      const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+      if (!wrapper) return;
+      const isInView = this._isNodeInView(node);
+      const shouldBeVisible = !node.isCollapsed && isInView;
+      if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
+          wrapper.style.display = shouldBeVisible ? 'block' : 'none';
       }
-      return allLines;
+      if (shouldBeVisible) {
+          const screenX = node.x * this.scale + this.offset.x;
+          const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+          const screenWidth = NODE_WIDTH * this.scale;
+          const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+          wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+          wrapper.style.width = `${screenWidth}px`;
+          wrapper.style.height = `${screenHeight}px`;
+      }
+  }
+
+  updateMarkdownOverlay(deco, isLodActive) {
+      const isInView = this._isDecorationInView(deco);
+      const shouldBeVisible = !isLodActive && isInView;
+      let overlay = this.markdownOverlays.get(deco.id);
+
+      if (shouldBeVisible) {
+          if (!overlay) {
+              overlay = this._createMarkdownOverlay(deco);
+          }
+          const screenX = deco.x * this.scale + this.offset.x;
+          const screenY = deco.y * this.scale + this.offset.y;
+          const screenWidth = deco.width * this.scale;
+          const screenHeight = deco.height * this.scale;
+          
+          overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
+          overlay.style.width = `${screenWidth}px`;
+          overlay.style.height = `${screenHeight}px`;
+          overlay.style.fontSize = `${(deco.fontSize || 14) / this.scale}px`;
+          overlay.classList.toggle('selected', !!deco.selected);
+
+      } else if (overlay) {
+          this.destroyMarkdownOverlay(deco.id);
+      }
+  }
+
+  _createMarkdownOverlay(deco) {
+      const overlay = document.createElement('div');
+      overlay.id = `md-overlay-${deco.id}`;
+      overlay.className = 'markdown-overlay';
+      overlay.style.backgroundColor = deco.backgroundColor;
+      
+      const handle = document.createElement('div');
+      handle.className = 'markdown-drag-handle';
+      handle.dataset.decoId = deco.id;
+      overlay.appendChild(handle);
+      
+      this.updateMarkdownOverlayContent(overlay, deco);
+
+      this.markdownContainer.appendChild(overlay);
+      this.markdownOverlays.set(deco.id, overlay);
+      return overlay;
   }
   
-  _getTextBounds(textObj, renderedLines) {
-      const { fontSize, width, lineHeight } = textObj;
-      let maxWidth = 0;
-      if (width > 0) { maxWidth = width; }
-      else {
-        this.ctx.font = `${fontSize}px 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`;
-        renderedLines.forEach(line => { maxWidth = Math.max(maxWidth, this.ctx.measureText(line).width); });
+  refreshMarkdownOverlay(decoId) {
+      const deco = this.graphData.getDecorationById(decoId);
+      const overlay = this.markdownOverlays.get(decoId);
+      if (deco && overlay) {
+          this.updateMarkdownOverlayContent(overlay, deco);
+          overlay.style.backgroundColor = deco.backgroundColor;
       }
-      const totalHeight = (renderedLines.length > 0) 
-        ? (renderedLines.length * fontSize * lineHeight) - (fontSize * (lineHeight - 1)) : 0;
-      return { width: maxWidth, height: totalHeight };
+  }
+
+  updateMarkdownOverlayContent(overlay, deco) {
+      const handle = overlay.querySelector('.markdown-drag-handle');
+      const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), { ADD_ATTR: ['target'] });
+      overlay.innerHTML = content;
+      if (handle) overlay.prepend(handle);
+      overlay.querySelectorAll('a').forEach(a => {
+        a.target = '_blank';
+        a.rel = 'noopener nofollow';
+      });
+  }
+
+  destroyMarkdownOverlay(decoId) {
+      if (this.markdownOverlays.has(decoId)) {
+          this.markdownOverlays.get(decoId).remove();
+          this.markdownOverlays.delete(decoId);
+      }
+  }
+  
+  destroyAllMarkdownOverlays() {
+      this.markdownOverlays.forEach(overlay => overlay.remove());
+      this.markdownOverlays.clear();
   }
 
   _fitText(text, maxWidth) {
+      this.ctx.font = '14px "Segoe UI"';
       if(this.ctx.measureText(text).width <= maxWidth) return text;
       while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) text = text.slice(0, -1);
       return text + '...';
@@ -2177,12 +2011,22 @@ export default class Renderer {
   
   _isNodeInView(node) {
       const rect = this._getNodeVisualRect(node);
+      return this._isRectInView(rect);
+  }
+  
+  _isDecorationInView(deco) {
+      const rect = this._getDecorationBounds(deco);
+      return this._isRectInView(rect);
+  }
+  
+  _isRectInView(rect) {
       const screenRect = {
         x: rect.x * this.scale + this.offset.x, y: rect.y * this.scale + this.offset.y,
         width: rect.width * this.scale, height: rect.height * this.scale
       };
-      return screenRect.x < this.canvas.width && screenRect.x + screenRect.width > 0 &&
-             screenRect.y < this.canvas.height && screenRect.y + screenRect.height > 0;
+      const buffer = 100;
+      return screenRect.x < this.canvas.width + buffer && screenRect.x + screenRect.width > -buffer &&
+             screenRect.y < this.canvas.height + buffer && screenRect.y + screenRect.height > -buffer;
   }
 
   getViewportCenter() {
@@ -2191,17 +2035,11 @@ export default class Renderer {
       return { x: worldX, y: worldY };
   }
 
-  getViewport() {
-    return { offset: this.offset, scale: this.scale };
-  }
+  getViewport() { return { offset: this.offset, scale: this.scale }; }
 
   setViewport(view) {
-    if (view.offset && typeof view.offset.x === 'number' && typeof view.offset.y === 'number') {
-      this.offset = view.offset;
-    }
-    if (typeof view.scale === 'number') {
-      this.scale = view.scale;
-    }
+    if (view.offset) this.offset = view.offset;
+    if (view.scale) this.scale = view.scale;
   }
 
   _getNodeVisualRect(node) {
@@ -2211,16 +2049,35 @@ export default class Renderer {
   }
   
   _getDecorationBounds(deco) {
-    if (deco.type === 'rectangle') return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
-    if (deco.type === 'text') {
-        const lines = this._getWrappedLines(deco);
-        const bounds = this._getTextBounds(deco, lines);
-        return { x: deco.x - bounds.width / 2, y: deco.y - bounds.height / 2, width: bounds.width, height: bounds.height };
-    }
-    return { x: deco.x, y: deco.y, width: 0, height: 0 };
+      return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
+    if (!isDecorationsLocked) {
+        if (this.scale < DECORATION_LOD_THRESHOLD) {
+            const tolerance = 7 / this.scale;
+            for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
+                 const deco = this.graphData.decorations[i];
+                 const decoCenterX = deco.x + deco.width/2;
+                 const decoCenterY = deco.y + deco.height/2;
+                 if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
+                     return { type: 'decoration', entity: deco };
+                 }
+            }
+        } else {
+            // Only check for rectangles, as markdown blocks are handled by their handles
+            for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
+                const deco = this.graphData.decorations[i];
+                if (deco.type === 'rectangle') {
+                    const bounds = this._getDecorationBounds(deco);
+                    if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
+                        return { type: 'decoration', entity: deco };
+                    }
+                }
+            }
+        }
+    }
+      
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
@@ -2228,17 +2085,10 @@ export default class Renderer {
             return { type: 'node', entity: node };
         }
     }
+      
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
-    if (!isDecorationsLocked) {
-        for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
-            const deco = this.graphData.decorations[i];
-            const bounds = this._getDecorationBounds(deco);
-            if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                return { type: 'decoration', entity: deco };
-            }
-        }
-    }
+
     return null;
   }
   
@@ -2319,78 +2169,31 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-    // The logical center is ALWAYS the center of the header. This is our stable anchor point.
     const logicalCenterX = node.x + NODE_WIDTH / 2;
     const logicalCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-
-    // The visual rectangle is what the line must clip to. This changes when collapsed.
     const rect = this._getNodeVisualRect(node);
-    
-    // Vector from the logical center to the external point. This defines the line's direction.
     const dx = externalPoint.x - logicalCenterX;
     const dy = externalPoint.y - logicalCenterY;
 
     if (dx === 0 && dy === 0) return { x: logicalCenterX, y: logicalCenterY };
-
-    // Parametric line equation: P = P0 + t * V
-    // P0 is (logicalCenterX, logicalCenterY), V is (dx, dy)
-    // We need to find the smallest positive t for which P is on the boundary of `rect`.
+    
     let t = Infinity;
+    if (dy < 0) { const t_y = (rect.y - logicalCenterY) / dy; if(logicalCenterX + t_y * dx >= rect.x && logicalCenterX + t_y * dx <= rect.x + rect.width) t = Math.min(t, t_y); }
+    if (dy > 0) { const t_y = (rect.y + rect.height - logicalCenterY) / dy; if(logicalCenterX + t_y * dx >= rect.x && logicalCenterX + t_y * dx <= rect.x + rect.width) t = Math.min(t, t_y); }
+    if (dx < 0) { const t_x = (rect.x - logicalCenterX) / dx; if(logicalCenterY + t_x * dy >= rect.y && logicalCenterY + t_x * dy <= rect.y + rect.height) t = Math.min(t, t_x); }
+    if (dx > 0) { const t_x = (rect.x + rect.width - logicalCenterX) / dx; if(logicalCenterY + t_x * dy >= rect.y && logicalCenterY + t_x * dy <= rect.y + rect.height) t = Math.min(t, t_x); }
 
-    // Top edge: y = rect.y
-    if (dy < 0) { // Ray is moving up
-        const t_y = (rect.y - logicalCenterY) / dy;
-        const x = logicalCenterX + t_y * dx;
-        if (x >= rect.x && x <= rect.x + rect.width) {
-            t = Math.min(t, t_y);
-        }
-    }
-    // Bottom edge: y = rect.y + rect.height
-    if (dy > 0) { // Ray is moving down
-        const t_y = (rect.y + rect.height - logicalCenterY) / dy;
-        const x = logicalCenterX + t_y * dx;
-        if (x >= rect.x && x <= rect.x + rect.width) {
-            t = Math.min(t, t_y);
-        }
-    }
-    // Left edge: x = rect.x
-    if (dx < 0) { // Ray is moving left
-        const t_x = (rect.x - logicalCenterX) / dx;
-        const y = logicalCenterY + t_x * dy;
-        if (y >= rect.y && y <= rect.y + rect.height) {
-            t = Math.min(t, t_x);
-        }
-    }
-    // Right edge: x = rect.x + rect.width
-    if (dx > 0) { // Ray is moving right
-        const t_x = (rect.x + rect.width - logicalCenterX) / dx;
-        const y = logicalCenterY + t_x * dy;
-        if (y >= rect.y && y <= rect.y + rect.height) {
-            t = Math.min(t, t_x);
-        }
-    }
-
-    // If we found a valid intersection, return it
     if (t !== Infinity && t > 0) {
         return { x: logicalCenterX + t * dx, y: logicalCenterY + t * dy };
     }
-
-    // Fallback: This can happen if the logical center is inside the visual rect,
-    // which it is for expanded nodes. In this case, there's no "forward" intersection.
-    // The old geometric method works better here. Let's combine them.
-    const angle = Math.atan2(dy, dx);
-    const tan = Math.tan(angle);
-    const halfW = rect.width / 2;
-    const halfH = rect.height / 2;
-
-    if (Math.abs(halfH * dx) > Math.abs(halfW * dy)) { 
+    
+    const tan = Math.tan(Math.atan2(dy, dx));
+    if (Math.abs(rect.height / 2 * dx) > Math.abs(rect.width / 2 * dy)) {
         const ix = rect.x + (dx > 0 ? rect.width : 0);
-        const iy = logicalCenterY + (ix - logicalCenterX) * tan;
-        return { x: ix, y: iy };
-    } else { 
+        return { x: ix, y: (rect.y + rect.height/2) + ((dx > 0 ? 1 : -1) * rect.width/2) * tan};
+    } else {
         const iy = rect.y + (dy > 0 ? rect.height : 0);
-        const ix = logicalCenterX + (iy - logicalCenterY) / tan;
-        return { x: ix, y: iy };
+        return { x: (rect.x + rect.width/2) + ((dy > 0 ? 1 : -1) * rect.height/2) / tan, y: iy};
     }
   }
   
@@ -2399,7 +2202,7 @@ export default class Renderer {
     const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
     const startY = this.edgeCreationSource.y + NODE_HEADER_HEIGHT / 2;
     ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
-    ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.restore();
+    ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3 / this.scale; ctx.setLineDash([5 / this.scale, 5 / this.scale]); ctx.stroke(); ctx.restore();
   }
   
   highlight(currentId, prevId = null, edge = null) {
@@ -2422,262 +2225,208 @@ export default class Renderer {
   }
   
   resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
-  
   wasDragged() { return this.dragged; }
   
-  _getSnappedPosition(pos, movingEntity) {
-      let snappedPos = { ...pos };
-      this.snapLines = [];
-      if (!movingEntity) return pos;
-      const isPoint = !movingEntity.sourceType && !movingEntity.type;
-      const movingBounds = isPoint ? { x: pos.x, y: pos.y, width: 0, height: 0 } 
-          : (this._getDecorationBounds(movingEntity) || this._getNodeVisualRect(movingEntity));
-      if (!isPoint) { movingBounds.x = pos.x; movingBounds.y = pos.y; }
-      const threshold = this.snapThreshold / this.scale;
-      let bestSnapX = { delta: Infinity }, bestSnapY = { delta: Infinity };
-      const movingPointsX = [movingBounds.x, movingBounds.x + movingBounds.width / 2, movingBounds.x + movingBounds.width];
-      const movingPointsY = [movingBounds.y, movingBounds.y + movingBounds.height / 2, movingBounds.y + movingBounds.height];
-      const snapTargets = [];
-      this.graphData.nodes.forEach(n => {
-          if (n === movingEntity || (movingEntity.id && n.id === movingEntity.id) || n.selected) return;
-          snapTargets.push({ type: 'node', bounds: this._getNodeVisualRect(n) });
-      });
-      this.graphData.decorations.forEach(d => {
-          if (d === movingEntity || (movingEntity.id && d.id === movingEntity.id) || d.selected) return;
-          snapTargets.push({ type: 'decoration', bounds: this._getDecorationBounds(d) });
-      });
-      this.graphData.edges.forEach(e => {
-        (e.controlPoints || []).forEach(p => {
-            if (p !== movingEntity) snapTargets.push({ type: 'point', bounds: { x: p.x, y: p.y, width: 0, height: 0 }});
-        });
-      });
-      for (const target of snapTargets) {
-          const targetBounds = target.bounds;
-          const targetPointsX = [targetBounds.x, targetBounds.x + targetBounds.width / 2, targetBounds.x + targetBounds.width];
-          const targetPointsY = [targetBounds.y, targetBounds.y + targetBounds.height / 2, targetBounds.y + targetBounds.height];
-          for (let i = 0; i < movingPointsX.length; i++) {
-              if (movingPointsX[i] === undefined) continue;
-              for (let j = 0; j < targetPointsX.length; j++) {
-                  const delta = targetPointsX[j] - movingPointsX[i];
-                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapX.delta)) bestSnapX = { delta, pos: targetPointsX[j] };
-              }
-          }
-          for (let i = 0; i < movingPointsY.length; i++) {
-              if (movingPointsY[i] === undefined) continue;
-              for (let j = 0; j < targetPointsY.length; j++) {
-                  const delta = targetPointsY[j] - movingPointsY[i];
-                  if (Math.abs(delta) < threshold && Math.abs(delta) < Math.abs(bestSnapY.delta)) bestSnapY = { delta, pos: targetPointsY[j] };
-              }
-          }
-      }
-      if (Math.abs(bestSnapX.delta) < threshold) {
-          snappedPos.x += bestSnapX.delta;
-          this.snapLines.push({ type: 'v', pos: bestSnapX.pos });
-      }
-      if (Math.abs(bestSnapY.delta) < threshold) {
-          snappedPos.y += bestSnapY.delta;
-          this.snapLines.push({ type: 'h', pos: bestSnapY.pos });
-      }
-      return snappedPos;
-  }
-  
-  _drawSnapGuides() {
-      const ctx = this.ctx; ctx.save(); ctx.strokeStyle = 'rgba(255, 0, 255, 0.7)'; ctx.lineWidth = 1 / this.scale;
-      ctx.setLineDash([5 / this.scale, 5 / this.scale]);
-      this.snapLines.forEach(line => {
-          ctx.beginPath();
-          if (line.type === 'v') { ctx.moveTo(line.pos, -this.offset.y / this.scale); ctx.lineTo(line.pos, (this.canvas.height - this.offset.y) / this.scale); }
-          else { ctx.moveTo(-this.offset.x / this.scale, line.pos); ctx.lineTo((this.canvas.width - this.offset.x) / this.scale, line.pos); }
-          ctx.stroke();
-      });
-      ctx.restore();
-  }
-
-  centerOnNode(nodeId) {
+  centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     if (!this.graphData) return;
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
 
     this.isAnimatingPan = true;
+    const finalScale = targetScale !== null ? targetScale : this.scale;
+    const finalScreenOffset = screenOffset || { x: 0, y: 0 };
+    
+    const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
     const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * this.scale);
-    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * this.scale);
+    const nodeCenterY = node.y - contentHeight / 2 + NODE_HEADER_HEIGHT / 2;
+    
+    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) + finalScreenOffset.x;
+    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) + finalScreenOffset.y;
+
     const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
+    const startScale = this.scale;
+
     const diffX = targetOffsetX - startOffsetX, diffY = targetOffsetY - startOffsetY;
+    const diffScale = finalScale - startScale;
+
     const duration = 500;
     let startTime = null;
 
     const animate = (timestamp) => {
-        if (!this.isAnimatingPan) return;
         if (!startTime) startTime = timestamp;
         const elapsed = timestamp - startTime;
-        let progress = Math.min(elapsed / duration, 1);
-        progress = progress * (2 - progress); // Ease-out
-        this.offset.x = startOffsetX + diffX * progress;
-        this.offset.y = startOffsetY + diffY * progress;
-        
-        this.renderLoop(); // Re-render on each animation frame
-
-        if (elapsed < duration) {
-            requestAnimationFrame(animate);
-        } else {
+        if (elapsed >= duration || !this.isAnimatingPan) {
             this.offset.x = targetOffsetX;
             this.offset.y = targetOffsetY;
+            this.scale = finalScale;
             this.isAnimatingPan = false;
-            this.renderLoop(); // Final render
+            return;
         }
+
+        let progress = Math.min(elapsed / duration, 1);
+        progress = progress * (2 - progress); // Ease-out
+
+        this.offset.x = startOffsetX + diffX * progress;
+        this.offset.y = startOffsetY + diffY * progress;
+        this.scale = startScale + diffScale * progress;
+        
+        requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
   }
   
   setupCanvasInteraction(callbacks) {
-    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection, onManualPan } = callbacks;
-    window.addEventListener('resize', () => this.resizeCanvas());
-    this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+    const { onClick, onDblClick } = callbacks;
     
-    // REVAMPED: Robust drag handling using window events
-    const handleMouseMove = (e) => {
-        this.mousePos = this.getCanvasCoords(e);
-        if (e.buttons === 0) { // Should not happen with this new logic, but as a fallback
-            handleMouseUp(e);
-            return;
-        }
-        this.dragged = true;
-        if (this.dragging) {
-            if (onManualPan) onManualPan();
-            this.offset.x = e.clientX - this.dragStart.x;
-            this.offset.y = e.clientY - this.dragStart.y;
-        } else if (this.draggingEntity) {
-            const potentialNewPos = { x: this.mousePos.x - this.dragOffset.x, y: this.mousePos.y - this.dragOffset.y };
-            const snappedPos = this._getSnappedPosition(potentialNewPos, this.draggingEntity);
-            const originalBounds = this._getDecorationBounds(this.draggingEntity) || this._getNodeVisualRect(this.draggingEntity);
-            const dx = snappedPos.x - originalBounds.x;
-            const dy = snappedPos.y - originalBounds.y;
-            const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
-            const isLocked = getIsDecorationsLocked();
-            selection.forEach(entity => {
-                if (isLocked && (entity.type === 'rectangle' || entity.type === 'text')) return;
-                if ('x' in entity && 'y' in entity) { 
-                    entity.x += dx; entity.y += dy; 
-                } else if (entity.controlPoints) { // This is an edge being dragged as part of a selection
-                    entity.controlPoints.forEach(p => { p.x += dx; p.y += dy; });
-                }
-            });
-        } else if (this.draggingControlPoint) {
-            const point = this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex];
-            const snappedPos = this._getSnappedPosition(this.mousePos, point);
-            point.x = snappedPos.x; point.y = snappedPos.y;
-        } else if (this.isMarqueeSelecting) {
-            this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
-            this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
-        }
-    };
+    // Listen on document to catch handle clicks that might be outside other containers
+    document.addEventListener('mousedown', (e) => this.handleMouseDown(e, callbacks));
+    this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
 
-    const handleMouseUp = (e) => {
-        if (this.isMarqueeSelecting) {
-            const normalizedRect = this.normalizeRect(this.marqueeRect);
-            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
+    // Refined click handlers
+    document.addEventListener('click', (e) => {
+        if (this.wasDragged()) return;
+        const target = e.target;
+        if (target === this.canvas) {
+            onClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
+        } else if (target.classList.contains('markdown-drag-handle')) {
+            onClick(e, {type: 'decoration', entity: this.graphData.getDecorationById(target.dataset.decoId)});
         }
-        if (this.isCreatingEdge && e.button === 2) {
+    });
+    this.canvas.addEventListener('dblclick', (e) => {
+        if (this.wasDragged()) return;
+        onDblClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
+    });
+  }
+
+  handleMouseDown(e, callbacks) {
+      const { getIsEditorMode, getIsDecorationsLocked, getSelection, onEdgeCreated } = callbacks;
+      const isHandle = e.target.classList.contains('markdown-drag-handle');
+      const onCanvas = e.target === this.canvas;
+
+      if (!onCanvas && !isHandle) return;
+      
+      this.isAnimatingPan = false;
+      this.mousePos = this.getCanvasCoords(e);
+      this.dragged = false;
+
+      const startPan = () => {
+          this.dragging = true;
+          this.dragStart.x = e.clientX - this.offset.x;
+          this.dragStart.y = e.clientY - this.offset.y;
+      };
+
+      if (e.button === 0) { // Left-click
+          if (!getIsEditorMode()) { startPan(); }
+          else {
+               let clicked = null;
+               if (isHandle) {
+                   const deco = this.graphData.getDecorationById(e.target.dataset.decoId);
+                   if (deco) clicked = { type: 'decoration', entity: deco };
+               } else {
+                   clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
+               }
+              
+              if (clicked) {
+                  this.draggingEntity = clicked.entity;
+                  if (clicked.entity.selected) this.isDraggingSelection = true;
+              } else {
+                  this.isMarqueeSelecting = true;
+                  this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
+              }
+          }
+      } else if (e.button === 1) { startPan(); } 
+      else if (e.button === 2) { 
+          e.preventDefault();
+          if (getIsEditorMode()) {
+              const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+              if (clickedNode && clickedNode.type === 'node') {
+                  this.isCreatingEdge = true;
+                  this.edgeCreationSource = clickedNode.entity;
+              }
+          }
+      }
+
+      if (this.dragging || this.draggingEntity || this.isCreatingEdge || this.isMarqueeSelecting) {
+          const handleMouseMove = (moveEvent) => this.handleMouseMove(moveEvent, callbacks);
+          const handleMouseUp = (upEvent) => {
+              window.removeEventListener('mousemove', handleMouseMove);
+              this.handleMouseUp(upEvent, callbacks);
+          };
+          window.addEventListener('mousemove', handleMouseMove);
+          window.addEventListener('mouseup', handleMouseUp, { once: true });
+      }
+  }
+
+  handleMouseMove(e, callbacks) {
+      const { getIsDecorationsLocked, getSelection } = callbacks;
+      const oldMousePos = this.mousePos;
+      this.mousePos = this.getCanvasCoords(e);
+      this.dragged = true;
+      e.preventDefault();
+
+      if (this.dragging) {
+          this.offset.x = e.clientX - this.dragStart.x;
+          this.offset.y = e.clientY - this.dragStart.y;
+      } else if (this.draggingEntity) {
+          const dx = this.mousePos.x - oldMousePos.x;
+          const dy = this.mousePos.y - oldMousePos.y;
+          if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
+
+          const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
+          const movedItems = new Set();
+          selection.forEach(entity => {
+              if (movedItems.has(entity.id)) return;
+              let root = entity.parentId ? this.graphData.getDecorationById(entity.parentId) || entity : entity;
+              const itemsToMove = new Set([root]);
+              if (root.type === 'rectangle') this.graphData.decorations.forEach(d => { if (d.parentId === root.id) itemsToMove.add(d); });
+              if (root.sourceType) this.graphData.decorations.forEach(d => { if (d.attachedToNodeId === root.id && !d.parentId) { itemsToMove.add(d); this.graphData.decorations.forEach(c => { if(c.parentId === d.id) itemsToMove.add(c); }); } });
+              itemsToMove.forEach(item => {
+                  if (!getIsDecorationsLocked() || !item.type) {
+                      if(item.x !== undefined) item.x += dx;
+                      if(item.y !== undefined) item.y += dy;
+                      if(item.attachedToNodeId) { const node = this.graphData.getNodeById(item.attachedToNodeId); if(node){item.attachOffsetX = item.x - node.x; item.attachOffsetY = item.y - node.y;}}
+                      movedItems.add(item.id);
+                  }
+              });
+          });
+      } else if (this.isMarqueeSelecting) {
+          this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
+          this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
+      }
+  }
+
+  handleMouseUp(e, callbacks) {
+      const { onMarqueeSelect, onEdgeCreated } = callbacks;
+      if (this.isMarqueeSelecting) {
+          const norm = this.normalizeRect(this.marqueeRect);
+          if (norm.w > 5 || norm.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
+      }
+      if (this.isCreatingEdge && e.button === 2) {
             const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
             if (targetClick && targetClick.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) {
                 onEdgeCreated(this.edgeCreationSource, targetClick.entity);
             }
-        }
-        
-        // Cleanup all states and listeners
-        this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
-        this.canvas.style.cursor = 'grab';
-        document.body.classList.remove('is-dragging');
-        this.snapLines = [];
-        
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+      }
+      this.dragging = this.draggingEntity = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+      setTimeout(() => { this.dragged = false; }, 0);
+  }
 
-        // Allow click event to fire correctly after a drag ends
-        setTimeout(() => { this.dragged = false; }, 0);
-    };
-    
-    this.canvas.addEventListener('mousedown', (e) => {
-        this.isAnimatingPan = false; 
-        const isEditor = getIsEditorMode();
-        const mousePos = this.getCanvasCoords(e);
-        this.dragged = false;
-        
-        const handlePanStart = () => {
-            if (onManualPan) onManualPan();
-            this.dragging = true;
-            this.dragStart.x = e.clientX - this.offset.x;
-            this.dragStart.y = e.clientY - this.offset.y;
-        };
-
-        if (e.button === 0) { // Left mouse button
-            if (!isEditor) {
-                handlePanStart();
-            } else {
-                 const cp = this.getControlPointAt(mousePos.x, mousePos.y);
-                 if (cp) {
-                     this.draggingControlPoint = cp;
-                 } else {
-                     const clicked = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-                     if (clicked && (clicked.type === 'node' || clicked.type === 'decoration')) {
-                         const entity = clicked.entity;
-                         if (entity.selected) this.isDraggingSelection = true;
-                         this.draggingEntity = entity;
-                         const bounds = this._getDecorationBounds(entity) || this._getNodeVisualRect(entity);
-                         this.dragOffset.x = mousePos.x - bounds.x;
-                         this.dragOffset.y = mousePos.y - bounds.y;
-                     } else {
-                         this.isMarqueeSelecting = true;
-                         this.marqueeRect = { x: mousePos.x, y: mousePos.y, w: 0, h: 0 };
-                     }
-                 }
-            }
-        } else if (e.button === 1) { // Middle mouse button
-             handlePanStart();
-        } else if (e.button === 2) { // Right mouse button
-            e.preventDefault();
-            if (isEditor) {
-                const cp = this.getControlPointAt(mousePos.x, mousePos.y);
-                if (cp) {
-                    cp.edge.controlPoints.splice(cp.pointIndex, 1);
-                } else {
-                    const clickedNode = this.getClickableEntityAt(mousePos.x, mousePos.y, { isDecorationsLocked: true });
-                    if (clickedNode && clickedNode.type === 'node') {
-                        this.isCreatingEdge = true;
-                        this.edgeCreationSource = clickedNode.entity;
-                    }
-                }
-            }
-        }
-
-        // If any drag-like action was initiated, add global listeners
-        if (this.dragging || this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
-            this.canvas.style.cursor = this.dragging ? 'grabbing' : 'crosshair';
-            document.body.classList.add('is-dragging'); // Enable iframe overlay
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        }
-    });
-
-    this.canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        this.isAnimatingPan = false;
-        if (onManualPan) onManualPan();
-        const zoomIntensity = 0.1;
-        const wheel = e.deltaY < 0 ? 1 : -1;
-        const zoom = Math.exp(wheel * zoomIntensity);
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
-        this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
-        this.scale *= zoom;
-        this.scale = Math.max(0.1, Math.min(5, this.scale));
-    });
-
-    this.canvas.addEventListener('click', onClick);
-    this.canvas.addEventListener('dblclick', onDblClick);
+  handleWheel(e) {
+      // Prevent wheel event on overlays from zooming the canvas
+      if (e.target.closest('.markdown-overlay')) return;
+      
+      e.preventDefault();
+      this.isAnimatingPan = false;
+      const zoomIntensity = 0.1;
+      const wheel = e.deltaY < 0 ? 1 : -1;
+      const zoom = Math.exp(wheel * zoomIntensity);
+      const rect = this.canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
+      this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
+      this.scale *= zoom;
+      this.scale = Math.max(0.1, Math.min(5, this.scale));
   }
 }
 

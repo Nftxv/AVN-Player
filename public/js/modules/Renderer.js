@@ -48,6 +48,9 @@ export default class Renderer {
         requestAnimationFrame(this.renderLoop);
         return;
     }
+    
+    this.graphData.updateAttachedDecorations();
+
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
     this.ctx.translate(this.offset.x, this.offset.y);
@@ -71,6 +74,8 @@ export default class Renderer {
   }
 
   drawDecoration(deco, isLodActive) {
+    if (deco.type === 'markdown' && !isLodActive) return;
+
     if (isLodActive) {
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
         this.ctx.globalAlpha = 0.9;
@@ -106,13 +111,11 @@ export default class Renderer {
       if (!src || !trg) return;
       
       const controlPoints = edge.controlPoints || [];
-      const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
-      const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
       
-      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
+      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : this._getNodeVisualRectCenter(trg);
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
       
-      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
+      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : this._getNodeVisualRectCenter(src);
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
       
       const pathPoints = [startPoint, ...controlPoints, endPoint];
@@ -124,14 +127,14 @@ export default class Renderer {
       if (edge.highlighted) color = '#FFD700';
       
       const edgeLineWidth = edge.lineWidth || 2;
-      const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
-      const arrowSize = 6 + edgeLineWidth * 2.5;
+      const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1.5 : edgeLineWidth;
+      const arrowSize = 5 + edgeLineWidth * 2;
 
       const pForArrow = pathPoints.at(-1); 
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       
-      const offset = arrowSize; 
+      const offset = arrowSize / 2;
       const adjustedEndPoint = {
           x: pForArrow.x - offset * Math.cos(angle),
           y: pForArrow.y - offset * Math.sin(angle)
@@ -147,10 +150,10 @@ export default class Renderer {
       }
 
       ctx.strokeStyle = color; 
-      ctx.lineWidth = lineWidth; 
+      ctx.lineWidth = lineWidth / this.scale; 
       ctx.stroke();
       
-      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
+      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize / this.scale);
       
       controlPoints.forEach(point => {
           ctx.beginPath();
@@ -162,7 +165,7 @@ export default class Renderer {
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = '12px "Segoe UI"';
+        ctx.font = `${12 / this.scale}px "Segoe UI"`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -170,7 +173,7 @@ export default class Renderer {
         ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
         const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
         if (rotationAngle > Math.PI / 2 || rotationAngle < -Math.PI / 2) ctx.rotate(rotationAngle + Math.PI); else ctx.rotate(rotationAngle);
-        ctx.fillText(edge.label, 0, -8);
+        ctx.fillText(edge.label, 0, -8 / this.scale);
         ctx.restore();
       }
       
@@ -181,7 +184,7 @@ export default class Renderer {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
     const containerX = node.x;
-    const containerY = node.y - NODE_CONTENT_HEIGHT;
+    const containerY = node.y + NODE_HEADER_HEIGHT;
     const containerW = NODE_WIDTH;
     const containerH = NODE_CONTENT_HEIGHT;
     ctx.fillStyle = '#1e1e1e';
@@ -196,23 +199,23 @@ export default class Renderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.fillStyle = '#2d2d2d';
+    const nodeRect = this._getNodeVisualRect(node);
+    
     ctx.beginPath();
-    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
+    ctx.roundRect(nodeRect.x, nodeRect.y, nodeRect.width, nodeRect.height, 8);
     ctx.fill();
+    
     if (node.selected || node.highlighted) {
-        ctx.save();
-        ctx.clip();
         ctx.strokeStyle = node.selected ? '#e74c3c' : '#FFD700';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        ctx.restore();
+        ctx.lineWidth = 3;
     } else {
         ctx.strokeStyle = '#424242';
         ctx.lineWidth = 1;
-        ctx.stroke();
     }
+    ctx.stroke();
+
     ctx.fillStyle = '#e0e0e0';
-    ctx.font = '14px "Segoe UI"';
+    ctx.font = 'bold 14px "Segoe UI"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const fittedTitle = this._fitText(node.title, NODE_WIDTH - 20); 
@@ -236,13 +239,29 @@ export default class Renderer {
 
   updateHtmlOverlays(isLodActive) {
       if (!this.graphData) return;
+      const visibleOverlays = new Set();
 
       this.graphData.nodes.forEach(node => {
-          if (node.sourceType === 'iframe') this.updateIframeOverlay(node);
+          if (node.sourceType === 'iframe') {
+              this.updateIframeOverlay(node);
+          }
+      });
+      
+      this.graphData.decorations.forEach(deco => {
+          if (deco.type === 'markdown') {
+              const isInView = this._isDecorationInView(deco);
+              if (!isLodActive && isInView) {
+                 this.updateMarkdownOverlay(deco);
+                 visibleOverlays.add(deco.id);
+              }
+          }
       });
 
-      this.graphData.decorations.forEach(deco => {
-          if (deco.type === 'markdown') this.updateMarkdownOverlay(deco, isLodActive);
+      // Garbage collect non-visible overlays
+      this.markdownOverlays.forEach((overlay, id) => {
+          if (!visibleOverlays.has(id)) {
+              this.destroyMarkdownOverlay(id);
+          }
       });
   }
 
@@ -256,7 +275,7 @@ export default class Renderer {
       }
       if (shouldBeVisible) {
           const screenX = node.x * this.scale + this.offset.x;
-          const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+          const screenY = (node.y + NODE_HEADER_HEIGHT) * this.scale + this.offset.y;
           const screenWidth = NODE_WIDTH * this.scale;
           const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
           wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
@@ -265,29 +284,30 @@ export default class Renderer {
       }
   }
 
-  updateMarkdownOverlay(deco, isLodActive) {
-      const isInView = this._isDecorationInView(deco);
-      const shouldBeVisible = !isLodActive && isInView;
+  updateMarkdownOverlay(deco) {
       let overlay = this.markdownOverlays.get(deco.id);
 
-      if (shouldBeVisible) {
-          if (!overlay) {
-              overlay = this._createMarkdownOverlay(deco);
-          }
-          const screenX = deco.x * this.scale + this.offset.x;
-          const screenY = deco.y * this.scale + this.offset.y;
-          const screenWidth = deco.width * this.scale;
-          const screenHeight = deco.height * this.scale;
-          
-          overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
-          overlay.style.width = `${screenWidth}px`;
-          overlay.style.height = `${screenHeight}px`;
-          overlay.style.fontSize = `${(deco.fontSize || 14) / this.scale}px`;
-          overlay.classList.toggle('selected', !!deco.selected);
-
-      } else if (overlay) {
-          this.destroyMarkdownOverlay(deco.id);
+      if (!overlay) {
+          overlay = this._createMarkdownOverlay(deco);
       }
+      const screenX = deco.x * this.scale + this.offset.x;
+      const screenY = deco.y * this.scale + this.offset.y;
+      const screenWidth = deco.width * this.scale;
+      const screenHeight = deco.height * this.scale;
+      
+      overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
+      overlay.style.width = `${screenWidth}px`;
+      overlay.style.height = `${screenHeight}px`;
+      
+      const contentWrapper = overlay.querySelector('.markdown-content-wrapper');
+      if (contentWrapper) {
+          // Adjust font size based on scale, but don't let it get tiny.
+          const baseFontSize = deco.fontSize || 14;
+          const newSize = Math.max(baseFontSize * 0.5, baseFontSize * Math.sqrt(this.scale));
+          contentWrapper.style.fontSize = `${newSize}px`;
+      }
+      
+      overlay.classList.toggle('selected', !!deco.selected);
   }
 
   _createMarkdownOverlay(deco) {
@@ -295,13 +315,19 @@ export default class Renderer {
       overlay.id = `md-overlay-${deco.id}`;
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
+      overlay.dataset.decoId = deco.id; // For easy identification
+      
+      const contentWrapper = document.createElement('div');
+      contentWrapper.className = 'markdown-content-wrapper';
       
       const handle = document.createElement('div');
       handle.className = 'markdown-drag-handle';
       handle.dataset.decoId = deco.id;
-      overlay.appendChild(handle);
       
-      this.updateMarkdownOverlayContent(overlay, deco);
+      overlay.appendChild(handle);
+      overlay.appendChild(contentWrapper);
+      
+      this.updateMarkdownOverlayContent(contentWrapper, deco);
 
       this.markdownContainer.appendChild(overlay);
       this.markdownOverlays.set(deco.id, overlay);
@@ -312,17 +338,16 @@ export default class Renderer {
       const deco = this.graphData.getDecorationById(decoId);
       const overlay = this.markdownOverlays.get(decoId);
       if (deco && overlay) {
-          this.updateMarkdownOverlayContent(overlay, deco);
+          const contentWrapper = overlay.querySelector('.markdown-content-wrapper');
+          this.updateMarkdownOverlayContent(contentWrapper, deco);
           overlay.style.backgroundColor = deco.backgroundColor;
       }
   }
 
-  updateMarkdownOverlayContent(overlay, deco) {
-      const handle = overlay.querySelector('.markdown-drag-handle');
+  updateMarkdownOverlayContent(contentWrapper, deco) {
       const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), { ADD_ATTR: ['target'] });
-      overlay.innerHTML = content;
-      if (handle) overlay.prepend(handle);
-      overlay.querySelectorAll('a').forEach(a => {
+      contentWrapper.innerHTML = content;
+      contentWrapper.querySelectorAll('a').forEach(a => {
         a.target = '_blank';
         a.rel = 'noopener nofollow';
       });
@@ -341,7 +366,7 @@ export default class Renderer {
   }
 
   _fitText(text, maxWidth) {
-      this.ctx.font = '14px "Segoe UI"';
+      this.ctx.font = 'bold 14px "Segoe UI"';
       if(this.ctx.measureText(text).width <= maxWidth) return text;
       while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) text = text.slice(0, -1);
       return text + '...';
@@ -383,7 +408,12 @@ export default class Renderer {
   _getNodeVisualRect(node) {
       const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
       const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
-      return { x: node.x, y: node.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
+      return { x: node.x, y: node.y, width: NODE_WIDTH, height: totalHeight };
+  }
+  
+  _getNodeVisualRectCenter(node) {
+      const rect = this._getNodeVisualRect(node);
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
   }
   
   _getDecorationBounds(deco) {
@@ -403,7 +433,7 @@ export default class Renderer {
                  }
             }
         } else {
-            // Only check for rectangles, as markdown blocks are handled by their handles
+            // Check non-markdown decorations (rectangles)
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                 const deco = this.graphData.decorations[i];
                 if (deco.type === 'rectangle') {
@@ -478,14 +508,13 @@ export default class Renderer {
         const src = this.graphData.getNodeById(edge.source);
         const trg = this.graphData.getNodeById(edge.target);
         if (!src || !trg) continue;
-        const controlPoints = edge.controlPoints || [];
-        const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
-        const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
-        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
-        const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
-        const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
-        const pathPoints = [startPoint, ...controlPoints, endPoint];
+        
+        const pathPoints = [
+            this._getIntersectionWithNodeRect(src, this._getNodeVisualRectCenter(trg)),
+            ...(edge.controlPoints || []),
+            this._getIntersectionWithNodeRect(trg, this._getNodeVisualRectCenter(src))
+        ];
+
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i], p2 = pathPoints[i + 1];
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -507,39 +536,32 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-    const logicalCenterX = node.x + NODE_WIDTH / 2;
-    const logicalCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-    const rect = this._getNodeVisualRect(node);
-    const dx = externalPoint.x - logicalCenterX;
-    const dy = externalPoint.y - logicalCenterY;
-
-    if (dx === 0 && dy === 0) return { x: logicalCenterX, y: logicalCenterY };
+    const nodeCenter = this._getNodeVisualRectCenter(node);
+    const nodeRect = this._getNodeVisualRect(node);
+    const dx = externalPoint.x - nodeCenter.x;
+    const dy = externalPoint.y - nodeCenter.y;
     
-    let t = Infinity;
-    if (dy < 0) { const t_y = (rect.y - logicalCenterY) / dy; if(logicalCenterX + t_y * dx >= rect.x && logicalCenterX + t_y * dx <= rect.x + rect.width) t = Math.min(t, t_y); }
-    if (dy > 0) { const t_y = (rect.y + rect.height - logicalCenterY) / dy; if(logicalCenterX + t_y * dx >= rect.x && logicalCenterX + t_y * dx <= rect.x + rect.width) t = Math.min(t, t_y); }
-    if (dx < 0) { const t_x = (rect.x - logicalCenterX) / dx; if(logicalCenterY + t_x * dy >= rect.y && logicalCenterY + t_x * dy <= rect.y + rect.height) t = Math.min(t, t_x); }
-    if (dx > 0) { const t_x = (rect.x + rect.width - logicalCenterX) / dx; if(logicalCenterY + t_x * dy >= rect.y && logicalCenterY + t_x * dy <= rect.y + rect.height) t = Math.min(t, t_x); }
+    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return nodeCenter;
 
-    if (t !== Infinity && t > 0) {
-        return { x: logicalCenterX + t * dx, y: logicalCenterY + t * dy };
-    }
-    
-    const tan = Math.tan(Math.atan2(dy, dx));
-    if (Math.abs(rect.height / 2 * dx) > Math.abs(rect.width / 2 * dy)) {
-        const ix = rect.x + (dx > 0 ? rect.width : 0);
-        return { x: ix, y: (rect.y + rect.height/2) + ((dx > 0 ? 1 : -1) * rect.width/2) * tan};
+    const tan = dy / dx;
+    const w = nodeRect.width / 2;
+    const h = nodeRect.height / 2;
+
+    if (Math.abs(dy) * w > Math.abs(dx) * h) {
+        // Intersects top or bottom
+        const sign = dy > 0 ? 1 : -1;
+        return { x: nodeCenter.x + (h * sign) / tan, y: nodeCenter.y + h * sign };
     } else {
-        const iy = rect.y + (dy > 0 ? rect.height : 0);
-        return { x: (rect.x + rect.width/2) + ((dy > 0 ? 1 : -1) * rect.height/2) / tan, y: iy};
+        // Intersects left or right
+        const sign = dx > 0 ? 1 : -1;
+        return { x: nodeCenter.x + w * sign, y: nodeCenter.y + w * tan * sign };
     }
   }
   
   drawTemporaryEdge() {
     const ctx = this.ctx;
-    const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
-    const startY = this.edgeCreationSource.y + NODE_HEADER_HEIGHT / 2;
-    ctx.save(); ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(this.mousePos.x, this.mousePos.y);
+    const startCenter = this._getNodeVisualRectCenter(this.edgeCreationSource);
+    ctx.save(); ctx.beginPath(); ctx.moveTo(startCenter.x, startCenter.y); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3 / this.scale; ctx.setLineDash([5 / this.scale, 5 / this.scale]); ctx.stroke(); ctx.restore();
   }
   
@@ -565,21 +587,24 @@ export default class Renderer {
   resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
   wasDragged() { return this.dragged; }
   
-  centerOnNode(nodeId, targetScale = null, screenOffset = null) {
+  // REVISED: centerOnNode logic is updated for the new follow mode
+  centerOnNode(nodeId, targetScale = null, screenOffset = { x: 0, y: 0 }) {
     if (!this.graphData) return;
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
 
     this.isAnimatingPan = true;
     const finalScale = targetScale !== null ? targetScale : this.scale;
-    const finalScreenOffset = screenOffset || { x: 0, y: 0 };
     
-    const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
-    const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y - contentHeight / 2 + NODE_HEADER_HEIGHT / 2;
+    const nodeCenter = this._getNodeVisualRectCenter(node);
     
-    const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) + finalScreenOffset.x;
-    const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) + finalScreenOffset.y;
+    // Target position for the node on the screen
+    const targetScreenX = this.canvas.width / 2 + screenOffset.x;
+    const targetScreenY = this.canvas.height / 2 + screenOffset.y;
+
+    // Calculate the required viewport offset to place the node at the target screen position
+    const targetOffsetX = targetScreenX - (nodeCenter.x * finalScale);
+    const targetOffsetY = targetScreenY - (nodeCenter.y * finalScale);
 
     const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
     const startScale = this.scale;
@@ -614,38 +639,47 @@ export default class Renderer {
   }
   
   setupCanvasInteraction(callbacks) {
-    const { onClick, onDblClick } = callbacks;
+    const { getIsEditorMode, onClick, onDblClick } = callbacks;
     
-    // Listen on document to catch handle clicks that might be outside other containers
     document.addEventListener('mousedown', (e) => this.handleMouseDown(e, callbacks));
-    this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+    this.canvas.addEventListener('wheel', (e) => this.handleWheel(e, callbacks), { passive: false });
 
-    // Refined click handlers
+    // REVISED: Global click handler to manage different interaction modes
     document.addEventListener('click', (e) => {
         if (this.wasDragged()) return;
         const target = e.target;
+        
         if (target === this.canvas) {
-            onClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
-        } else if (target.classList.contains('markdown-drag-handle')) {
-            onClick(e, {type: 'decoration', entity: this.graphData.getDecorationById(target.dataset.decoId)});
+            const worldPos = this.getCanvasCoords(e);
+            onClick(e, this.getClickableEntityAt(worldPos.x, worldPos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
+        } else {
+            const overlay = target.closest('.markdown-overlay');
+            if (overlay && getIsEditorMode()) {
+                 const deco = this.graphData.getDecorationById(overlay.dataset.decoId);
+                 if (deco) onClick(e, { type: 'decoration', entity: deco });
+            }
         }
     });
+
     this.canvas.addEventListener('dblclick', (e) => {
         if (this.wasDragged()) return;
-        onDblClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
+        const worldPos = this.getCanvasCoords(e);
+        onDblClick(e, this.getClickableEntityAt(worldPos.x, worldPos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
     });
   }
 
   handleMouseDown(e, callbacks) {
-      const { getIsEditorMode, getIsDecorationsLocked, getSelection, onEdgeCreated } = callbacks;
-      const isHandle = e.target.classList.contains('markdown-drag-handle');
+      const { getIsEditorMode, getIsDecorationsLocked } = callbacks;
+      const isOverlay = e.target.closest('.markdown-overlay');
       const onCanvas = e.target === this.canvas;
 
-      if (!onCanvas && !isHandle) return;
+      if (!onCanvas && !isOverlay) return;
+      if (isOverlay && !getIsEditorMode()) return; // In player mode, don't initiate drag on overlays
       
       this.isAnimatingPan = false;
       this.mousePos = this.getCanvasCoords(e);
       this.dragged = false;
+      this.dragStart = { x: e.clientX, y: e.clientY };
 
       const startPan = () => {
           this.dragging = true;
@@ -657,8 +691,9 @@ export default class Renderer {
           if (!getIsEditorMode()) { startPan(); }
           else {
                let clicked = null;
-               if (isHandle) {
-                   const deco = this.graphData.getDecorationById(e.target.dataset.decoId);
+               const overlay = e.target.closest('.markdown-overlay');
+               if (overlay) {
+                   const deco = this.graphData.getDecorationById(overlay.dataset.decoId);
                    if (deco) clicked = { type: 'decoration', entity: deco };
                } else {
                    clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
@@ -672,10 +707,10 @@ export default class Renderer {
                   this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
               }
           }
-      } else if (e.button === 1) { startPan(); } 
+      } else if (e.button === 1) { e.preventDefault(); startPan(); } 
       else if (e.button === 2) { 
-          e.preventDefault();
           if (getIsEditorMode()) {
+              e.preventDefault();
               const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
               if (clickedNode && clickedNode.type === 'node') {
                   this.isCreatingEdge = true;
@@ -696,41 +731,28 @@ export default class Renderer {
   }
 
   handleMouseMove(e, callbacks) {
-      const { getIsDecorationsLocked, getSelection } = callbacks;
-      const oldMousePos = this.mousePos;
-      this.mousePos = this.getCanvasCoords(e);
-      this.dragged = true;
+      const { getIsEditorMode, getIsDecorationsLocked, getSelection } = callbacks;
+      const newMousePos = this.getCanvasCoords(e);
+      if (!this.dragged && Math.hypot(e.clientX - this.dragStart.x, e.clientY - this.dragStart.y) > 3) {
+        this.dragged = true;
+      }
       e.preventDefault();
 
       if (this.dragging) {
           this.offset.x = e.clientX - this.dragStart.x;
           this.offset.y = e.clientY - this.dragStart.y;
       } else if (this.draggingEntity) {
-          const dx = this.mousePos.x - oldMousePos.x;
-          const dy = this.mousePos.y - oldMousePos.y;
-          if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
+          const dx = newMousePos.x - this.mousePos.x;
+          const dy = newMousePos.y - this.mousePos.y;
+          if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return;
+          
+          this.graphData.moveSelection(this.isDraggingSelection ? getSelection() : [this.draggingEntity], dx, dy, { isDecorationsLocked: getIsDecorationsLocked() });
 
-          const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
-          const movedItems = new Set();
-          selection.forEach(entity => {
-              if (movedItems.has(entity.id)) return;
-              let root = entity.parentId ? this.graphData.getDecorationById(entity.parentId) || entity : entity;
-              const itemsToMove = new Set([root]);
-              if (root.type === 'rectangle') this.graphData.decorations.forEach(d => { if (d.parentId === root.id) itemsToMove.add(d); });
-              if (root.sourceType) this.graphData.decorations.forEach(d => { if (d.attachedToNodeId === root.id && !d.parentId) { itemsToMove.add(d); this.graphData.decorations.forEach(c => { if(c.parentId === d.id) itemsToMove.add(c); }); } });
-              itemsToMove.forEach(item => {
-                  if (!getIsDecorationsLocked() || !item.type) {
-                      if(item.x !== undefined) item.x += dx;
-                      if(item.y !== undefined) item.y += dy;
-                      if(item.attachedToNodeId) { const node = this.graphData.getNodeById(item.attachedToNodeId); if(node){item.attachOffsetX = item.x - node.x; item.attachOffsetY = item.y - node.y;}}
-                      movedItems.add(item.id);
-                  }
-              });
-          });
       } else if (this.isMarqueeSelecting) {
-          this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
-          this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
+          this.marqueeRect.w = newMousePos.x - this.marqueeRect.x;
+          this.marqueeRect.h = newMousePos.y - this.marqueeRect.y;
       }
+      this.mousePos = newMousePos;
   }
 
   handleMouseUp(e, callbacks) {
@@ -749,9 +771,12 @@ export default class Renderer {
       setTimeout(() => { this.dragged = false; }, 0);
   }
 
-  handleWheel(e) {
-      // Prevent wheel event on overlays from zooming the canvas
-      if (e.target.closest('.markdown-overlay')) return;
+  // REVISED: Wheel handler now checks for editor mode before blocking zoom
+  handleWheel(e, callbacks) {
+      // In Player mode, if the mouse is over an overlay, let the browser handle scrolling and stop.
+      if (!callbacks.getIsEditorMode() && e.target.closest('.markdown-overlay')) {
+          return;
+      }
       
       e.preventDefault();
       this.isAnimatingPan = false;

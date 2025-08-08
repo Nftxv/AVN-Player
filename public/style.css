@@ -60,15 +60,14 @@ canvas:active {
 .markdown-overlay {
   position: absolute;
   box-sizing: border-box;
-  padding: 15px;
-  overflow-y: auto;
-  color: var(--dark-text);
+  display: flex; /* Use flexbox for layout */
+  flex-direction: column;
   background-color: rgba(45, 45, 45, 0.85);
   backdrop-filter: blur(5px);
   border: 1px solid var(--dark-border);
   border-radius: 6px;
-  line-height: 1.5;
-  pointer-events: auto; /* Always allow text selection and scrolling inside */
+  overflow: hidden; /* Hide overflow on the main container */
+  pointer-events: auto; /* Always allow interaction with the overlay element itself for clicks */
 }
 
 .markdown-overlay.selected {
@@ -76,34 +75,52 @@ canvas:active {
   box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
 }
 
-/* NEW: Drag handle for markdown overlays in editor mode */
+/* NEW: Wrapper for scrollable content */
+.markdown-content-wrapper {
+  padding: 15px;
+  overflow-y: auto;
+  color: var(--dark-text);
+  line-height: 1.5;
+  flex-grow: 1;
+  height: 100%;
+  /* Player mode (default): allow text selection, scrolling, etc. */
+  pointer-events: auto;
+}
+/* Editor mode: disable pointer events on content so clicks fall through to the overlay for selection */
+body.editor-mode .markdown-content-wrapper {
+  pointer-events: none;
+}
+
+
+/* REVISED: Drag handle for markdown overlays */
 .markdown-drag-handle {
     position: absolute;
-    top: -8px;
-    left: -8px;
+    top: 5px;
+    left: 5px;
     width: 24px;
     height: 24px;
-    background-color: var(--primary-color);
-    border: 2px solid var(--dark-bg);
+    background-color: rgba(66, 133, 244, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 50%;
     cursor: move;
     z-index: 10;
-    pointer-events: auto; /* This is the only part that intercepts clicks for moving/selecting */
+    pointer-events: auto; /* Explicitly interactive */
     display: none; /* Hidden by default */
-    transition: transform 0.2s;
+    transition: transform 0.2s, background-color 0.2s;
 }
 .markdown-drag-handle:hover {
-    transform: scale(1.2);
+    transform: scale(1.1);
+    background-color: var(--primary-color);
 }
 body.editor-mode .markdown-drag-handle {
     display: block; /* Visible only in editor mode */
 }
 
-.markdown-overlay a { color: var(--primary-color); text-decoration: none; }
-.markdown-overlay a:hover { text-decoration: underline; }
-.markdown-overlay img { max-width: 100%; height: auto; border-radius: 4px; }
-.markdown-overlay h1, .markdown-overlay h2, .markdown-overlay h3 { margin-top: 0.5em; margin-bottom: 0.5em; border-bottom: 1px solid var(--dark-border); padding-bottom: 0.3em; }
-.markdown-overlay pre { background-color: var(--dark-bg); padding: 10px; border-radius: 4px; overflow-x: auto; }
+.markdown-content-wrapper a { color: var(--primary-color); text-decoration: none; }
+.markdown-content-wrapper a:hover { text-decoration: underline; }
+.markdown-content-wrapper img { max-width: 100%; height: auto; border-radius: 4px; }
+.markdown-content-wrapper h1, .markdown-content-wrapper h2, .markdown-content-wrapper h3 { margin-top: 0.5em; margin-bottom: 0.5em; border-bottom: 1px solid var(--dark-border); padding-bottom: 0.3em; }
+.markdown-content-wrapper pre { background-color: var(--dark-bg); padding: 10px; border-radius: 4px; overflow-x: auto; }
 
 button, .button-like { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px; }
 button:hover, .button-like:hover { background: var(--primary-hover); transform: translateY(-1px); }
@@ -142,6 +159,11 @@ input:checked + .slider:before { transform: translateX(20px); }
 #inspectorContent input, #inspectorContent select, #inspectorContent textarea { width: 95%; padding: 8px; border-radius: 4px; background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text); margin-top: 2px; }
 #inspectorContent input[type="color"]{ width: 100%; height: 30px; padding: 2px; }
 #inspectorContent textarea { resize: vertical; min-height: 120px; font-family: Consolas, "Courier New", monospace; }
+/* NEW: Toolbar for Markdown editor */
+.markdown-toolbar { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px; }
+.markdown-toolbar button { padding: 5px 8px; font-size: 12px; background-color: #4f4f4f; }
+.markdown-toolbar button:hover { background-color: #6a6a6a; }
+
 .toggle-switch { display: flex; border: 1px solid #555; border-radius: 6px; overflow: hidden; margin-top: 5px; }
 .toggle-switch button { flex: 1; background: transparent; border: none; border-radius: 0; padding: 8px; }
 .toggle-switch button.active { background: var(--primary-color); color: white; }

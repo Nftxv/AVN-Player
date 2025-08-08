@@ -36,7 +36,7 @@ class GraphApp {
     this.isEditorMode = false;
     this.isFollowing = false;
     this.followScale = 1.0;
-    this.followScreenOffset = { x: 0, y: 0 };
+    this.followScreenOffset = { x: 0, y: 0 }; // REVISED: This is the core of the new follow logic
   }
 
   async init() {
@@ -57,50 +57,51 @@ class GraphApp {
     }
   }
 
+  // REVISED: Follow mode logic is completely overhauled for precise positioning.
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
           const { scale, offset } = this.renderer.getViewport();
-          this.followScale = scale;
-          
+          this.followScale = scale; // Capture the current scale
+
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
-              const NODE_WIDTH = 200;
-              const NODE_HEADER_HEIGHT = 45;
-              const NODE_CONTENT_ASPECT_RATIO = 9/16;
-              const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+              const nodeRect = this.renderer._getNodeVisualRect(node);
+              const nodeCenterX = nodeRect.x + nodeRect.width / 2;
+              const nodeCenterY = nodeRect.y + nodeRect.height / 2;
 
-              const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
-              const nodeCenterX = node.x + NODE_WIDTH / 2;
-              const nodeCenterY = node.y - contentHeight / 2 + NODE_HEADER_HEIGHT / 2;
-
+              // Calculate node's current position on screen
               const nodeScreenX = nodeCenterX * scale + offset.x;
               const nodeScreenY = nodeCenterY * scale + offset.y;
               
-              this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
-              this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
+              // Calculate and store the offset from the screen center
+              this.followScreenOffset.x = nodeScreenX - this.renderer.canvas.width / 2;
+              this.followScreenOffset.y = nodeScreenY - this.renderer.canvas.height / 2;
               
-              console.log(`Follow mode activated. Target scale: ${this.followScale}`);
+              console.log(`Follow mode ACTIVATED. Target scale: ${this.followScale}. Screen offset:`, this.followScreenOffset);
           } else {
+              // If no node is active, default to centering
               this.followScreenOffset = { x: 0, y: 0 };
-              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
+              console.log(`Follow mode ACTIVATED. Target scale: ${this.followScale}. No active node, will center.`);
           }
       } else {
-          console.log('Follow mode deactivated.');
+          console.log('Follow mode DEACTIVATED.');
       }
   }
 
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
+    // When switching modes, clear any active player/editor state
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
+      // Exiting editor mode: clear selection and close inspector
       this.editorTools.updateSelection([], 'set');
-      this.renderer.destroyAllMarkdownOverlays();
     }
+    // Renderer now handles overlay visibility/interactivity via CSS, no need to destroy.
   }
 
   setupEventListeners() {
@@ -142,6 +143,7 @@ class GraphApp {
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
         selection.forEach(entity => {
+            // Ensure we clean up any associated DOM elements
             if (entity.sourceType === 'iframe') this.player.destroyYtPlayer(entity.id);
             if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
         });
