@@ -116,18 +116,17 @@ export default class Renderer {
       if (!src || !trg) return;
       
       const controlPoints = edge.controlPoints || [];
-      // ALWAYS define header centers, as they are the logical connection points.
       const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
       const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
       
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
 
-      // The intersection is calculated from the INVARIANT header center, but with the VISIBLE node rectangle.
-      // This keeps the connection angle consistent regardless of the collapsed state.
-      const startPoint = this._calculateIntersection(this._getNodeVisualRect(src), srcHeaderCenter, targetPointForAngle);
-      const endPoint = this._calculateIntersection(this._getNodeVisualRect(trg), trgHeaderCenter, sourcePointForAngle);
-      const pathPoints = [startPoint, ...controlPoints, endPoint];      
+      // CORRECTED: Use the robust intersection function with the original name
+      const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
+      const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);      
+      
+      const pathPoints = [startPoint, ...controlPoints, endPoint];
       const ctx = this.ctx;
       ctx.save();
       
