@@ -8,35 +8,42 @@ import Player from './modules/Player.js';
 import EditorTools from './modules/EditorTools.js';
 import Navigation from './modules/Navigation.js';
 
+/**
+ * Programmatically loads the YouTube IFrame Player API.
+ * This approach prevents race conditions on page refresh with cached scripts.
+ * @returns {Promise<void>} A promise that resolves when the API is ready.
+ */
 function loadYouTubeAPI() {
   return new Promise((resolve) => {
+    // If API is already loaded, resolve immediately.
     if (window.YT && window.YT.Player) {
       return resolve();
     }
+    
+    // Define the global callback function that the API will call.
     window.onYouTubeIframeAPIReady = () => {
       resolve();
     };
+
+    // Create and inject the script tag.
     const tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(tag);
   });
 }
 
+
 class GraphApp {
   constructor() {
     this.iframeContainer = document.getElementById('iframe-container');
-    this.markdownContainer = document.getElementById('markdown-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer, () => this.isEditorMode);
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer);
     this.player = new Player(this.graphData, this.iframeContainer);
-    this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
-    this.editorTools = new EditorTools(this.graphData, this.renderer, this);
+    this.navigation = new Navigation(this.graphData, this.player, this.renderer);
+    this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
-    this.isFollowing = false;
-    this.followScale = 1.0;
-    this.followScreenOffset = { x: 0, y: 0 };
   }
 
   async init() {
@@ -44,9 +51,10 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
-      if (this.graphData.view) {
-        this.renderer.setViewport(this.graphData.view);
-      }
+      // The line below was causing the error and has been removed.
+      // YouTube players are now initialized on-demand by the Player module itself.
+      
+      this.renderer.render(); // Start rendering loop
       
       this.setupEventListeners();
       this.toggleEditorMode(false);
@@ -57,39 +65,6 @@ class GraphApp {
     }
   }
 
-  // REVISED: Final, robust Follow Mode logic
-  toggleFollowMode(forceState = null) {
-      this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
-      document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
-
-      if (this.isFollowing) {
-          const { scale, offset } = this.renderer.getViewport();
-          this.followScale = scale;
-          
-          const activeNode = this.navigation.currentNode;
-          if (activeNode) {
-              // Calculate the node's current center position on the screen
-              const nodeScreenX = (activeNode.x + NODE_WIDTH / 2) * scale + offset.x;
-              const nodeScreenY = (activeNode.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
-              
-              // This captures the user's desired placement of the node relative to the screen's center
-              this.followScreenOffset.x = nodeScreenX - this.renderer.canvas.width / 2;
-              this.followScreenOffset.y = nodeScreenY - this.renderer.canvas.height / 2;
-              
-              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
-              
-              // No immediate re-centering needed if the button is pressed while view is static.
-              // The correct state is now captured for the next navigation event.
-          } else {
-              // If no node is active, default to a perfectly centered view.
-              this.followScreenOffset = { x: 0, y: 0 };
-              console.log(`Follow mode activated without an active node. Target scale: ${this.followScale}. Next node will be centered.`);
-          }
-      } else {
-          console.log('Follow mode deactivated.');
-      }
-  }
-
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
@@ -98,11 +73,11 @@ class GraphApp {
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
     }
-    this.renderer.destroyAllMarkdownOverlays();
   }
 
   setupEventListeners() {
     this.renderer.setupCanvasInteraction({
+        getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
         onClick: (e) => this.handleCanvasClick(e),
         onDblClick: (e) => this.handleCanvasDblClick(e),
@@ -117,7 +92,7 @@ class GraphApp {
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
-        getSelection: () => this.editorTools.getSelection(),
+        getSelection: () => this.editorTools.getSelection()
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -132,15 +107,14 @@ class GraphApp {
     document.getElementById('addRectBtn').addEventListener('click', () => this.editorTools.createRectangle());
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
     document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
-    
-    document.getElementById('groupSelectionBtn').addEventListener('click', () => this.editorTools.groupOrUngroupSelection());
-    document.getElementById('attachToNodeBtn').addEventListener('click', () => this.editorTools.attachOrDetachSelection());
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
+        // Notify player to destroy any YT players associated with deleted nodes
         selection.forEach(entity => {
-            if (entity.sourceType === 'iframe') this.player.destroyYtPlayer(entity.id);
-            if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
+            if (entity.sourceType === 'iframe') {
+                this.player.destroyYtPlayer(entity.id);
+            }
         });
         this.editorTools.deleteSelection();
     });
@@ -151,14 +125,17 @@ class GraphApp {
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
-    
-    document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
   handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
+
+    if (clicked && clicked.type === 'collapse_toggle') {
+        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
+        return;
+    }
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
@@ -188,10 +165,7 @@ class GraphApp {
   }
 }
 
-// Constants exposed for other modules that need them
-const NODE_WIDTH = 200;
-const NODE_HEADER_HEIGHT = 45;
-
+// Main application entry point
 (async () => {
   try {
     await loadYouTubeAPI();

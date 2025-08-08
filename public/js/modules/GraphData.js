@@ -7,9 +7,12 @@ export default class GraphData {
     this.edges = [];
     this.decorations = [];
     this.meta = {};
-    this.view = null;
   }
 
+  /**
+   * Loads graph data from a given URL.
+   * @param {string} url - The URL of the JSON/JSON-LD file.
+   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -17,11 +20,15 @@ export default class GraphData {
     this.parseData(data);
   }
 
+  /**
+   * Parses the raw JSON-LD data and populates nodes, edges, and decorations.
+   * @param {object} data - The raw data object from the JSON file.
+   */
   parseData(data) {
     this.meta = data.meta || {};
-    this.view = data.view || null;
     const graph = data['@graph'] || [];
 
+    // Clear existing data
     this.nodes = [];
     this.edges = [];
     this.decorations = [];
@@ -38,6 +45,7 @@ export default class GraphData {
             sourceType: item.sourceType || 'audio',
             audioUrl: item.audioUrl || null,
             coverUrl: item.coverUrl || null,
+            lyricsUrl: item.lyricsUrl || null,
             iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
           });
           break;
@@ -60,34 +68,31 @@ export default class GraphData {
             width: item.size?.width || 200,
             height: item.size?.height || 100,
             backgroundColor: item.backgroundColor || '#333333',
-            // REVISED: Grouping and attachment properties
-            parentId: item.parentId || null,
-            attachedToNodeId: item.attachedToNodeId || null,
-            attachOffsetX: item.attachOffsetX,
-            attachOffsetY: item.attachOffsetY,
           });
           break;
-        case 'TextAnnotation': // Legacy support
-        case 'MarkdownAnnotation':
+        case 'TextAnnotation':
           this.decorations.push({
             id: item['@id'],
-            type: 'markdown',
+            type: 'text',
             x: item.position?.x || 0,
             y: item.position?.y || 0,
-            width: item.size?.width || 300,
-            height: item.size?.height || 200,
             textContent: item.textContent || '',
-            fontSize: item.fontSize || 14,
-            backgroundColor: item.backgroundColor || 'rgba(45, 45, 45, 0.85)',
-            // REVISED: Grouping properties
-            parentId: item.parentId || null,
+            fontSize: item.fontSize || 16,
+            color: item.color || '#FFFFFF',
+            textAlign: item.textAlign || 'left',
+            width: item.width,
+            lineHeight: item.lineHeight || 1.2,
           });
           break;
       }
     });
   }
 
-  getGraph(viewport = null) {
+  /**
+   * Serializes the current graph data back into a JSON-LD format for export.
+   * @returns {object} - The complete graph object.
+   */
+  getGraph() {
     const graph = [
       ...this.nodes.map(n => ({
         '@id': n.id,
@@ -98,6 +103,7 @@ export default class GraphData {
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,
         coverUrl: n.coverUrl,
+        lyricsUrl: n.lyricsUrl,
         iframeUrl: n.iframeUrl,
       })),
       ...this.edges.map(e => ({
@@ -110,56 +116,58 @@ export default class GraphData {
         controlPoints: e.controlPoints,
       })),
       ...this.decorations.map(d => {
-        const common = { 
-            '@id': d.id, 
-            position: { x: d.x, y: d.y },
-            ...(d.parentId && { parentId: d.parentId }),
-        };
+        const common = { '@id': d.id, position: { x: d.x, y: d.y } };
         if (d.type === 'rectangle') {
           return {
             ...common,
             '@type': 'RectangleAnnotation',
             size: { width: d.width, height: d.height },
             backgroundColor: d.backgroundColor,
-            // REVISED: Save attachment properties
-            ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId }),
-            ...(d.attachOffsetX !== undefined && { attachOffsetX: d.attachOffsetX }),
-            ...(d.attachOffsetY !== undefined && { attachOffsetY: d.attachOffsetY }),
           };
         }
-        if (d.type === 'markdown') {
+        if (d.type === 'text') {
           return {
             ...common,
-            '@type': 'MarkdownAnnotation',
-            size: { width: d.width, height: d.height },
+            '@type': 'TextAnnotation',
             textContent: d.textContent,
             fontSize: d.fontSize,
-            backgroundColor: d.backgroundColor,
+            color: d.color,
+            textAlign: d.textAlign,
+            width: d.width,
+            lineHeight: d.lineHeight,
           };
         }
         return null;
       }).filter(Boolean),
     ];
-    
-    const data = {
+    return {
       '@context': 'https://schema.org/',
       ...(Object.keys(this.meta).length > 0 && { meta: this.meta }),
       '@graph': graph,
     };
-
-    if (viewport) {
-      data.view = viewport;
-    }
-
-    return data;
   }
   
+  /**
+   * Parses various YouTube URL formats and returns only the video ID.
+   * @param {string} input - The URL or ID provided by the user.
+   * @returns {string|null} - The 11-character video ID or null.
+   */
   parseYoutubeUrl(input) {
       if (!input || typeof input !== 'string') return null;
+      
+      // Regular expression to find the YouTube video ID in various URL formats
       const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       const match = input.match(regex);
-      if (match && match[1]) return match[1];
-      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim();
+      
+      if (match && match[1]) {
+          return match[1];
+      }
+      
+      // If no match from URL, check if the input itself is a valid ID
+      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) {
+          return input.trim();
+      }
+      
       console.warn("Could not parse YouTube URL/ID:", input);
       return null;
   }
@@ -167,12 +175,8 @@ export default class GraphData {
   getNodeById(id) {
     return this.nodes.find(node => node.id === id);
   }
-
-  getDecorationById(id) {
-    return this.decorations.find(deco => deco.id === id);
-  }
   
   getEdgesFromNode(nodeId) {
     return this.edges.filter(edge => edge.source === nodeId);
   }
-}
+} 

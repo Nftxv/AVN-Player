@@ -1,5 +1,5 @@
 :root {
-  --player-height: 60px;
+  --player-height: 80px;
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
   --dark-bg: #1e1e1e;
@@ -14,7 +14,7 @@
 body {
   margin: 0;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: var(--dark-bg);
   color: var(--dark-text);
 }
@@ -23,7 +23,7 @@ canvas {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1;
+  z-index: 1; /* Canvas is the base layer */
   display: block;
   cursor: grab;
 }
@@ -31,14 +31,14 @@ canvas:active {
   cursor: grabbing;
 }
 
-#iframe-container, #markdown-container {
+#iframe-container {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 2; 
-  pointer-events: none;
+  z-index: 2; /* Higher than canvas */
+  pointer-events: none; /* Click-through by default */
   overflow: hidden;
 }
 
@@ -53,56 +53,22 @@ canvas:active {
   width: 100%;
   height: 100%;
   border: none;
-  pointer-events: auto;
+  pointer-events: auto; /* Iframes are clickable */
 }
 
-.markdown-overlay {
+.iframe-wrapper .drag-overlay {
   position: absolute;
-  box-sizing: border-box;
-  padding: 15px;
-  overflow-y: auto;
-  color: var(--dark-text);
-  background-color: rgba(45, 45, 45, 0.85);
-  backdrop-filter: blur(5px);
-  border: 1px solid var(--dark-border);
-  border-radius: 6px;
-  line-height: 1.5;
-  pointer-events: auto;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: none; /* Hidden by default */
 }
 
-/* REVISED: In editor mode, overlays are non-interactive for easy selection through them. */
-body.editor-mode .markdown-overlay, body.editor-mode .iframe-wrapper {
-    pointer-events: none;
-}
-
-.markdown-overlay.selected {
-  border: 2px solid #e74c3c !important; /* Use important to override base style */
-  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
-}
-
-.markdown-overlay a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-.markdown-overlay a:hover {
-  text-decoration: underline;
-}
-.markdown-overlay img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 4px;
-}
-.markdown-overlay h1, .markdown-overlay h2, .markdown-overlay h3 {
-  margin-top: 0.5em;
-  margin-bottom: 0.5em;
-  border-bottom: 1px solid var(--dark-border);
-  padding-bottom: 0.3em;
-}
-.markdown-overlay pre {
-  background-color: var(--dark-bg);
-  padding: 10px;
-  border-radius: 4px;
-  overflow-x: auto;
+body.is-dragging .drag-overlay {
+  display: block;
+  pointer-events: auto; /* It catches the click */
 }
 
 button, .button-like {
@@ -128,6 +94,7 @@ button:disabled {
     transform: none;
 }
 
+/* NEW: Style for the active lock button */
 button#lockDecorationsBtn.active {
     background-color: var(--danger-color);
 }
@@ -150,6 +117,15 @@ button#lockDecorationsBtn.active:hover {
   gap: 15px;
 }
 
+#currentCover {
+  width: 60px;
+  height: 60px;
+  border-radius: 5px;
+  object-fit: cover;
+  background-color: #333;
+  flex-shrink: 0;
+}
+
 #playerContent {
   flex-grow: 1;
   display: flex;
@@ -157,7 +133,6 @@ button#lockDecorationsBtn.active:hover {
   justify-content: center;
   gap: 5px;
   min-width: 0;
-  align-items: center;
 }
 
 #songTitle {
@@ -167,8 +142,6 @@ button#lockDecorationsBtn.active:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--dark-text);
-  width: 100%;
-  text-align: center;
 }
 
 #playerControls {
@@ -176,11 +149,28 @@ button#lockDecorationsBtn.active:hover {
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 500px;
-  justify-content: center;
 }
 
 #progress { flex-grow: 1; }
+
+#lyricsContainer {
+  position: fixed;
+  bottom: calc(var(--player-height) + 10px);
+  left: 10px;
+  right: 10px;
+  max-height: 40vh;
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  z-index: 300;
+  overflow-y: auto;
+  padding: 20px;
+  color: var(--dark-text);
+}
+#closeLyricsBtn { color: var(--dark-text); }
+#closeLyricsBtn:hover { color: #e74c3c; }
+
 
 .hidden { display: none !important; }
 
@@ -208,9 +198,9 @@ button#lockDecorationsBtn.active:hover {
 }
 
 @media (max-width: 768px) {
-  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
+  #player { height: auto; flex-direction: column; padding: 10px; gap: 10px; }
+  #playerContent { width: 100%; }
   #songTitle { text-align: center; }
-  #playerControls { width: 100%; }
 }
 
 #copyright {
@@ -237,9 +227,8 @@ button#lockDecorationsBtn.active:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
-#playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
+#playerModeControls, #editorModeControls { display: flex; gap: 10px; }
 .editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
 .divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
@@ -275,8 +264,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 #inspectorContent textarea {
     resize: vertical;
-    min-height: 120px;
-    font-family: Consolas, "Courier New", monospace;
+    min-height: 60px;
 }
 .toggle-switch {
     display: flex;
@@ -297,54 +285,6 @@ input:checked + .slider:before { transform: translateX(20px); }
     color: white;
 }
 
-/* NEW: Styles for the Markdown inspector toolbar */
-.markdown-toolbar {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  border: 1px solid #555;
-  padding: 5px;
-  border-radius: 6px;
-  background-color: #3c3c3c;
-}
-.markdown-toolbar button {
-  background-color: #4f4f4f;
-  color: var(--dark-text);
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: bold;
-  flex-grow: 1;
-}
-.markdown-toolbar button:hover {
-  background-color: #6a6a6a;
-  transform: none;
-}
-.markdown-toolbar button.active {
-    background-color: var(--primary-color);
-}
-.markdown-toolbar .italic {
-  font-style: italic;
-}
-
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
-
-#followModeBtn {
-    background: #3c3c3c;
-    color: var(--dark-subtle-text);
-    padding: 6px 10px;
-    font-size: 18px;
-    line-height: 1;
-}
-
-#followModeBtn:hover {
-    background: #4f4f4f;
-    transform: none;
-}
-
-#followModeBtn.active {
-    background: var(--primary-color);
-    color: white;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
-}
