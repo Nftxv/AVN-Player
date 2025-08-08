@@ -240,16 +240,16 @@ _drawNodeHeader(node) {
         const circleX = node.x + padding;
         const circleY = node.y + NODE_HEADER_HEIGHT - padding;
         
-        ctx.fillStyle = '#2ecc71'; // A nice, modern green
+        ctx.fillStyle = '#7febfb'; // A nice, modern green
         ctx.beginPath();
         ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
         ctx.fill();
         
         // Optional: add a subtle inner dot to make it look "live"
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.beginPath();
-        ctx.arc(circleX, circleY, radius * 0.4, 0, Math.PI * 2);
-        ctx.fill();
+        //ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        //ctx.beginPath();
+        //ctx.arc(circleX, circleY, radius * 0.4, 0, Math.PI * 2);
+        //ctx.fill();
     }
     
     ctx.restore();
