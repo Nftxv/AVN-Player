@@ -160,7 +160,7 @@ export default class Renderer {
       ctx.lineWidth = lineWidth / this.scale; 
       ctx.stroke();
       
-      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize / this.scale);
+      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
       
       if(this.scale > 0.5) {
           controlPoints.forEach(point => {
@@ -174,7 +174,7 @@ export default class Renderer {
       if (edge.label && this.scale > 0.3) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = `${12 / this.scale}px "Segoe UI"`;
+        ctx.font = `${12}px "Segoe UI"`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
