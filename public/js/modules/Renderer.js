@@ -27,11 +27,14 @@ export default class Renderer {
     this.draggingEntity = null;
     this.isDraggingSelection = false;
     
+    this.draggingControlPoint = null;
     this.isCreatingEdge = false;
     this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
-    
+    this.snapThreshold = 10;
+    this.snapLines = [];
     this.isMarqueeSelecting = false;
+    
     this.isAnimatingPan = false;
 
     this.resizeCanvas();
@@ -41,45 +44,56 @@ export default class Renderer {
 
   setData(graphData) { this.graphData = graphData; }
   
+  render() {
+      // The render loop is now self-driving.
+  }
+
   renderLoop() {
     if (!this.graphData) {
         requestAnimationFrame(this.renderLoop);
         return;
     }
-    
-    // THIS IS THE FIX for the crash
-    this.graphData.updateAttachedDecorations();
-
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
     this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
     const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+    
+    // Update positions for attached decorations before drawing
+    this.graphData.nodes.forEach(node => {
+        this.graphData.decorations.forEach(deco => {
+            if (deco.attachedToNodeId === node.id && !deco.parentId) {
+                // If it's a top-level attached deco, update its position from the node
+                deco.x = node.x + (deco.attachOffsetX || 0);
+                deco.y = node.y + (deco.attachOffsetY || 0);
+            }
+        });
+    });
 
     this.graphData.decorations.forEach(deco => this.drawDecoration(deco, isLodActive));
+    this.graphData.nodes.forEach(node => this._drawNodeContent(node));
     this.graphData.edges.forEach(edge => this.drawEdge(edge));
-    this.graphData.nodes.forEach(node => this.drawNode(node));
+    this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
 
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
+    this._drawSnapGuides();
     
     this.ctx.restore();
     
-    this.updateHtmlOverlays(isLodActive);
+    this.updateIframes();
+    this.updateMarkdownOverlays(isLodActive);
 
     requestAnimationFrame(this.renderLoop);
   }
 
   drawDecoration(deco, isLodActive) {
-    // Markdown is now fully a DOM element, so we only draw it in LOD mode
-    if (deco.type === 'markdown' && !isLodActive) return;
-
     if (isLodActive) {
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
         this.ctx.globalAlpha = 0.9;
         this.ctx.beginPath();
-        const radius = (deco.selected ? 7 : 5) / this.scale;
+        const radius = deco.selected ? 7 / this.scale : 5 / this.scale;
         this.ctx.arc(deco.x + deco.width/2, deco.y + deco.height/2, radius, 0, 2*Math.PI);
         this.ctx.fill();
         this.ctx.globalAlpha = 1.0;
@@ -110,13 +124,11 @@ export default class Renderer {
       if (!src || !trg) return;
       
       const controlPoints = edge.controlPoints || [];
-      const srcCenter = this._getNodeVisualRectCenter(src);
-      const trgCenter = this._getNodeVisualRectCenter(trg);
-
-      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgCenter;
+      
+      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : this._getNodeVisualRectCenter(trg);
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
       
-      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcCenter;
+      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : this._getNodeVisualRectCenter(src);
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
       
       const pathPoints = [startPoint, ...controlPoints, endPoint];
@@ -128,24 +140,33 @@ export default class Renderer {
       if (edge.highlighted) color = '#FFD700';
       
       const edgeLineWidth = edge.lineWidth || 2;
-      const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1.5 : edgeLineWidth;
-      const arrowSize = 5 + edgeLineWidth * 2;
+      const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
+      const arrowSize = 6 + edgeLineWidth * 2.5;
 
       const pForArrow = pathPoints.at(-1); 
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       
+      const offset = arrowSize / 2; // Adjust offset to touch the arrow tip
+      const adjustedEndPoint = {
+          x: pForArrow.x - offset * Math.cos(angle),
+          y: pForArrow.y - offset * Math.sin(angle)
+      };
+
       ctx.beginPath();
       ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
-      for (let i = 1; i < pathPoints.length; i++) {
+      for (let i = 1; i < pathPoints.length - 1; i++) {
           ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+      }
+      if (pathPoints.length > 1) {
+          ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
       }
 
       ctx.strokeStyle = color; 
-      ctx.lineWidth = lineWidth / this.scale; 
+      ctx.lineWidth = lineWidth; 
       ctx.stroke();
       
-      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize / this.scale);
+      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
       
       controlPoints.forEach(point => {
           ctx.beginPath();
@@ -157,7 +178,7 @@ export default class Renderer {
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = `${12 / this.scale}px "Segoe UI"`;
+        ctx.font = '12px "Segoe UI"'; // REVISED: Fixed font size
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -165,49 +186,62 @@ export default class Renderer {
         ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
         const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
         if (rotationAngle > Math.PI / 2 || rotationAngle < -Math.PI / 2) ctx.rotate(rotationAngle + Math.PI); else ctx.rotate(rotationAngle);
-        ctx.fillText(edge.label, 0, -8 / this.scale);
+        ctx.fillText(edge.label, 0, -8);
         ctx.restore();
       }
+      
       ctx.restore();
   }
   
-  drawNode(node) {
+  _drawNodeContent(node) {
+    if (node.isCollapsed) return;
     const ctx = this.ctx;
-    const nodeRect = this._getNodeVisualRect(node);
-    
+    const containerX = node.x;
+    const containerY = node.y - NODE_CONTENT_HEIGHT;
+    const containerW = NODE_WIDTH;
+    const containerH = NODE_CONTENT_HEIGHT;
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(containerX, containerY, containerW, containerH);
+    if (node.sourceType === 'iframe') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(containerX, containerY, containerW, containerH);
+    }
+  }
+
+  _drawNodeHeader(node) {
+    const ctx = this.ctx;
     ctx.save();
-    
-    // Main body
     ctx.fillStyle = '#2d2d2d';
+    const rect = this._getNodeVisualRect(node);
+    
     ctx.beginPath();
-    ctx.roundRect(nodeRect.x, nodeRect.y, nodeRect.width, nodeRect.height, 8);
+    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, 8);
     ctx.fill();
 
-    // Content area
-    if (!node.isCollapsed) {
-        const contentX = node.x;
-        const contentY = node.y + NODE_HEADER_HEIGHT;
-        const contentW = NODE_WIDTH;
-        const contentH = NODE_CONTENT_HEIGHT;
-        ctx.fillStyle = (node.sourceType === 'iframe') ? '#000000' : '#1e1e1e';
-        ctx.fillRect(contentX, contentY, contentW, contentH);
+    ctx.fillStyle = '#2d2d2d';
+    ctx.fillRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT - 8);
+    ctx.beginPath();
+    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, 8, 8]);
+    ctx.fill();
+
+    if (node.selected || node.highlighted) {
+        ctx.strokeStyle = node.selected ? '#e74c3c' : '#FFD700';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+    } else {
+        ctx.strokeStyle = '#424242';
+        ctx.lineWidth = 1;
+        ctx.stroke();
     }
 
-    // Border / Highlight
-    ctx.strokeStyle = node.selected ? '#e74c3c' : (node.highlighted ? '#FFD700' : '#424242');
-    ctx.lineWidth = node.selected || node.highlighted ? 3 / this.scale : 1 / this.scale;
-    ctx.stroke();
-    
-    // Title
     ctx.fillStyle = '#e0e0e0';
-    ctx.font = `bold 14px "Segoe UI"`;
+    ctx.font = '14px "Segoe UI"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const fittedTitle = this._fitText(node.title, NODE_WIDTH - 20); 
     const titleX = node.x + NODE_WIDTH / 2;
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
     ctx.fillText(fittedTitle, titleX, titleY);
-
     ctx.restore();
   }
 
@@ -223,67 +257,59 @@ export default class Renderer {
     ctx.restore();
   }
 
-  updateHtmlOverlays(isLodActive) {
-      if (!this.graphData) return;
-      const visibleOverlays = new Set();
+  updateIframes() {
+    if (!this.graphData) return;
+    this.graphData.nodes.forEach(node => {
+        if (node.sourceType !== 'iframe') return;
+        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+        if (!wrapper) return;
+        const isInView = this._isNodeInView(node);
+        const shouldBeVisible = !node.isCollapsed && isInView;
+        if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
+            wrapper.style.display = shouldBeVisible ? 'block' : 'none';
+        }
+        if (shouldBeVisible) {
+            const screenX = (node.x) * this.scale + this.offset.x;
+            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+            const screenWidth = NODE_WIDTH * this.scale;
+            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+            wrapper.style.width = `${screenWidth}px`;
+            wrapper.style.height = `${screenHeight}px`;
+        }
+    });
+  }
 
-      this.graphData.nodes.forEach(node => {
-          if (node.sourceType === 'iframe') this.updateIframeOverlay(node);
-      });
-      
+  updateMarkdownOverlays(isLodActive) {
+      if (!this.graphData) return;
       this.graphData.decorations.forEach(deco => {
-          if (deco.type === 'markdown') {
-              const isInView = this._isDecorationInView(deco);
-              if (!isLodActive && isInView) {
-                 this.updateMarkdownOverlay(deco);
-                 visibleOverlays.add(deco.id);
+          if (deco.type !== 'markdown') return;
+          
+          const isInView = this._isDecorationInView(deco);
+          const shouldBeVisible = !isLodActive && isInView;
+          
+          let overlay = this.markdownOverlays.get(deco.id);
+
+          if (shouldBeVisible) {
+              if (!overlay) {
+                  overlay = this._createMarkdownOverlay(deco);
               }
+              const screenX = deco.x * this.scale + this.offset.x;
+              const screenY = deco.y * this.scale + this.offset.y;
+              const screenWidth = deco.width * this.scale;
+              const screenHeight = deco.height * this.scale;
+              
+              overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
+              overlay.style.width = `${screenWidth}px`;
+              overlay.style.height = `${screenHeight}px`;
+              // REVISED: Apply font scaling to counteract canvas zoom
+              overlay.style.fontSize = `${(deco.fontSize || 14) * (1 / this.scale)}px`;
+              overlay.classList.toggle('selected', !!deco.selected);
+
+          } else if (overlay) {
+              this.destroyMarkdownOverlay(deco.id);
           }
       });
-
-      this.markdownOverlays.forEach((overlay, id) => {
-          if (!visibleOverlays.has(id)) this.destroyMarkdownOverlay(id);
-      });
-  }
-
-  updateIframeOverlay(node) {
-      const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
-      if (!wrapper) return;
-      const isInView = this._isNodeInView(node);
-      const shouldBeVisible = !node.isCollapsed && isInView;
-      if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
-          wrapper.style.display = shouldBeVisible ? 'block' : 'none';
-      }
-      if (shouldBeVisible) {
-          const screenX = node.x * this.scale + this.offset.x;
-          const screenY = (node.y + NODE_HEADER_HEIGHT) * this.scale + this.offset.y;
-          const screenWidth = NODE_WIDTH * this.scale;
-          const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
-          wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-          wrapper.style.width = `${screenWidth}px`;
-          wrapper.style.height = `${screenHeight}px`;
-      }
-  }
-
-  updateMarkdownOverlay(deco) {
-      let overlay = this.markdownOverlays.get(deco.id);
-      if (!overlay) overlay = this._createMarkdownOverlay(deco);
-
-      const screenX = deco.x * this.scale + this.offset.x;
-      const screenY = deco.y * this.scale + this.offset.y;
-      const screenWidth = deco.width * this.scale;
-      const screenHeight = deco.height * this.scale;
-      
-      overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
-      overlay.style.width = `${screenWidth}px`;
-      overlay.style.height = `${screenHeight}px`;
-      
-      const contentWrapper = overlay.querySelector('.markdown-content-wrapper');
-      if (contentWrapper) {
-          const baseFontSize = deco.fontSize || 14;
-          contentWrapper.style.fontSize = `${baseFontSize}px`;
-      }
-      overlay.classList.toggle('selected', !!deco.selected);
   }
 
   _createMarkdownOverlay(deco) {
@@ -291,38 +317,44 @@ export default class Renderer {
       overlay.id = `md-overlay-${deco.id}`;
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
-      overlay.dataset.decoId = deco.id;
       
-      const contentWrapper = document.createElement('div');
-      contentWrapper.className = 'markdown-content-wrapper';
-      
-      const handle = document.createElement('div');
-      handle.className = 'markdown-drag-handle';
-      
-      overlay.appendChild(handle);
-      overlay.appendChild(contentWrapper);
-      
-      this.updateMarkdownOverlayContent(contentWrapper, deco);
+      this.updateMarkdownOverlayContent(overlay, deco);
+
+      // REVISED: Handle wheel event for zoom/scroll
+      overlay.addEventListener('wheel', (event) => {
+          if (!event.shiftKey) {
+              event.preventDefault();
+              // Forward the event to the canvas for zooming
+              const newEvent = new WheelEvent('wheel', {
+                  clientX: event.clientX, clientY: event.clientY,
+                  deltaX: event.deltaX, deltaY: event.deltaY, deltaZ: event.deltaZ,
+                  bubbles: true, cancelable: true
+              });
+              this.canvas.dispatchEvent(newEvent);
+          }
+          // If shift is held, do nothing and allow native scroll
+      }, { passive: false });
 
       this.markdownContainer.appendChild(overlay);
       this.markdownOverlays.set(deco.id, overlay);
       return overlay;
   }
   
-  refreshMarkdownOverlay(decoId) {
+  updateMarkdownOverlay(decoId) {
       const deco = this.graphData.getDecorationById(decoId);
       const overlay = this.markdownOverlays.get(decoId);
       if (deco && overlay) {
-          const contentWrapper = overlay.querySelector('.markdown-content-wrapper');
-          this.updateMarkdownOverlayContent(contentWrapper, deco);
+          this.updateMarkdownOverlayContent(overlay, deco);
           overlay.style.backgroundColor = deco.backgroundColor;
       }
   }
 
-  updateMarkdownOverlayContent(contentWrapper, deco) {
-      const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), { ADD_ATTR: ['target'] });
-      contentWrapper.innerHTML = content;
-      contentWrapper.querySelectorAll('a').forEach(a => {
+  updateMarkdownOverlayContent(overlay, deco) {
+      const content = DOMPurify.sanitize(marked.parse(deco.textContent || '', { breaks: true }), {
+        ADD_ATTR: ['target'],
+      });
+      overlay.innerHTML = content;
+      overlay.querySelectorAll('a').forEach(a => {
         a.target = '_blank';
         a.rel = 'noopener nofollow';
       });
@@ -334,20 +366,42 @@ export default class Renderer {
           this.markdownOverlays.delete(decoId);
       }
   }
+  
+  destroyAllMarkdownOverlays() {
+      this.markdownOverlays.forEach(overlay => overlay.remove());
+      this.markdownOverlays.clear();
+  }
+
+  recreateMarkdownOverlay(deco) {
+      this.destroyMarkdownOverlay(deco.id);
+      this._createMarkdownOverlay(deco);
+  }
+
+  recreateAllMarkdownOverlays() {
+      this.destroyAllMarkdownOverlays();
+      if (!this.graphData) return;
+      this.graphData.decorations.forEach(deco => {
+          if (deco.type === 'markdown') {
+              this._createMarkdownOverlay(deco);
+          }
+      });
+  }
 
   _fitText(text, maxWidth) {
-      this.ctx.font = 'bold 14px "Segoe UI"';
+      this.ctx.font = '14px "Segoe UI"';
       if(this.ctx.measureText(text).width <= maxWidth) return text;
       while (this.ctx.measureText(text + '...').width > maxWidth && text.length > 0) text = text.slice(0, -1);
       return text + '...';
   }
   
   _isNodeInView(node) {
-      return this._isRectInView(this._getNodeVisualRect(node));
+      const rect = this._getNodeVisualRect(node);
+      return this._isRectInView(rect);
   }
   
   _isDecorationInView(deco) {
-      return this._isRectInView(this._getDecorationBounds(deco));
+      const rect = this._getDecorationBounds(deco);
+      return this._isRectInView(rect);
   }
   
   _isRectInView(rect) {
@@ -361,18 +415,24 @@ export default class Renderer {
   }
 
   getViewportCenter() {
-      return { x: (this.canvas.width / 2 - this.offset.x) / this.scale, y: (this.canvas.height / 2 - this.offset.y) / this.scale };
+      const worldX = (this.canvas.width / 2 - this.offset.x) / this.scale;
+      const worldY = (this.canvas.height / 2 - this.offset.y) / this.scale;
+      return { x: worldX, y: worldY };
   }
 
   getViewport() { return { offset: this.offset, scale: this.scale }; }
-  setViewport(view) { if (view.offset) this.offset = view.offset; if (view.scale) this.scale = view.scale; }
+
+  setViewport(view) {
+    if (view.offset) this.offset = view.offset;
+    if (view.scale) this.scale = view.scale;
+  }
 
   _getNodeVisualRect(node) {
       const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
       const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
       return { x: node.x, y: node.y, width: NODE_WIDTH, height: totalHeight };
   }
-  
+
   _getNodeVisualRectCenter(node) {
       const rect = this._getNodeVisualRect(node);
       return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
@@ -382,7 +442,7 @@ export default class Renderer {
       return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
   }
 
-  getClickableEntityAt(x, y, { isDecorationsLocked }) {
+  getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
     if (!isDecorationsLocked) {
         if (this.scale < DECORATION_LOD_THRESHOLD) {
             const tolerance = 7 / this.scale;
@@ -390,14 +450,16 @@ export default class Renderer {
                  const deco = this.graphData.decorations[i];
                  const decoCenterX = deco.x + deco.width/2;
                  const decoCenterY = deco.y + deco.height/2;
-                 if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) return { type: 'decoration', entity: deco };
+                 if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
+                     return { type: 'decoration', entity: deco };
+                 }
             }
         } else {
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                 const deco = this.graphData.decorations[i];
-                if (deco.type === 'rectangle') {
-                    const bounds = this._getDecorationBounds(deco);
-                    if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) return { type: 'decoration', entity: deco };
+                const bounds = this._getDecorationBounds(deco);
+                if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
+                    return { type: 'decoration', entity: deco };
                 }
             }
         }
@@ -406,7 +468,11 @@ export default class Renderer {
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
-        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) return { type: 'node', entity: node };
+        // We only check the header for the initial click to avoid clicking "through" an iframe
+        const headerRect = { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
+        if (x > headerRect.x && x < headerRect.x + headerRect.width && y > headerRect.y && y < headerRect.y + headerRect.height) {
+            return { type: 'node', entity: node };
+        }
     }
       
     const edge = this.getEdgeAt(x, y);
@@ -417,7 +483,12 @@ export default class Renderer {
   
   getNodesInRect(rect) {
     const normalizedRect = this.normalizeRect(rect);
-    return this.graphData.nodes.filter(node => this.isRectContained(this._getNodeVisualRect(node), normalizedRect));
+    return this.graphData.nodes.filter(node => {
+        const nodeRect = this._getNodeVisualRect(node);
+        return ( nodeRect.x >= normalizedRect.x && nodeRect.y >= normalizedRect.y &&
+                 nodeRect.x + nodeRect.width <= normalizedRect.x + normalizedRect.w &&
+                 nodeRect.y + nodeRect.height <= normalizedRect.y + normalizedRect.h );
+    });
   }
 
   getEdgesInRect(rect, nodesInRect) {
@@ -427,36 +498,54 @@ export default class Renderer {
   
   getDecorationsInRect(rect) {
       const normalizedRect = this.normalizeRect(rect);
-      return this.graphData.decorations.filter(deco => this.doRectsOverlap(this._getDecorationBounds(deco), normalizedRect));
+      return this.graphData.decorations.filter(deco => {
+          const decoBounds = this._getDecorationBounds(deco);
+          return normalizedRect.x < decoBounds.x + decoBounds.width && normalizedRect.x + normalizedRect.w > decoBounds.x &&
+                 normalizedRect.y < decoBounds.y + decoBounds.height && normalizedRect.y + normalizedRect.h > decoBounds.y;
+      });
   }
   
   normalizeRect(rect) {
-      return { x: rect.w < 0 ? rect.x + rect.w : rect.x, y: rect.h < 0 ? rect.y + rect.h : rect.y, w: Math.abs(rect.w), h: Math.abs(rect.h) };
+      return {
+          x: rect.w < 0 ? rect.x + rect.w : rect.x, y: rect.h < 0 ? rect.y + rect.h : rect.y,
+          w: Math.abs(rect.w), h: Math.abs(rect.h)
+      };
   }
 
-  isRectContained(inner, outer) {
-      return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.w && inner.y + inner.height <= outer.y + outer.h;
-  }
-  doRectsOverlap(r1, r2) {
-      return r1.x < r2.x + r2.w && r1.x + r1.width > r2.x && r1.y < r2.y + r2.h && r1.y + r1.height > r2.y;
+  getControlPointAt(x, y) {
+      const tolerance = 8 / this.scale;
+      for (const edge of this.graphData.edges) {
+          for (let i = 0; i < (edge.controlPoints || []).length; i++) {
+              const point = edge.controlPoints[i];
+              if (Math.hypot(x - point.x, y - point.y) < tolerance) return { edge, pointIndex: i };
+          }
+      }
+      return null;
   }
 
   getEdgeAt(x, y) {
-    const toleranceSq = (10 / this.scale)**2;
+    const tolerance = 10 / this.scale;
     for (const edge of this.graphData.edges) {
         const src = this.graphData.getNodeById(edge.source);
         const trg = this.graphData.getNodeById(edge.target);
         if (!src || !trg) continue;
         
-        const pathPoints = [ this._getIntersectionWithNodeRect(src, trg), ...(edge.controlPoints || []), this._getIntersectionWithNodeRect(trg, src) ];
+        const controlPoints = edge.controlPoints || [];
+        const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : this._getNodeVisualRectCenter(trg);
+        const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
+        const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : this._getNodeVisualRectCenter(src);
+        const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
 
+        const pathPoints = [startPoint, ...controlPoints, endPoint];
         for (let i = 0; i < pathPoints.length - 1; i++) {
             const p1 = pathPoints[i], p2 = pathPoints[i + 1];
-            const lenSq = (p2.x - p1.x)**2 + (p2.y - p1.y)**2;
-            if (lenSq === 0) continue;
-            const t = Math.max(0, Math.min(1, (((x - p1.x) * (p2.x - p1.x)) + ((y - p1.y) * (p2.y - p1.y))) / lenSq));
-            const distSq = (x - (p1.x + t * (p2.x - p1.x)))**2 + (y - (p1.y + t * (p2.y - p1.y)))**2;
-            if (distSq < toleranceSq) return edge;
+            const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            if (len < 1) continue;
+            const dot = (((x - p1.x) * (p2.x - p1.x)) + ((y - p1.y) * (p2.y - p1.y))) / (len * len);
+            if (dot >= 0 && dot <= 1) {
+                const closestX = p1.x + (dot * (p2.x - p1.x)), closestY = p1.y + (dot * (p2.y - p1.y));
+                if (Math.hypot(x - closestX, y - closestY) < tolerance) return edge;
+            }
         }
     }
     return null;
@@ -469,30 +558,38 @@ export default class Renderer {
   }
   
   _getIntersectionWithNodeRect(node, externalPoint) {
-    const nodeCenter = this._getNodeVisualRectCenter(node);
-    const nodeRect = this._getNodeVisualRect(node);
-    const dx = externalPoint.x - nodeCenter.x;
-    const dy = externalPoint.y - nodeCenter.y;
+    const rect = this._getNodeVisualRect(node);
+    const rectCenter = this._getNodeVisualRectCenter(node);
+
+    const dx = externalPoint.x - rectCenter.x;
+    const dy = externalPoint.y - rectCenter.y;
+
+    if (dx === 0 && dy === 0) return rectCenter;
     
-    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return nodeCenter;
+    let t = Infinity;
+    // Top edge
+    if (dy !== 0) { const ty = (rect.y - rectCenter.y) / dy; if(ty > 0) t = Math.min(t, ty); }
+    // Bottom edge
+    if (dy !== 0) { const ty = (rect.y + rect.height - rectCenter.y) / dy; if(ty > 0) t = Math.min(t, ty); }
+    // Left edge
+    if (dx !== 0) { const tx = (rect.x - rectCenter.x) / dx; if(tx > 0) t = Math.min(t, tx); }
+    // Right edge
+    if (dx !== 0) { const tx = (rect.x + rect.width - rectCenter.x) / dx; if(tx > 0) t = Math.min(t, tx); }
 
-    const tan = dy / dx;
-    const w = nodeRect.width / 2;
-    const h = nodeRect.height / 2;
+    let ix = rectCenter.x + t * dx;
+    let iy = rectCenter.y + t * dy;
 
-    if (Math.abs(dy) * w > Math.abs(dx) * h) {
-        const sign = dy > 0 ? 1 : -1;
-        return { x: nodeCenter.x + (h * sign) / tan, y: nodeCenter.y + h * sign };
-    } else {
-        const sign = dx > 0 ? 1 : -1;
-        return { x: nodeCenter.x + w * sign, y: nodeCenter.y + w * tan * sign };
-    }
+    // Clamp to the rectangle edges to correct for floating point inaccuracies
+    ix = Math.max(rect.x, Math.min(rect.x + rect.width, ix));
+    iy = Math.max(rect.y, Math.min(rect.y + rect.height, iy));
+    
+    return { x: ix, y: iy };
   }
   
   drawTemporaryEdge() {
     const ctx = this.ctx;
-    const startCenter = this._getNodeVisualRectCenter(this.edgeCreationSource);
-    ctx.save(); ctx.beginPath(); ctx.moveTo(startCenter.x, startCenter.y); ctx.lineTo(this.mousePos.x, this.mousePos.y);
+    const center = this._getNodeVisualRectCenter(this.edgeCreationSource);
+    ctx.save(); ctx.beginPath(); ctx.moveTo(center.x, center.y); ctx.lineTo(this.mousePos.x, this.mousePos.y);
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3 / this.scale; ctx.setLineDash([5 / this.scale, 5 / this.scale]); ctx.stroke(); ctx.restore();
   }
   
@@ -503,35 +600,43 @@ export default class Renderer {
           const node = this.graphData.getNodeById(currentId);
           if (node) node.highlighted = true;
       }
-      if (edge) {
-        const graphEdge = this.graphData.edges.find(e => e.source === edge.source && e.target === edge.target);
-        if (graphEdge) graphEdge.highlighted = true;
+      if (edge && this.graphData.edges.includes(edge)) {
+          edge.highlighted = true;
       }
   }
   
   getCanvasCoords({ clientX, clientY }) {
       const rect = this.canvas.getBoundingClientRect();
-      return { x: (clientX - rect.left - this.offset.x) / this.scale, y: (clientY - rect.top - this.offset.y) / this.scale };
+      const x = (clientX - rect.left - this.offset.x) / this.scale;
+      const y = (clientY - rect.top - this.offset.y) / this.scale;
+      return { x, y };
   }
   
   resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
   wasDragged() { return this.dragged; }
   
-  centerOnNode(nodeId, targetScale = null, screenOffset = { x: 0, y: 0 }) {
+  _getSnappedPosition(pos, movingEntity) {
+      return pos;
+  }
+  _drawSnapGuides() { }
+
+  centerOnNode(nodeId, targetScale = null, screenOffset = null) {
+    if (!this.graphData) return;
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
 
     this.isAnimatingPan = true;
     const finalScale = targetScale !== null ? targetScale : this.scale;
+    const finalScreenOffset = screenOffset || { x: 0, y: 0 };
+    
     const nodeCenter = this._getNodeVisualRectCenter(node);
     
-    const targetScreenX = this.canvas.width / 2 + screenOffset.x;
-    const targetScreenY = this.canvas.height / 2 + screenOffset.y;
-    const targetOffsetX = targetScreenX - (nodeCenter.x * finalScale);
-    const targetOffsetY = targetScreenY - (nodeCenter.y * finalScale);
+    const targetOffsetX = (this.canvas.width / 2) - (nodeCenter.x * finalScale) + finalScreenOffset.x;
+    const targetOffsetY = (this.canvas.height / 2) - (nodeCenter.y * finalScale) + finalScreenOffset.y;
 
     const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
     const startScale = this.scale;
+
     const diffX = targetOffsetX - startOffsetX, diffY = targetOffsetY - startOffsetY;
     const diffScale = finalScale - startScale;
 
@@ -542,157 +647,184 @@ export default class Renderer {
         if (!startTime) startTime = timestamp;
         const elapsed = timestamp - startTime;
         if (elapsed >= duration || !this.isAnimatingPan) {
-            this.offset = { x: targetOffsetX, y: targetOffsetY };
+            this.offset.x = targetOffsetX;
+            this.offset.y = targetOffsetY;
             this.scale = finalScale;
             this.isAnimatingPan = false;
             return;
         }
-        const progress = 1 - Math.pow(1 - (elapsed / duration), 3); // Ease-out cubic
-        this.offset = { x: startOffsetX + diffX * progress, y: startOffsetY + diffY * progress };
+
+        let progress = Math.min(elapsed / duration, 1);
+        progress = 1 - Math.pow(1 - progress, 3); // Ease-out Cubic
+
+        this.offset.x = startOffsetX + diffX * progress;
+        this.offset.y = startOffsetY + diffY * progress;
         this.scale = startScale + diffScale * progress;
+        
         requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
   }
   
   setupCanvasInteraction(callbacks) {
-    document.addEventListener('mousedown', (e) => this.handleMouseDown(e, callbacks));
-    this.canvas.addEventListener('wheel', (e) => this.handleWheel(e, callbacks), { passive: false });
+    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
+    window.addEventListener('resize', () => this.resizeCanvas());
+    this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+    
+    const handleMouseMove = (e) => {
+        const oldMousePos = this.mousePos;
+        this.mousePos = this.getCanvasCoords(e);
+        if (e.buttons === 0) { handleMouseUp(e); return; }
+        this.dragged = true;
 
-    document.addEventListener('click', (e) => {
-        if (this.wasDragged()) return;
-        const target = e.target;
-        const overlay = target.closest('.markdown-overlay');
+        if (this.dragging) {
+            this.offset.x = e.clientX - this.dragStart.x;
+            this.offset.y = e.clientY - this.dragStart.y;
+        } else if (this.draggingEntity) {
+            const dx = this.mousePos.x - oldMousePos.x;
+            const dy = this.mousePos.y - oldMousePos.y;
+            if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
 
-        if (callbacks.getIsEditorMode() && overlay) {
-            const deco = this.graphData.getDecorationById(overlay.dataset.decoId);
-            if (deco) callbacks.onClick(e, { type: 'decoration', entity: deco });
-        } else if (target === this.canvas) {
-            const worldPos = this.getCanvasCoords(e);
-            callbacks.onClick(e, this.getClickableEntityAt(worldPos.x, worldPos.y, { isDecorationsLocked: callbacks.getIsDecorationsLocked() }));
+            const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
+            const itemsToMove = new Set();
+            
+            // Initial population from selection
+            selection.forEach(item => itemsToMove.add(item));
+
+            // Recursively find all children (attached or grouped)
+            let currentSize;
+            do {
+                currentSize = itemsToMove.size;
+                itemsToMove.forEach(item => {
+                    // Find attached children if it's a node
+                    if(item.sourceType) { 
+                        this.graphData.decorations.forEach(d => {
+                            if (d.attachedToNodeId === item.id) itemsToMove.add(d);
+                        });
+                    }
+                    // Find grouped children if it's a rectangle
+                    if(item.type === 'rectangle') {
+                        this.graphData.decorations.forEach(d => {
+                            if (d.parentId === item.id) itemsToMove.add(d);
+                        });
+                    }
+                });
+            } while (itemsToMove.size > currentSize); // loop until no new items are added
+            
+            itemsToMove.forEach(item => {
+                if (getIsDecorationsLocked() && item.type) return;
+
+                item.x += dx;
+                item.y += dy;
+                
+                // Update relative offset for attached containers
+                if (item.attachedToNodeId && !item.parentId) {
+                  const node = this.graphData.getNodeById(item.attachedToNodeId);
+                  if (node) {
+                    item.attachOffsetX = item.x - node.x;
+                    item.attachOffsetY = item.y - node.y;
+                  }
+                }
+            });
+
+        } else if (this.draggingControlPoint) {
+            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].x = this.mousePos.x;
+            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].y = this.mousePos.y;
+        } else if (this.isMarqueeSelecting) {
+            this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
+            this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
+        }
+    };
+
+    const handleMouseUp = (e) => {
+        if (this.isMarqueeSelecting) {
+            const normalizedRect = this.normalizeRect(this.marqueeRect);
+            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
+        }
+        if (this.isCreatingEdge && e.button === 2) {
+            const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+            if (targetClick && targetClick.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) {
+                onEdgeCreated(this.edgeCreationSource, targetClick.entity);
+            }
+        }
+        
+        this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+        this.canvas.style.cursor = 'grab';
+        
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+
+        setTimeout(() => { this.dragged = false; }, 0);
+    };
+    
+    this.canvas.addEventListener('mousedown', (e) => {
+        this.isAnimatingPan = false; 
+        const isEditor = getIsEditorMode();
+        this.mousePos = this.getCanvasCoords(e);
+        this.dragged = false;
+        
+        const handlePanStart = () => {
+            this.dragging = true;
+            this.dragStart.x = e.clientX - this.offset.x;
+            this.dragStart.y = e.clientY - this.offset.y;
+        };
+
+        if (e.button === 0) { // Left
+            if (!isEditor) { handlePanStart(); }
+            else {
+                 const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
+                 if (cp) { this.draggingControlPoint = cp; }
+                 else {
+                     const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
+                     if (clicked) {
+                         const entity = clicked.entity;
+                         if (entity.selected) this.isDraggingSelection = true;
+                         this.draggingEntity = entity;
+                     } else {
+                         this.isMarqueeSelecting = true;
+                         this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
+                     }
+                 }
+            }
+        } else if (e.button === 1) { handlePanStart(); } // Middle
+        else if (e.button === 2) { // Right
+            e.preventDefault();
+            if (isEditor) {
+                const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
+                if (cp) cp.edge.controlPoints.splice(cp.pointIndex, 1);
+                else {
+                    const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+                    if (clickedNode && clickedNode.type === 'node') {
+                        this.isCreatingEdge = true;
+                        this.edgeCreationSource = clickedNode.entity;
+                    }
+                }
+            }
+        }
+
+        if (this.dragging || this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
+            this.canvas.style.cursor = this.dragging ? 'grabbing' : 'crosshair';
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
         }
     });
 
-    this.canvas.addEventListener('dblclick', (e) => {
-        if (this.wasDragged()) return;
-        const worldPos = this.getCanvasCoords(e);
-        callbacks.onDblClick(e, this.getClickableEntityAt(worldPos.x, worldPos.y, { isDecorationsLocked: callbacks.getIsDecorationsLocked() }));
-    });
-  }
+    this.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        this.isAnimatingPan = false;
+        const zoomIntensity = 0.1;
+        const wheel = e.deltaY < 0 ? 1 : -1;
+        const zoom = Math.exp(wheel * zoomIntensity);
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+        const newScale = Math.max(0.1, Math.min(5, this.scale * zoom));
 
-  handleMouseDown(e, callbacks) {
-      const { getIsEditorMode, getIsDecorationsLocked } = callbacks;
-      const onCanvas = e.target === this.canvas;
-      const onOverlayInEditor = getIsEditorMode() && e.target.closest('.markdown-overlay');
+        this.offset.x = mouseX - (mouseX - this.offset.x) * (newScale / this.scale);
+        this.offset.y = mouseY - (mouseY - this.offset.y) * (newScale / this.scale);
+        this.scale = newScale;
+    }, { passive: false });
 
-      if (!onCanvas && !onOverlayInEditor) return;
-      
-      this.isAnimatingPan = false;
-      this.mousePos = this.getCanvasCoords(e);
-      this.dragged = false;
-      this.dragStart = { x: e.clientX, y: e.clientY };
-
-      const startPan = () => {
-          this.dragging = true;
-          this.dragStart.x = e.clientX - this.offset.x;
-          this.dragStart.y = e.clientY - this.offset.y;
-      };
-
-      if (e.button === 0) { // Left-click
-          if (!getIsEditorMode()) { startPan(); return; }
-          
-          let clicked = null;
-          if(onOverlayInEditor) {
-              const deco = this.graphData.getDecorationById(onOverlayInEditor.dataset.decoId);
-              if (deco) clicked = { type: 'decoration', entity: deco };
-          } else {
-              clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-          }
-          
-          if (clicked) {
-              this.draggingEntity = clicked.entity;
-              if (clicked.entity.selected) this.isDraggingSelection = true;
-          } else {
-              this.isMarqueeSelecting = true;
-              this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
-          }
-      } else if (e.button === 1) { e.preventDefault(); startPan(); } 
-      else if (e.button === 2) { 
-          if (getIsEditorMode()) {
-              e.preventDefault();
-              const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true })?.entity;
-              if (clickedNode?.sourceType) {
-                  this.isCreatingEdge = true;
-                  this.edgeCreationSource = clickedNode;
-              }
-          }
-      }
-
-      if (this.dragging || this.draggingEntity || this.isCreatingEdge || this.isMarqueeSelecting) {
-          const handleMouseMove = (moveEvent) => this.handleMouseMove(moveEvent, callbacks);
-          const handleMouseUp = (upEvent) => {
-              window.removeEventListener('mousemove', handleMouseMove);
-              this.handleMouseUp(upEvent, callbacks);
-          };
-          window.addEventListener('mousemove', handleMouseMove);
-          window.addEventListener('mouseup', handleMouseUp, { once: true });
-      }
-  }
-
-  handleMouseMove(e, callbacks) {
-      const { getIsEditorMode, getIsDecorationsLocked, getSelection } = callbacks;
-      const newMousePos = this.getCanvasCoords(e);
-      if (!this.dragged && Math.hypot(e.clientX - this.dragStart.x, e.clientY - this.dragStart.y) > 3) {
-        this.dragged = true;
-      }
-      e.preventDefault();
-
-      if (this.dragging) {
-          this.offset.x = e.clientX - this.dragStart.x;
-          this.offset.y = e.clientY - this.dragStart.y;
-      } else if (this.draggingEntity) {
-          const dx = newMousePos.x - this.mousePos.x;
-          const dy = newMousePos.y - this.mousePos.y;
-          if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) {
-              const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
-              this.graphData.moveSelection(selection, dx, dy, { isDecorationsLocked: getIsDecorationsLocked() });
-          }
-      } else if (this.isMarqueeSelecting) {
-          this.marqueeRect.w = newMousePos.x - this.marqueeRect.x;
-          this.marqueeRect.h = newMousePos.y - this.marqueeRect.y;
-      }
-      this.mousePos = newMousePos;
-  }
-
-  handleMouseUp(e, callbacks) {
-      if (this.isMarqueeSelecting) {
-          onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
-      }
-      if (this.isCreatingEdge && e.button === 2) {
-            const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true })?.entity;
-            if (targetClick?.sourceType && this.edgeCreationSource && targetClick.id !== this.edgeCreationSource.id) {
-                callbacks.onEdgeCreated(this.edgeCreationSource, targetClick);
-            }
-      }
-      this.dragging = this.draggingEntity = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
-      setTimeout(() => { this.dragged = false; }, 0);
-  }
-
-  handleWheel(e, callbacks) {
-      if (!callbacks.getIsEditorMode() && e.target.closest('.markdown-overlay')) {
-          return; // In Player mode, allow native scroll on overlays
-      }
-      
-      e.preventDefault();
-      this.isAnimatingPan = false;
-      const zoomIntensity = 0.1;
-      const wheel = e.deltaY < 0 ? 1 : -1;
-      const zoom = Math.exp(wheel * zoomIntensity);
-      const rect = this.canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
-      this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
-      this.scale = Math.max(0.1, Math.min(5, this.scale));
+    this.canvas.addEventListener('click', onClick);
+    this.canvas.addEventListener('dblclick', onDblClick);
   }
 }

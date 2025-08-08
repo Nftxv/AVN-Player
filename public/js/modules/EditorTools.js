@@ -16,7 +16,7 @@ export default class EditorTools {
     this.inspectedEntity = null;
     this.selectedEntities = [];
     this.decorationsLocked = true; 
-    this.initLockState();
+    this.initLockState(); 
   }
     
   initLockState() {
@@ -24,8 +24,8 @@ export default class EditorTools {
       lockBtn.textContent = this.decorationsLocked ? '🔒' : '🔓';
       lockBtn.classList.toggle('active', this.decorationsLocked);
       lockBtn.title = this.decorationsLocked ? 'Decorations Locked (Click to Unlock)' : 'Decorations Unlocked (Click to Lock)';
-      document.getElementById('addRectBtn').disabled = this.decorationsLocked;
-      document.getElementById('addTextBtn').disabled = this.decorationsLocked;
+      
+      document.body.classList.toggle('decorations-locked', this.decorationsLocked);
   }
 
   collapseAllNodes() {
@@ -48,21 +48,22 @@ export default class EditorTools {
 
   createNode() {
     const center = this.renderer.getViewportCenter();
+    const visualCenterOffset = (NODE_HEADER_HEIGHT - NODE_CONTENT_HEIGHT) / 2;
+
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
       x: center.x - NODE_WIDTH / 2,
-      y: center.y - (NODE_HEADER_HEIGHT + (NODE_CONTENT_HEIGHT/2)),
+      y: center.y - visualCenterOffset,
       isCollapsed: false,
       sourceType: 'audio',
       audioUrl: '', coverUrl: '', iframeUrl: '',
     };
-    this.graphData.addNode(newNode);
+    this.graphData.nodes.push(newNode);
     this.selectEntity(newNode);
   }
   
   createRectangle() {
-    if (this.decorationsLocked) return;
     const center = this.renderer.getViewportCenter();
     const newRect = {
         id: `deco-rect-${Date.now()}`,
@@ -72,12 +73,11 @@ export default class EditorTools {
         backgroundColor: '#2c3e50',
         parentId: null, attachedToNodeId: null,
     };
-    this.graphData.addDecoration(newRect);
+    this.graphData.decorations.push(newRect);
     this.selectEntity(newRect);
   }
 
   createText() {
-    if (this.decorationsLocked) return;
     const center = this.renderer.getViewportCenter();
     const newText = {
         id: `deco-text-${Date.now()}`,
@@ -89,13 +89,15 @@ export default class EditorTools {
         backgroundColor: 'rgba(45, 45, 45, 0.85)',
         parentId: null,
     };
-    this.graphData.addDecoration(newText);
+    this.graphData.decorations.push(newText);
+    this.renderer.recreateMarkdownOverlay(newText);
     this.selectEntity(newText);
   }
 
   createEdge(sourceNode, targetNode) {
     if (sourceNode.id === targetNode.id) return;
     const newEdge = {
+      id: `edge-${sourceNode.id}-${targetNode.id}-${Date.now()}`,
       source: sourceNode.id,
       target: targetNode.id,
       color: '#888888',
@@ -103,7 +105,8 @@ export default class EditorTools {
       label: '',
       controlPoints: [],
     };
-    this.graphData.addEdge(newEdge);
+    this.graphData.edges.push(newEdge);
+    this.selectEntity(newEdge);
   }
   
   groupOrUngroupSelection() {
@@ -113,20 +116,17 @@ export default class EditorTools {
       if (isUngroupAction) {
           const container = this.selectedEntities.find(e => e.type === 'rectangle');
           if (!container) return;
-          const releasedItems = [container];
           this.graphData.decorations.forEach(deco => {
               if (deco.parentId === container.id) {
                   deco.parentId = null;
-                  releasedItems.push(deco);
               }
           });
           console.log(`Ungrouped items from parent ${container.id}`);
-          this.updateSelection(releasedItems, 'set');
       } else {
-          const decorations = this.selectedEntities.filter(e => e.type);
-          const parent = decorations.find(d => d.type === 'rectangle' && !d.parentId);
+          const decorations = this.selectedEntities.filter(e => e.type === 'rectangle' || e.type === 'markdown');
+          const parent = decorations.find(d => d.type === 'rectangle');
           if (!parent || decorations.length < 2) {
-            alert('To group, select one non-grouped rectangle (as container) and at least one other decoration.');
+            alert('To group, select one rectangle (as container) and at least one other decoration.');
             return;
           }
           decorations.forEach(deco => {
@@ -137,6 +137,7 @@ export default class EditorTools {
           console.log(`Grouped ${decorations.length - 1} items under parent ${parent.id}`);
           this.updateSelection([parent], 'set');
       }
+      this.updateUIState();
   }
 
   attachOrDetachSelection() {
@@ -147,8 +148,6 @@ export default class EditorTools {
       if (isDetachAction) {
           if (container) {
               container.attachedToNodeId = null;
-              container.attachOffsetX = null;
-              container.attachOffsetY = null;
               console.log(`Detached container ${container.id}`);
           }
       } else {
@@ -158,26 +157,31 @@ export default class EditorTools {
             return;
           }
           container.attachedToNodeId = node.id;
-          container.attachOffsetX = container.x - node.x;
-          container.attachOffsetY = container.y - node.y;
           console.log(`Attached container ${container.id} to node ${node.id}`);
           this.updateSelection([node, container], 'set');
       }
       this.updateUIState();
   }
 
+
   deleteSelection() {
     if (this.selectedEntities.length === 0 || !confirm(`Are you sure you want to delete ${this.selectedEntities.length} item(s)?`)) {
         return;
     }
+    this.closeInspector();
+
+    const selectedIds = new Set(this.selectedEntities.map(e => e.id));
+    const nodesToDelete = new Set(this.selectedEntities.filter(e => e.sourceType).map(n => n.id));
     
-    this.selectedEntities.forEach(entity => {
-      if (entity.sourceType === 'iframe') this.app.player.destroyYtPlayer(entity.id);
-      if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
+    this.graphData.decorations.forEach(deco => {
+        if (selectedIds.has(deco.parentId)) deco.parentId = null;
+        if (nodesToDelete.has(deco.attachedToNodeId)) deco.attachedToNodeId = null;
     });
 
-    this.closeInspector(); // Close inspector before deleting its entity
-    this.graphData.deleteEntities(this.selectedEntities);
+    this.graphData.nodes = this.graphData.nodes.filter(n => !selectedIds.has(n.id));
+    this.graphData.edges = this.graphData.edges.filter(e => !selectedIds.has(e.id) && !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target));
+    this.graphData.decorations = this.graphData.decorations.filter(d => !selectedIds.has(d.id));
+
     this.updateSelection([], 'set');
   }
   
@@ -186,44 +190,42 @@ export default class EditorTools {
   }
 
   updateSelection(entities, mode = 'set') {
-      const entityToId = (e) => e.id || (e.source && `${e.source.id}->${e.target.id}`);
-      let currentSelectionMap = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
-
+      const entityToId = (e) => e.id || `${e.source}->${e.target}`;
+      const newSelection = new Map(entities.map(e => [entityToId(e), e]));
+      let finalSelection;
+      
       if (mode === 'set') {
-          currentSelectionMap = new Map(entities.map(e => [entityToId(e), e]));
-      } else if (mode === 'add') {
-          entities.forEach(e => {
-              const id = entityToId(e);
-              if (currentSelectionMap.has(id)) {
-                  currentSelectionMap.delete(id);
-              } else {
-                  currentSelectionMap.set(id, e);
-              }
-          });
-      } else if (mode === 'remove') {
-          entities.forEach(e => currentSelectionMap.delete(entityToId(e)));
+          finalSelection = Array.from(newSelection.values());
+      } else {
+          const currentSelection = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
+          if (mode === 'add') {
+              newSelection.forEach((value, key) => {
+                if (currentSelection.has(key)) currentSelection.delete(key); 
+                else currentSelection.set(key, value);
+              });
+          } else if (mode === 'remove') {
+              newSelection.forEach((value, key) => currentSelection.delete(key));
+          }
+          finalSelection = Array.from(currentSelection.values());
       }
       
-      this.graphData.nodes.forEach(n => n.selected = false);
+      this.selectedEntities.forEach(e => { if(e.id) e.selected = false });
       this.graphData.edges.forEach(e => e.selected = false);
-      this.graphData.decorations.forEach(d => d.selected = false);
 
-      this.selectedEntities = Array.from(currentSelectionMap.values());
-      this.selectedEntities.forEach(e => {
-        if(e.id) {
-            const entityInGraph = this.graphData.getEntityById(e.id);
-            if(entityInGraph) entityInGraph.selected = true;
-        } else if (e.source) { // It's an edge
-            e.selected = true;
-        }
-      });
+      this.selectedEntities = finalSelection;
+      const selectedIds = new Set(this.selectedEntities.map(e => entityToId(e)));
+      
+      this.graphData.nodes.forEach(n => n.selected = selectedIds.has(n.id));
+      this.graphData.edges.forEach(e => e.selected = selectedIds.has(entityToId(e)));
+      this.graphData.decorations.forEach(d => d.selected = selectedIds.has(d.id));
       
       this.updateUIState();
   }
   
-  // START FIX: Replaced lines 224-259
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
+      document.getElementById('addRectBtn').disabled = false;
+      document.getElementById('addTextBtn').disabled = false;
 
       const groupBtn = document.getElementById('groupSelectionBtn');
       const attachBtn = document.getElementById('attachToNodeBtn');
@@ -231,44 +233,38 @@ export default class EditorTools {
       const nodes = this.selectedEntities.filter(e => e.sourceType);
       const container = this.selectedEntities.find(e => e.type === 'rectangle' && !e.parentId);
       
-      // Grouping logic
       if (container && this.selectedEntities.length === 1 && this.graphData.decorations.some(d => d.parentId === container.id)) {
           groupBtn.textContent = 'Ungroup';
           groupBtn.disabled = this.decorationsLocked;
           groupBtn.title = 'Ungroup all items from this container';
       } else {
           groupBtn.textContent = 'Group';
-          groupBtn.disabled = this.decorationsLocked || !(decos.length > 1 && container);
-          groupBtn.title = 'To group, select one non-grouped rectangle and other decorations';
+          groupBtn.disabled = !(decos.length > 1 && container) || this.decorationsLocked;
+          groupBtn.title = 'Group selected items under the selected rectangle';
       }
 
-      // Attaching logic
       if (container && container.attachedToNodeId) {
           attachBtn.textContent = 'Detach';
-          attachBtn.disabled = this.decorationsLocked || this.selectedEntities.length > 1;
+          attachBtn.disabled = this.selectedEntities.length > 1 || this.decorationsLocked;
           attachBtn.title = 'Detach this container from its node';
       } else {
           attachBtn.textContent = 'Attach';
-          attachBtn.disabled = this.decorationsLocked || !(nodes.length === 1 && container);
+          attachBtn.disabled = !(nodes.length === 1 && container) || this.decorationsLocked;
           attachBtn.title = 'Attach selected container to the selected node';
       }
 
-      // MANAGE INSPECTOR VISIBILITY (This breaks the recursive loop)
-      if (this.selectedEntities.length === 1 && !this.selectedEntities[0].source) {
+      if (this.selectedEntities.length === 1) {
           this.openInspector(this.selectedEntities[0]);
       } else {
-          this.inspectedEntity = null;
-          document.getElementById('inspectorPanel').classList.add('hidden');
+          this.closeInspector();
       }
   }
-  // END FIX
 
   getSelection() {
     return this.selectedEntities;
   }
 
   openInspector(entity) {
-    if (this.inspectedEntity?.id === entity.id) return; // Already open for this entity
     this.inspectedEntity = entity;
     const panel = document.getElementById('inspectorPanel');
     const content = document.getElementById('inspectorContent');
@@ -277,101 +273,88 @@ export default class EditorTools {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = this._getNodeInspectorHtml(entity);
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
-        html = this._getEdgeInspectorHtml(entity);
+        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
     } else if (entity.type === 'rectangle') {
         title.textContent = 'Rectangle Properties';
-        html = this._getRectangleInspectorHtml(entity);
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${entity.backgroundColor}"><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
-        html = this._getMarkdownInspectorHtml(entity);
+        html = `
+            <div id="md-toolbar">
+                <button id="md-bold" title="Bold">B</button>
+                <button id="md-italic" title="Italic" class="md-italic">I</button>
+                <button id="md-link" title="Link">🔗</button>
+                <button id="md-image" title="Image">🖼️</button>
+            </div>
+            <label for="textContent" class="sr-only">Markdown Content:</label>
+            <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
+            <label for="fontSize">Base Font Size (px):</label>
+            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
+            <label for="rectWidth">Width:</label>
+            <input type="number" id="rectWidth" value="${entity.width}" min="10">
+            <label for="rectHeight">Height:</label>
+            <input type="number" id="rectHeight" value="${entity.height}" min="10">
+            <label for="bgColor">Background Color (CSS value):</label>
+            <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="e.g., #333 or rgba(45,45,45,0.8)">
+        `;
     }
 
     content.innerHTML = html;
     panel.classList.remove('hidden');
-    
-    if (entity.sourceType) this._setupNodeInspectorLogic(entity);
-    if (entity.type === 'markdown') this._setupMarkdownInspectorLogic(entity);
+    if (entity.sourceType) this._setupInspectorLogic(entity);
+    if (entity.type === 'markdown') this._setupMarkdownToolbar();
   }
   
-  _getNodeInspectorHtml(entity) {
-      return `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}">
-      <label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div>
-      <div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div>
-      <div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
+  _setupInspectorLogic(node) {
+      const audioBtn = document.getElementById('type-audio');
+      const iframeBtn = document.getElementById('type-iframe');
+      const audioFields = document.getElementById('audio-fields');
+      const iframeFields = document.getElementById('iframe-fields');
+
+      const setSourceType = (type) => {
+          node.sourceType = type;
+          audioBtn.classList.toggle('active', type === 'audio');
+          iframeBtn.classList.toggle('active', type === 'iframe');
+          audioFields.classList.toggle('hidden', type !== 'audio');
+          iframeFields.classList.toggle('hidden', type !== 'iframe');
+      }
+
+      audioBtn.addEventListener('click', () => setSourceType('audio'));
+      iframeBtn.addEventListener('click', () => setSourceType('iframe'));
   }
   
-  _getEdgeInspectorHtml(entity) {
-      return `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
-  }
-
-  _getRectangleInspectorHtml(entity) {
-      return `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${entity.backgroundColor}"><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
-  }
-
-  _getMarkdownInspectorHtml(entity) {
-      return `
-          <label for="textContent">Markdown Content:</label>
-          <div class="markdown-toolbar">
-              <button data-md="bold"><b>B</b></button>
-              <button data-md="italic"><i>I</i></button>
-              <button data-md="link">Link</button>
-              <button data-md="image">Image</button>
-          </div>
-          <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
-          <label for="fontSize">Base Font Size (px):</label>
-          <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
-          <label for="rectWidth">Width:</label>
-          <input type="number" id="rectWidth" value="${entity.width}" min="10">
-          <label for="rectHeight">Height:</label>
-          <input type="number" id="rectHeight" value="${entity.height}" min="10">
-          <label for="bgColor">Background Color (CSS value):</label>
-          <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="e.g., #333 or rgba(45,45,45,0.8)">
-      `;
-  }
-
-  _setupNodeInspectorLogic() {
-      document.getElementById('type-audio').addEventListener('click', () => this._setSourceTypeUI('audio'));
-      document.getElementById('type-iframe').addEventListener('click', () => this._setSourceTypeUI('iframe'));
-  }
-
-  _setSourceTypeUI(type) {
-      document.getElementById('type-audio').classList.toggle('active', type === 'audio');
-      document.getElementById('type-iframe').classList.toggle('active', type === 'iframe');
-      document.getElementById('audio-fields').classList.toggle('hidden', type !== 'audio');
-      document.getElementById('iframe-fields').classList.toggle('hidden', type !== 'iframe');
-  }
-  
-  _setupMarkdownInspectorLogic() {
+  _setupMarkdownToolbar() {
       const textarea = document.getElementById('textContent');
-      document.querySelector('.markdown-toolbar').addEventListener('click', (e) => {
-          const button = e.target.closest('button');
-          if (!button) return;
-          const type = button.dataset.md;
+      if (!textarea) return;
+
+      const wrapSelection = (wrapper) => {
           const start = textarea.selectionStart;
           const end = textarea.selectionEnd;
-          const selectedText = textarea.value.substring(start, end);
-          let replacement = '';
+          const selected = textarea.value.substring(start, end);
+          const newText = `${wrapper}${selected}${wrapper}`;
+          textarea.setRangeText(newText, start, end, 'select');
+          textarea.focus();
+      };
 
-          switch (type) {
-              case 'bold': replacement = `**${selectedText || 'bold text'}**`; break;
-              case 'italic': replacement = `*${selectedText || 'italic text'}*`; break;
-              case 'link':
-                  const url = prompt('Enter link URL:', 'https://');
-                  if (url) replacement = `[${selectedText || 'link text'}](${url})`;
-                  break;
-              case 'image':
-                  const imgUrl = prompt('Enter image URL:', 'https://');
-                  if (imgUrl) replacement = `![${selectedText || 'alt text'}](${imgUrl})`;
-                  break;
-          }
-          if (replacement) {
-              textarea.setRangeText(replacement, start, end, 'select');
-              textarea.focus();
-          }
-      });
+      const insertLink = (isImage) => {
+          const url = prompt(`Enter the ${isImage ? 'Image' : 'Link'} URL:`);
+          if (!url) return;
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const selected = textarea.value.substring(start, end) || (isImage ? 'alt text' : 'link text');
+          const prefix = isImage ? '!' : '';
+          const newText = `${prefix}[${selected}](${url})`;
+          textarea.setRangeText(newText, start, end, 'end');
+          textarea.focus();
+      };
+      
+      document.getElementById('md-bold')?.addEventListener('click', () => wrapSelection('**'));
+      document.getElementById('md-italic')?.addEventListener('click', () => wrapSelection('*'));
+      document.getElementById('md-link')?.addEventListener('click', () => insertLink(false));
+      document.getElementById('md-image')?.addEventListener('click', () => insertLink(true));
   }
 
   saveInspectorChanges() {
@@ -380,13 +363,11 @@ export default class EditorTools {
 
     if (entity.sourceType) { // Node
         entity.title = document.getElementById('nodeTitle').value;
-        const sourceType = document.querySelector('.toggle-switch button.active').id.split('-')[1];
-        entity.sourceType = sourceType;
-        if (sourceType === 'audio') {
+        if (entity.sourceType === 'audio') {
             entity.audioUrl = document.getElementById('audioUrl').value || null;
             entity.coverUrl = document.getElementById('coverUrl').value || null;
             entity.iframeUrl = null;
-        } else if (sourceType === 'iframe') {
+        } else if (entity.sourceType === 'iframe') {
             const userInput = document.getElementById('iframeUrlInput').value;
             entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null;
             entity.audioUrl = null;
@@ -406,19 +387,14 @@ export default class EditorTools {
         entity.width = parseInt(document.getElementById('rectWidth').value, 10);
         entity.height = parseInt(document.getElementById('rectHeight').value, 10);
         entity.backgroundColor = document.getElementById('bgColor').value;
-        this.renderer.refreshMarkdownOverlay(entity.id);
+        this.renderer.updateMarkdownOverlay(entity.id);
     }
   }
 
-  // START FIX: Replaced lines 409-422
   closeInspector() {
-    if (!this.inspectedEntity) return;
-    // The user clicked the close button, so we should deselect the item.
-    // This will trigger updateSelection, which will in turn call updateUIState,
-    // which will then correctly hide the inspector.
-    this.updateSelection([this.inspectedEntity], 'remove');
+    this.inspectedEntity = null;
+    document.getElementById('inspectorPanel').classList.add('hidden');
   }
-  // END FIX
   
   addControlPointAt(edge, position) {
       if (!edge || !position) return;
@@ -426,27 +402,29 @@ export default class EditorTools {
 
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
-      const pathPoints = [
-          this.renderer._getIntersectionWithNodeRect(startNode, position),
-          ...edge.controlPoints,
-          this.renderer._getIntersectionWithNodeRect(endNode, position)
-      ];
+      
+      const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEADER_HEIGHT / 2 };
+      const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEADER_HEIGHT / 2 };
+
+      const pathPoints = [ startPoint, ...edge.controlPoints, endPoint ];
       
       let closestSegmentIndex = 0; 
       let minDistance = Infinity;
 
       for (let i = 0; i < pathPoints.length - 1; i++) {
           const p1 = pathPoints[i], p2 = pathPoints[i+1];
-          const lenSq = (p2.x - p1.x)**2 + (p2.y - p1.y)**2;
-          if (lenSq === 0) continue;
-          const t = Math.max(0, Math.min(1, (((position.x - p1.x) * (p2.x - p1.x)) + ((position.y - p1.y) * (p2.y - p1.y))) / lenSq));
-          const closestX = p1.x + t * (p2.x - p1.x);
-          const closestY = p1.y + t * (p2.y - p1.y);
-          const distSq = (position.x - closestX)**2 + (position.y - closestY)**2;
-
-          if (distSq < minDistance) { 
-            minDistance = distSq; 
-            closestSegmentIndex = i; 
+          const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          if (len === 0) continue;
+          const dot = (((position.x - p1.x) * (p2.x - p1.x)) + ((position.y - p1.y) * (p2.y - p1.y))) / (len * len);
+          
+          if (dot >= 0 && dot <= 1) {
+            const closestX = p1.x + (dot * (p2.x - p1.x)); 
+            const closestY = p1.y + (dot * (p2.y - p1.y));
+            const dist = Math.hypot(position.x - closestX, position.y - closestY);
+            if (dist < minDistance) { 
+              minDistance = dist; 
+              closestSegmentIndex = i; 
+            }
           }
       }
       edge.controlPoints.splice(closestSegmentIndex, 0, position);
@@ -454,6 +432,14 @@ export default class EditorTools {
 
   exportGraph() {
     const viewport = this.renderer.getViewport();
+    this.graphData.nodes.forEach(node => {
+        this.graphData.decorations.forEach(deco => {
+            if (deco.attachedToNodeId === node.id) {
+                deco.x = node.x + (deco.attachOffsetX || 0);
+                deco.y = node.y + (deco.attachOffsetY || 0);
+            }
+        });
+    });
     const graphJSON = JSON.stringify(this.graphData.getGraph(viewport), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -463,7 +449,6 @@ export default class EditorTools {
   
   resetGraph() {
     if (confirm('Are you sure you want to reset the graph to its default state? All local changes will be lost.')) {
-      localStorage.removeItem('avn-player-graph');
       window.location.reload();
     }
   }

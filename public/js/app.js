@@ -36,7 +36,7 @@ class GraphApp {
     this.isEditorMode = false;
     this.isFollowing = false;
     this.followScale = 1.0;
-    this.followScreenOffset = { x: 0, y: 0 }; // REVISED: This is the core of the new follow logic
+    this.followScreenOffset = { x: 0, y: 0 }; // For smart follow position
   }
 
   async init() {
@@ -48,6 +48,7 @@ class GraphApp {
         this.renderer.setViewport(this.graphData.view);
       }
       
+      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -57,59 +58,62 @@ class GraphApp {
     }
   }
 
-  // REVISED: Follow mode logic is completely overhauled for precise positioning.
+  // REVISED: Smart Follow Mode logic with position memory
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
           const { scale, offset } = this.renderer.getViewport();
-          this.followScale = scale; // Capture the current scale
-
+          this.followScale = scale;
+          
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
               const nodeRect = this.renderer._getNodeVisualRect(node);
-              const nodeCenterX = nodeRect.x + nodeRect.width / 2;
-              const nodeCenterY = nodeRect.y + nodeRect.height / 2;
-
-              // Calculate node's current position on screen
-              const nodeScreenX = nodeCenterX * scale + offset.x;
-              const nodeScreenY = nodeCenterY * scale + offset.y;
+              const nodeScreenX = (nodeRect.x + nodeRect.width / 2) * scale + offset.x;
+              const nodeScreenY = (nodeRect.y + nodeRect.height / 2) * scale + offset.y;
               
-              // Calculate and store the offset from the screen center
-              this.followScreenOffset.x = nodeScreenX - this.renderer.canvas.width / 2;
-              this.followScreenOffset.y = nodeScreenY - this.renderer.canvas.height / 2;
+              this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
+              this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
               
-              console.log(`Follow mode ACTIVATED. Target scale: ${this.followScale}. Screen offset:`, this.followScreenOffset);
+              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
+              
+              // Apply settings to the current node immediately to confirm the position
+              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
           } else {
-              // If no node is active, default to centering
+              // If no node is active, default to a centered view for the next node.
               this.followScreenOffset = { x: 0, y: 0 };
-              console.log(`Follow mode ACTIVATED. Target scale: ${this.followScale}. No active node, will center.`);
+              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
           }
+
       } else {
-          console.log('Follow mode DEACTIVATED.');
+          console.log('Follow mode deactivated.');
       }
   }
 
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
-    // When switching modes, clear any active player/editor state
+    // Also toggle decoration lock status for CSS rules
+    document.body.classList.toggle('decorations-locked', this.editorTools.decorationsLocked);
+    
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
-      // Exiting editor mode: clear selection and close inspector
       this.editorTools.updateSelection([], 'set');
+      this.renderer.destroyAllMarkdownOverlays();
+    } else {
+      // Recreate overlays if entering editor mode, in case they were destroyed
+      this.renderer.recreateAllMarkdownOverlays();
     }
-    // Renderer now handles overlay visibility/interactivity via CSS, no need to destroy.
   }
 
   setupEventListeners() {
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
-        onClick: (e, entity) => this.handleCanvasClick(e, entity),
-        onDblClick: (e, entity) => this.handleCanvasDblClick(e, entity),
+        onClick: (e) => this.handleCanvasClick(e),
+        onDblClick: (e) => this.handleCanvasDblClick(e),
         onEdgeCreated: (source, target) => {
             if (this.isEditorMode) this.editorTools.createEdge(source, target);
         },
@@ -117,7 +121,7 @@ class GraphApp {
             if (!this.isEditorMode) return;
             const nodes = this.renderer.getNodesInRect(rect);
             const edges = this.renderer.getEdgesInRect(rect, nodes);
-            const decorations = this.editorTools.decorationsLocked ? [] : this.renderer.getDecorationsInRect(rect);
+            const decorations = this.renderer.getDecorationsInRect(rect);
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
@@ -143,7 +147,6 @@ class GraphApp {
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
         selection.forEach(entity => {
-            // Ensure we clean up any associated DOM elements
             if (entity.sourceType === 'iframe') this.player.destroyYtPlayer(entity.id);
             if (entity.type === 'markdown') this.renderer.destroyMarkdownOverlay(entity.id);
         });
@@ -160,8 +163,10 @@ class GraphApp {
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
-  handleCanvasClick(event, clicked) {
+  handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
+    const coords = this.renderer.getCanvasCoords(event);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
@@ -178,9 +183,10 @@ class GraphApp {
     }
   }
   
-  handleCanvasDblClick(event, clicked) {
+  handleCanvasDblClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
     
     if (clicked && clicked.type === 'node') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
@@ -189,6 +195,10 @@ class GraphApp {
     }
   }
 }
+
+// Constants exposed for other modules that need them
+const NODE_WIDTH = 200;
+const NODE_HEADER_HEIGHT = 45;
 
 (async () => {
   try {

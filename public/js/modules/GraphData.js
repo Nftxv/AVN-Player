@@ -43,7 +43,6 @@ export default class GraphData {
           break;
         case 'Path':
           this.edges.push({
-            // Edges don't have a stable ID, they are defined by source and target
             source: item.source,
             target: item.target,
             color: item.color || '#888888',
@@ -61,17 +60,16 @@ export default class GraphData {
             width: item.size?.width || 200,
             height: item.size?.height || 100,
             backgroundColor: item.backgroundColor || '#333333',
+            // NEW: Grouping properties
             parentId: item.parentId || null,
             attachedToNodeId: item.attachedToNodeId || null,
-            attachOffsetX: item.attachOffsetX,
-            attachOffsetY: item.attachOffsetY,
           });
           break;
         case 'TextAnnotation': // Legacy support
         case 'MarkdownAnnotation': // NEW
           this.decorations.push({
             id: item['@id'],
-            type: 'markdown', // Unifying to markdown
+            type: 'markdown', // REVISED: Unifying to markdown
             x: item.position?.x || 0,
             y: item.position?.y || 0,
             width: item.size?.width || 300,
@@ -79,6 +77,7 @@ export default class GraphData {
             textContent: item.textContent || '',
             fontSize: item.fontSize || 14,
             backgroundColor: item.backgroundColor || 'rgba(45, 45, 45, 0.85)',
+            // NEW: Grouping properties
             parentId: item.parentId || null,
           });
           break;
@@ -96,7 +95,7 @@ export default class GraphData {
         isCollapsed: n.isCollapsed,
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,
-        coverUrl: n.coverUrl,
+        coverUrl: n.coverUrl, // Keep for data, not for UI
         iframeUrl: n.iframeUrl,
       })),
       ...this.edges.map(e => ({
@@ -112,139 +111,63 @@ export default class GraphData {
         const common = { 
             '@id': d.id, 
             position: { x: d.x, y: d.y },
-            size: { width: d.width, height: d.height },
             ...(d.parentId && { parentId: d.parentId }),
-            ...(d.attachedToNodeId && { 
-                attachedToNodeId: d.attachedToNodeId,
-                attachOffsetX: d.attachOffsetX,
-                attachOffsetY: d.attachOffsetY,
-             })
+            ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId })
         };
         if (d.type === 'rectangle') {
-          return { ...common, '@type': 'RectangleAnnotation', backgroundColor: d.backgroundColor };
+          return {
+            ...common,
+            '@type': 'RectangleAnnotation',
+            size: { width: d.width, height: d.height },
+            backgroundColor: d.backgroundColor,
+          };
         }
-        if (d.type === 'markdown') {
-          return { ...common, '@type': 'MarkdownAnnotation', textContent: d.textContent, fontSize: d.fontSize, backgroundColor: d.backgroundColor };
+        if (d.type === 'markdown') { // REVISED
+          return {
+            ...common,
+            '@type': 'MarkdownAnnotation',
+            size: { width: d.width, height: d.height },
+            textContent: d.textContent,
+            fontSize: d.fontSize,
+            backgroundColor: d.backgroundColor,
+          };
         }
         return null;
       }).filter(Boolean),
     ];
     
-    const data = { '@context': 'https://schema.org/', '@graph': graph };
-    if (viewport) data.view = viewport;
+    const data = {
+      '@context': 'https://schema.org/',
+      ...(Object.keys(this.meta).length > 0 && { meta: this.meta }),
+      '@graph': graph,
+    };
+
+    if (viewport) {
+      data.view = viewport;
+    }
+
     return data;
   }
   
-  // --- DATA MANIPULATION METHODS ---
-
-  addNode(node) { this.nodes.push(node); }
-  addEdge(edge) { this.edges.push(edge); }
-  addDecoration(deco) { this.decorations.push(deco); }
-  
-  getEntityById(id) {
-    return this.nodes.find(n => n.id === id) || this.decorations.find(d => d.id === id);
-  }
-
-  deleteEntities(selection) {
-    const idsToDelete = new Set(selection.map(e => e.id).filter(Boolean));
-    const nodesToDelete = new Set(selection.filter(e => e.sourceType).map(n => n.id));
-
-    // Un-parent children of deleted containers
-    this.decorations.forEach(deco => {
-        if (idsToDelete.has(deco.parentId)) deco.parentId = null;
-        if (nodesToDelete.has(deco.attachedToNodeId)) {
-            deco.attachedToNodeId = null;
-            deco.attachOffsetX = null;
-            deco.attachOffsetY = null;
-        }
-    });
-
-    this.nodes = this.nodes.filter(n => !idsToDelete.has(n.id));
-    this.edges = this.edges.filter(e => !idsToDelete.has(e.id) && !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target));
-    this.decorations = this.decorations.filter(d => !idsToDelete.has(d.id));
-  }
-
-  moveSelection(selection, dx, dy, { isDecorationsLocked }) {
-      const movedItemIds = new Set();
-      selection.forEach(entity => {
-          if (movedItemIds.has(entity.id)) return;
-
-          let rootItem = entity.parentId ? this.getDecorationById(entity.parentId) : entity;
-          if (!rootItem) rootItem = entity;
-
-          const itemsToMove = new Set();
-          if(rootItem.sourceType) { // It's a node
-              itemsToMove.add(rootItem);
-              this.decorations.forEach(d => {
-                  if(d.attachedToNodeId === rootItem.id && !d.parentId) {
-                      this.getGroupedDecorations(d).forEach(gi => itemsToMove.add(gi));
-                  }
-              });
-          } else if(rootItem.type) { // It's a decoration
-              if (isDecorationsLocked) return;
-              this.getGroupedDecorations(rootItem).forEach(gi => itemsToMove.add(gi));
-          }
-
-          itemsToMove.forEach(item => {
-              if(item.x !== undefined) item.x += dx;
-              if(item.y !== undefined) item.y += dy;
-              movedItemIds.add(item.id);
-
-              // Update attach offset if the moved item is a root attached container
-              if (item.id === rootItem.id && item.attachedToNodeId) {
-                  const node = this.getNodeById(item.attachedToNodeId);
-                  if(node) {
-                      item.attachOffsetX = item.x - node.x;
-                      item.attachOffsetY = item.y - node.y;
-                  }
-              }
-          });
-      });
-  }
-  
-  // --- HELPERS ---
-
   parseYoutubeUrl(input) {
       if (!input || typeof input !== 'string') return null;
       const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       const match = input.match(regex);
       if (match && match[1]) return match[1];
       if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim();
+      console.warn("Could not parse YouTube URL/ID:", input);
       return null;
   }
 
-  getNodeById(id) { return this.nodes.find(node => node.id === id); }
-  getDecorationById(id) { return this.decorations.find(deco => deco.id === id); }
-  getEdgesFromNode(nodeId) { return this.edges.filter(edge => edge.source === nodeId); }
-  getGroupedDecorations(container) {
-      const group = [container];
-      const children = this.decorations.filter(d => d.parentId === container.id);
-      children.forEach(child => group.push(...this.getGroupedDecorations(child))); // Recursive for nested groups
-      return group;
+  getNodeById(id) {
+    return this.nodes.find(node => node.id === id);
   }
 
-  // THIS IS THE FIX for the crash
-  updateAttachedDecorations() {
-    this.decorations.forEach(deco => {
-        // Only move top-level containers that are attached
-        if (deco.attachedToNodeId && !deco.parentId) {
-            const node = this.getNodeById(deco.attachedToNodeId);
-            if (node) {
-                const newX = node.x + (deco.attachOffsetX || 0);
-                const newY = node.y + (deco.attachOffsetY || 0);
-                const dx = newX - deco.x;
-                const dy = newY - deco.y;
-
-                // If the node moved, move the attached group
-                if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) {
-                   const group = this.getGroupedDecorations(deco);
-                   group.forEach(item => {
-                       item.x += dx;
-                       item.y += dy;
-                   });
-                }
-            }
-        }
-    });
+  getDecorationById(id) {
+    return this.decorations.find(deco => deco.id === id);
+  }
+  
+  getEdgesFromNode(nodeId) {
+    return this.edges.filter(edge => edge.source === nodeId);
   }
 }

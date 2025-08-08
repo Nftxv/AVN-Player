@@ -38,7 +38,7 @@ canvas:active {
   width: 100%;
   height: 100%;
   z-index: 2; 
-  pointer-events: none; /* Pass clicks through to the canvas by default */
+  pointer-events: none;
   overflow: hidden;
 }
 
@@ -47,129 +47,298 @@ canvas:active {
   box-sizing: border-box;
   background-color: #000;
   border: 1px solid #444;
-  pointer-events: auto; /* IFrames are always interactive */
 }
 
 .iframe-wrapper iframe {
   width: 100%;
   height: 100%;
   border: none;
+  pointer-events: auto;
 }
 
-/* REVISED: Markdown overlay interaction model */
 .markdown-overlay {
   position: absolute;
   box-sizing: border-box;
-  display: flex; /* Use flexbox for layout */
-  flex-direction: column;
+  padding: 15px;
+  overflow-y: auto;
+  color: var(--dark-text);
   background-color: rgba(45, 45, 45, 0.85);
   backdrop-filter: blur(5px);
   border: 1px solid var(--dark-border);
   border-radius: 6px;
-  overflow: hidden; /* Hide overflow on the main container */
-  pointer-events: auto; /* Always allow interaction with the overlay element itself for clicks */
+  line-height: 1.5;
+  pointer-events: auto; /* Active for player mode and unlocked editor */
+}
+
+/* REVISED: In editor mode with LOCKED decorations, overlays are transparent to clicks. */
+body.editor-mode.decorations-locked .markdown-overlay, 
+body.editor-mode.decorations-locked .iframe-wrapper {
+    pointer-events: none;
 }
 
 .markdown-overlay.selected {
-  border: 2px solid #e74c3c !important;
-  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
+  border: 2px solid #e74c3c !important; /* Use important to override base style */
 }
 
-/* NEW: Wrapper for scrollable content */
-.markdown-content-wrapper {
-  padding: 15px;
-  overflow-y: auto;
-  color: var(--dark-text);
-  line-height: 1.5;
+.markdown-overlay a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+.markdown-overlay a:hover {
+  text-decoration: underline;
+}
+.markdown-overlay img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+.markdown-overlay h1, .markdown-overlay h2, .markdown-overlay h3 {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  border-bottom: 1px solid var(--dark-border);
+  padding-bottom: 0.3em;
+}
+.markdown-overlay pre {
+  background-color: var(--dark-bg);
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+button, .button-like {
+  padding: 8px 12px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+button:hover, .button-like:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+button:disabled {
+    background: #555;
+    cursor: not-allowed;
+    transform: none;
+}
+
+button#lockDecorationsBtn.active {
+    background-color: var(--danger-color);
+}
+button#lockDecorationsBtn.active:hover {
+    background-color: var(--danger-hover);
+}
+
+#player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--player-height);
+  background: rgba(45, 45, 45, 0.9);
+  border-top: 1px solid var(--dark-border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  z-index: 100;
+  gap: 15px;
+}
+
+#playerContent {
   flex-grow: 1;
-  height: 100%;
-  /* Player mode (default): allow text selection, scrolling, etc. */
-  pointer-events: auto;
-}
-/* Editor mode: disable pointer events on content so clicks fall through to the overlay for selection */
-body.editor-mode .markdown-content-wrapper {
-  pointer-events: none;
-}
-
-
-/* REVISED: Drag handle for markdown overlays */
-.markdown-drag-handle {
-    position: absolute;
-    top: 5px;
-    left: 5px;
-    width: 24px;
-    height: 24px;
-    background-color: rgba(66, 133, 244, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    cursor: move;
-    z-index: 10;
-    pointer-events: auto; /* Explicitly interactive */
-    display: none; /* Hidden by default */
-    transition: transform 0.2s, background-color 0.2s;
-}
-.markdown-drag-handle:hover {
-    transform: scale(1.1);
-    background-color: var(--primary-color);
-}
-body.editor-mode .markdown-drag-handle {
-    display: block; /* Visible only in editor mode */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  align-items: center;
 }
 
-.markdown-content-wrapper a { color: var(--primary-color); text-decoration: none; }
-.markdown-content-wrapper a:hover { text-decoration: underline; }
-.markdown-content-wrapper img { max-width: 100%; height: auto; border-radius: 4px; }
-.markdown-content-wrapper h1, .markdown-content-wrapper h2, .markdown-content-wrapper h3 { margin-top: 0.5em; margin-bottom: 0.5em; border-bottom: 1px solid var(--dark-border); padding-bottom: 0.3em; }
-.markdown-content-wrapper pre { background-color: var(--dark-bg); padding: 10px; border-radius: 4px; overflow-x: auto; }
+#songTitle {
+  font-weight: 600;
+  font-size: 1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dark-text);
+  width: 100%;
+  text-align: center;
+}
 
-button, .button-like { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px; }
-button:hover, .button-like:hover { background: var(--primary-hover); transform: translateY(-1px); }
-button:disabled { background: #555; cursor: not-allowed; transform: none; }
-button#lockDecorationsBtn.active { background-color: var(--danger-color); }
-button#lockDecorationsBtn.active:hover { background-color: var(--danger-hover); }
+#playerControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 500px;
+  justify-content: center;
+}
 
-#player { position: fixed; bottom: 0; left: 0; right: 0; height: var(--player-height); background: rgba(45, 45, 45, 0.9); border-top: 1px solid var(--dark-border); padding: 10px 20px; display: flex; align-items: center; z-index: 100; gap: 15px; }
-#playerContent { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 0; align-items: center; }
-#songTitle { font-weight: 600; font-size: 1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dark-text); width: 100%; text-align: center; }
-#playerControls { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 500px; justify-content: center; }
 #progress { flex-grow: 1; }
+
 .hidden { display: none !important; }
-#choiceModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 400; display: flex; justify-content: center; align-items: center; padding: 15px; }
-.modal-content { background: var(--dark-surface); padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3); border: 1px solid var(--dark-border); }
-#choiceOptions button { background-color: #3c3c3c; color: var(--dark-text); }
-#choiceOptions button:hover { background-color: #4f4f4f; }
-@media (max-width: 768px) { #player { flex-direction: column; height: auto; padding-bottom: 15px;} #songTitle { text-align: center; } #playerControls { width: 100%; } }
-#copyright { position: fixed; bottom: 5px; right: 15px; font-size: 12px; color: var(--dark-subtle-text); z-index: 99; }
+
+#choiceModal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
+  justify-content: center; align-items: center; padding: 15px;
+}
+
+.modal-content {
+  background: var(--dark-surface);
+  padding: 25px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--dark-border);
+}
+#choiceOptions button {
+  background-color: #3c3c3c;
+  color: var(--dark-text);
+}
+#choiceOptions button:hover {
+  background-color: #4f4f4f;
+}
+
+@media (max-width: 768px) {
+  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
+  #songTitle { text-align: center; }
+  #playerControls { width: 100%; }
+}
+
+#copyright {
+  position: fixed;
+  bottom: 5px;
+  right: 15px;
+  font-size: 12px;
+  color: var(--dark-subtle-text);
+  z-index: 99;
+}
 #copyright a { color: var(--primary-color); text-decoration: none; }
 #copyright a:hover { text-decoration: underline; }
-#topToolbar { position: fixed; top: 10px; left: 10px; background: rgba(45, 45, 45, 0.9); border: 1px solid var(--dark-border); padding: 8px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 200; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+#topToolbar {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(45, 45, 45, 0.9);
+  border: 1px solid var(--dark-border);
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 #playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
 .editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
 .divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
+
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .4s; border-radius: 24px; }
 .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #e0e0e0; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--primary-color); }
 input:checked + .slider:before { transform: translateX(20px); }
-#inspectorPanel { position: fixed; top: 60px; right: 10px; width: 300px; max-height: calc(100vh - 80px); background: var(--dark-surface); border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); border: 1px solid var(--dark-border); z-index: 250; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+#inspectorPanel {
+  position: fixed; top: 60px; right: 10px; width: 300px;
+  max-height: calc(100vh - 80px); background: var(--dark-surface);
+  border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  border: 1px solid var(--dark-border);
+  z-index: 250; padding: 15px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+}
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input, #inspectorContent select, #inspectorContent textarea { width: 95%; padding: 8px; border-radius: 4px; background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text); margin-top: 2px; }
-#inspectorContent input[type="color"]{ width: 100%; height: 30px; padding: 2px; }
-#inspectorContent textarea { resize: vertical; min-height: 120px; font-family: Consolas, "Courier New", monospace; }
-/* NEW: Toolbar for Markdown editor */
-.markdown-toolbar { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px; }
-.markdown-toolbar button { padding: 5px 8px; font-size: 12px; background-color: #4f4f4f; }
-.markdown-toolbar button:hover { background-color: #6a6a6a; }
+#inspectorContent input, #inspectorContent select, #inspectorContent textarea {
+  width: 95%; padding: 8px; border-radius: 4px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: var(--dark-text);
+  margin-top: 2px;
+}
+#inspectorContent input[type="color"]{
+    width: 100%;
+    height: 30px;
+    padding: 2px;
+}
+#inspectorContent textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: Consolas, "Courier New", monospace;
+}
+.toggle-switch {
+    display: flex;
+    border: 1px solid #555;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+.toggle-switch button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 8px;
+}
+.toggle-switch button.active {
+    background: var(--primary-color);
+    color: white;
+}
 
-.toggle-switch { display: flex; border: 1px solid #555; border-radius: 6px; overflow: hidden; margin-top: 5px; }
-.toggle-switch button { flex: 1; background: transparent; border: none; border-radius: 0; padding: 8px; }
-.toggle-switch button.active { background: var(--primary-color); color: white; }
+/* NEW: Markdown Toolbar */
+#md-toolbar {
+    display: flex;
+    gap: 5px;
+    border-bottom: 1px solid var(--dark-border);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+#md-toolbar button {
+    background: #4a4a4a;
+    padding: 5px 10px;
+    font-size: 14px;
+    font-weight: bold;
+}
+#md-toolbar button:hover {
+    background: #5c5c5c;
+    transform: none;
+}
+#md-toolbar button.md-italic {
+    font-style: italic;
+}
+
+
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
-#followModeBtn { background: #3c3c3c; color: var(--dark-subtle-text); padding: 6px 10px; font-size: 18px; line-height: 1; }
-#followModeBtn:hover { background: #4f4f4f; transform: none; }
-#followModeBtn.active { background: var(--primary-color); color: white; box-shadow: inset 0 0 5px rgba(0,0,0,0.3); }
+
+#followModeBtn {
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+    padding: 6px 10px;
+    font-size: 18px;
+    line-height: 1;
+}
+
+#followModeBtn:hover {
+    background: #4f4f4f;
+    transform: none;
+}
+
+#followModeBtn.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+}

@@ -1,4 +1,3 @@
-
 ## ./public/index.html
 
 <!DOCTYPE html>
@@ -144,7 +143,7 @@ canvas:active {
   width: 100%;
   height: 100%;
   z-index: 2; 
-  pointer-events: none; /* Pass clicks through to the canvas by default */
+  pointer-events: none;
   overflow: hidden;
 }
 
@@ -153,16 +152,15 @@ canvas:active {
   box-sizing: border-box;
   background-color: #000;
   border: 1px solid #444;
-  pointer-events: auto; /* IFrames are always interactive */
 }
 
 .iframe-wrapper iframe {
   width: 100%;
   height: 100%;
   border: none;
+  pointer-events: auto;
 }
 
-/* REVISED: Markdown overlay interaction model */
 .markdown-overlay {
   position: absolute;
   box-sizing: border-box;
@@ -174,89 +172,257 @@ canvas:active {
   border: 1px solid var(--dark-border);
   border-radius: 6px;
   line-height: 1.5;
-  pointer-events: auto; /* Always allow text selection and scrolling inside */
+  pointer-events: auto; /* Active for player mode */
+}
+
+/* REVISED: In editor mode, all overlays are transparent to clicks, fixing selection. */
+body.editor-mode .markdown-overlay, body.editor-mode .iframe-wrapper {
+    pointer-events: none;
 }
 
 .markdown-overlay.selected {
-  border: 2px solid #e74c3c !important;
-  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
+  border: 2px solid #e74c3c !important; /* Use important to override base style */
 }
 
-/* NEW: Drag handle for markdown overlays in editor mode */
-.markdown-drag-handle {
-    position: absolute;
-    top: -8px;
-    left: -8px;
-    width: 24px;
-    height: 24px;
-    background-color: var(--primary-color);
-    border: 2px solid var(--dark-bg);
-    border-radius: 50%;
-    cursor: move;
-    z-index: 10;
-    pointer-events: auto; /* This is the only part that intercepts clicks for moving/selecting */
-    display: none; /* Hidden by default */
-    transition: transform 0.2s;
+.markdown-overlay a {
+  color: var(--primary-color);
+  text-decoration: none;
 }
-.markdown-drag-handle:hover {
-    transform: scale(1.2);
+.markdown-overlay a:hover {
+  text-decoration: underline;
 }
-body.editor-mode .markdown-drag-handle {
-    display: block; /* Visible only in editor mode */
+.markdown-overlay img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+.markdown-overlay h1, .markdown-overlay h2, .markdown-overlay h3 {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  border-bottom: 1px solid var(--dark-border);
+  padding-bottom: 0.3em;
+}
+.markdown-overlay pre {
+  background-color: var(--dark-bg);
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
 }
 
-.markdown-overlay a { color: var(--primary-color); text-decoration: none; }
-.markdown-overlay a:hover { text-decoration: underline; }
-.markdown-overlay img { max-width: 100%; height: auto; border-radius: 4px; }
-.markdown-overlay h1, .markdown-overlay h2, .markdown-overlay h3 { margin-top: 0.5em; margin-bottom: 0.5em; border-bottom: 1px solid var(--dark-border); padding-bottom: 0.3em; }
-.markdown-overlay pre { background-color: var(--dark-bg); padding: 10px; border-radius: 4px; overflow-x: auto; }
+button, .button-like {
+  padding: 8px 12px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 14px;
+}
 
-button, .button-like { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px; }
-button:hover, .button-like:hover { background: var(--primary-hover); transform: translateY(-1px); }
-button:disabled { background: #555; cursor: not-allowed; transform: none; }
-button#lockDecorationsBtn.active { background-color: var(--danger-color); }
-button#lockDecorationsBtn.active:hover { background-color: var(--danger-hover); }
+button:hover, .button-like:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
 
-#player { position: fixed; bottom: 0; left: 0; right: 0; height: var(--player-height); background: rgba(45, 45, 45, 0.9); border-top: 1px solid var(--dark-border); padding: 10px 20px; display: flex; align-items: center; z-index: 100; gap: 15px; }
-#playerContent { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 0; align-items: center; }
-#songTitle { font-weight: 600; font-size: 1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dark-text); width: 100%; text-align: center; }
-#playerControls { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 500px; justify-content: center; }
+button:disabled {
+    background: #555;
+    cursor: not-allowed;
+    transform: none;
+}
+
+button#lockDecorationsBtn.active {
+    background-color: var(--danger-color);
+}
+button#lockDecorationsBtn.active:hover {
+    background-color: var(--danger-hover);
+}
+
+#player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--player-height);
+  background: rgba(45, 45, 45, 0.9);
+  border-top: 1px solid var(--dark-border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  z-index: 100;
+  gap: 15px;
+}
+
+#playerContent {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  align-items: center;
+}
+
+#songTitle {
+  font-weight: 600;
+  font-size: 1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dark-text);
+  width: 100%;
+  text-align: center;
+}
+
+#playerControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 500px;
+  justify-content: center;
+}
+
 #progress { flex-grow: 1; }
+
 .hidden { display: none !important; }
-#choiceModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 400; display: flex; justify-content: center; align-items: center; padding: 15px; }
-.modal-content { background: var(--dark-surface); padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3); border: 1px solid var(--dark-border); }
-#choiceOptions button { background-color: #3c3c3c; color: var(--dark-text); }
-#choiceOptions button:hover { background-color: #4f4f4f; }
-@media (max-width: 768px) { #player { flex-direction: column; height: auto; padding-bottom: 15px;} #songTitle { text-align: center; } #playerControls { width: 100%; } }
-#copyright { position: fixed; bottom: 5px; right: 15px; font-size: 12px; color: var(--dark-subtle-text); z-index: 99; }
+
+#choiceModal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
+  justify-content: center; align-items: center; padding: 15px;
+}
+
+.modal-content {
+  background: var(--dark-surface);
+  padding: 25px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--dark-border);
+}
+#choiceOptions button {
+  background-color: #3c3c3c;
+  color: var(--dark-text);
+}
+#choiceOptions button:hover {
+  background-color: #4f4f4f;
+}
+
+@media (max-width: 768px) {
+  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
+  #songTitle { text-align: center; }
+  #playerControls { width: 100%; }
+}
+
+#copyright {
+  position: fixed;
+  bottom: 5px;
+  right: 15px;
+  font-size: 12px;
+  color: var(--dark-subtle-text);
+  z-index: 99;
+}
 #copyright a { color: var(--primary-color); text-decoration: none; }
 #copyright a:hover { text-decoration: underline; }
-#topToolbar { position: fixed; top: 10px; left: 10px; background: rgba(45, 45, 45, 0.9); border: 1px solid var(--dark-border); padding: 8px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 200; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+#topToolbar {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(45, 45, 45, 0.9);
+  border: 1px solid var(--dark-border);
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 #playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
 .editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
 .divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
+
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .4s; border-radius: 24px; }
 .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #e0e0e0; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--primary-color); }
 input:checked + .slider:before { transform: translateX(20px); }
-#inspectorPanel { position: fixed; top: 60px; right: 10px; width: 300px; max-height: calc(100vh - 80px); background: var(--dark-surface); border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); border: 1px solid var(--dark-border); z-index: 250; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+#inspectorPanel {
+  position: fixed; top: 60px; right: 10px; width: 300px;
+  max-height: calc(100vh - 80px); background: var(--dark-surface);
+  border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  border: 1px solid var(--dark-border);
+  z-index: 250; padding: 15px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+}
 #inspectorPanel h4 { margin-top: 0; }
 #inspectorContent { display: flex; flex-direction: column; gap: 10px; }
 #inspectorContent label { font-weight: bold; font-size: 0.9em; margin-bottom: -5px; }
-#inspectorContent input, #inspectorContent select, #inspectorContent textarea { width: 95%; padding: 8px; border-radius: 4px; background-color: #3c3c3c; border: 1px solid #555; color: var(--dark-text); margin-top: 2px; }
-#inspectorContent input[type="color"]{ width: 100%; height: 30px; padding: 2px; }
-#inspectorContent textarea { resize: vertical; min-height: 120px; font-family: Consolas, "Courier New", monospace; }
-.toggle-switch { display: flex; border: 1px solid #555; border-radius: 6px; overflow: hidden; margin-top: 5px; }
-.toggle-switch button { flex: 1; background: transparent; border: none; border-radius: 0; padding: 8px; }
-.toggle-switch button.active { background: var(--primary-color); color: white; }
+#inspectorContent input, #inspectorContent select, #inspectorContent textarea {
+  width: 95%; padding: 8px; border-radius: 4px;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  color: var(--dark-text);
+  margin-top: 2px;
+}
+#inspectorContent input[type="color"]{
+    width: 100%;
+    height: 30px;
+    padding: 2px;
+}
+#inspectorContent textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: Consolas, "Courier New", monospace;
+}
+.toggle-switch {
+    display: flex;
+    border: 1px solid #555;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+.toggle-switch button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 8px;
+}
+.toggle-switch button.active {
+    background: var(--primary-color);
+    color: white;
+}
+
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
-#followModeBtn { background: #3c3c3c; color: var(--dark-subtle-text); padding: 6px 10px; font-size: 18px; line-height: 1; }
-#followModeBtn:hover { background: #4f4f4f; transform: none; }
-#followModeBtn.active { background: var(--primary-color); color: white; box-shadow: inset 0 0 5px rgba(0,0,0,0.3); }
+
+#followModeBtn {
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+    padding: 6px 10px;
+    font-size: 18px;
+    line-height: 1;
+}
+
+#followModeBtn:hover {
+    background: #4f4f4f;
+    transform: none;
+}
+
+#followModeBtn.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+}
 
 
 ## ./public/data/default.jsonld
@@ -507,7 +673,7 @@ class GraphApp {
     this.isEditorMode = false;
     this.isFollowing = false;
     this.followScale = 1.0;
-    this.followScreenOffset = { x: 0, y: 0 };
+    this.followScreenOffset = { x: 0, y: 0 }; // NEW: For smart follow position
   }
 
   async init() {
@@ -519,6 +685,7 @@ class GraphApp {
         this.renderer.setViewport(this.graphData.view);
       }
       
+      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -528,6 +695,7 @@ class GraphApp {
     }
   }
 
+  // REVISED: Smart Follow Mode logic with position memory
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
@@ -538,26 +706,21 @@ class GraphApp {
           
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
-              const NODE_WIDTH = 200;
-              const NODE_HEADER_HEIGHT = 45;
-              const NODE_CONTENT_ASPECT_RATIO = 9/16;
-              const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
-
-              const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
-              const nodeCenterX = node.x + NODE_WIDTH / 2;
-              const nodeCenterY = node.y - contentHeight / 2 + NODE_HEADER_HEIGHT / 2;
-
-              const nodeScreenX = nodeCenterX * scale + offset.x;
-              const nodeScreenY = nodeCenterY * scale + offset.y;
+              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
+              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
               
               this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
               
-              console.log(`Follow mode activated. Target scale: ${this.followScale}`);
+              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
+              
+              // Do not recenter immediately. Settings will apply on the next navigation.
           } else {
+              // If no node is active, default to a centered view for the next node.
               this.followScreenOffset = { x: 0, y: 0 };
               console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
           }
+
       } else {
           console.log('Follow mode deactivated.');
       }
@@ -570,6 +733,8 @@ class GraphApp {
     this.navigation.reset();
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
+    }
+    if (!isEditor) {
       this.renderer.destroyAllMarkdownOverlays();
     }
   }
@@ -578,8 +743,8 @@ class GraphApp {
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
-        onClick: (e, entity) => this.handleCanvasClick(e, entity),
-        onDblClick: (e, entity) => this.handleCanvasDblClick(e, entity),
+        onClick: (e) => this.handleCanvasClick(e),
+        onDblClick: (e) => this.handleCanvasDblClick(e),
         onEdgeCreated: (source, target) => {
             if (this.isEditorMode) this.editorTools.createEdge(source, target);
         },
@@ -629,8 +794,10 @@ class GraphApp {
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
-  handleCanvasClick(event, clicked) {
+  handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
+    const coords = this.renderer.getCanvasCoords(event);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
@@ -647,9 +814,10 @@ class GraphApp {
     }
   }
   
-  handleCanvasDblClick(event, clicked) {
+  handleCanvasDblClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
+    const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
     
     if (clicked && clicked.type === 'node') {
         clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
@@ -658,6 +826,10 @@ class GraphApp {
     }
   }
 }
+
+// Constants exposed for other modules that need them
+const NODE_WIDTH = 200;
+const NODE_HEADER_HEIGHT = 45;
 
 (async () => {
   try {
@@ -1693,7 +1865,8 @@ export default class Renderer {
     this.isCreatingEdge = false;
     this.edgeCreationSource = null;
     this.mousePos = { x: 0, y: 0 };
-    
+    this.snapThreshold = 10;
+    this.snapLines = [];
     this.isMarqueeSelecting = false;
     
     this.isAnimatingPan = false;
@@ -1705,6 +1878,10 @@ export default class Renderer {
 
   setData(graphData) { this.graphData = graphData; }
   
+  render() {
+      // The render loop is now self-driving.
+  }
+
   renderLoop() {
     if (!this.graphData) {
         requestAnimationFrame(this.renderLoop);
@@ -1724,16 +1901,19 @@ export default class Renderer {
 
     if (this.isCreatingEdge) this.drawTemporaryEdge();
     if (this.isMarqueeSelecting) this.drawMarquee();
+    this._drawSnapGuides();
     
     this.ctx.restore();
     
-    this.updateHtmlOverlays(isLodActive);
+    this.updateIframes();
+    this.updateMarkdownOverlays(isLodActive);
 
     requestAnimationFrame(this.renderLoop);
   }
 
   drawDecoration(deco, isLodActive) {
     if (isLodActive) {
+        // REVISED: Use a fixed color for LOD dots to ignore transparency
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
         this.ctx.globalAlpha = 0.9;
         this.ctx.beginPath();
@@ -1824,7 +2004,7 @@ export default class Renderer {
       if (edge.label) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
-        ctx.font = '12px "Segoe UI"';
+        ctx.font = '12px "Segoe UI"'; // REVISED: Fixed font size
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -1896,60 +2076,59 @@ export default class Renderer {
     ctx.restore();
   }
 
-  updateHtmlOverlays(isLodActive) {
+  updateIframes() {
+    if (!this.graphData) return;
+    this.graphData.nodes.forEach(node => {
+        if (node.sourceType !== 'iframe') return;
+        const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+        if (!wrapper) return;
+        const isInView = this._isNodeInView(node);
+        const shouldBeVisible = !node.isCollapsed && isInView;
+        if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
+            wrapper.style.display = shouldBeVisible ? 'block' : 'none';
+        }
+        if (shouldBeVisible) {
+            const screenX = (node.x) * this.scale + this.offset.x;
+            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+            const screenWidth = NODE_WIDTH * this.scale;
+            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+            wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
+            wrapper.style.width = `${screenWidth}px`;
+            wrapper.style.height = `${screenHeight}px`;
+        }
+    });
+  }
+
+  updateMarkdownOverlays(isLodActive) {
       if (!this.graphData) return;
-
-      this.graphData.nodes.forEach(node => {
-          if (node.sourceType === 'iframe') this.updateIframeOverlay(node);
-      });
-
       this.graphData.decorations.forEach(deco => {
-          if (deco.type === 'markdown') this.updateMarkdownOverlay(deco, isLodActive);
-      });
-  }
-
-  updateIframeOverlay(node) {
-      const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
-      if (!wrapper) return;
-      const isInView = this._isNodeInView(node);
-      const shouldBeVisible = !node.isCollapsed && isInView;
-      if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
-          wrapper.style.display = shouldBeVisible ? 'block' : 'none';
-      }
-      if (shouldBeVisible) {
-          const screenX = node.x * this.scale + this.offset.x;
-          const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
-          const screenWidth = NODE_WIDTH * this.scale;
-          const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
-          wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
-          wrapper.style.width = `${screenWidth}px`;
-          wrapper.style.height = `${screenHeight}px`;
-      }
-  }
-
-  updateMarkdownOverlay(deco, isLodActive) {
-      const isInView = this._isDecorationInView(deco);
-      const shouldBeVisible = !isLodActive && isInView;
-      let overlay = this.markdownOverlays.get(deco.id);
-
-      if (shouldBeVisible) {
-          if (!overlay) {
-              overlay = this._createMarkdownOverlay(deco);
-          }
-          const screenX = deco.x * this.scale + this.offset.x;
-          const screenY = deco.y * this.scale + this.offset.y;
-          const screenWidth = deco.width * this.scale;
-          const screenHeight = deco.height * this.scale;
+          if (deco.type !== 'markdown') return;
           
-          overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
-          overlay.style.width = `${screenWidth}px`;
-          overlay.style.height = `${screenHeight}px`;
-          overlay.style.fontSize = `${(deco.fontSize || 14) / this.scale}px`;
-          overlay.classList.toggle('selected', !!deco.selected);
+          const isInView = this._isDecorationInView(deco);
+          const shouldBeVisible = !isLodActive && isInView;
+          
+          let overlay = this.markdownOverlays.get(deco.id);
 
-      } else if (overlay) {
-          this.destroyMarkdownOverlay(deco.id);
-      }
+          if (shouldBeVisible) {
+              if (!overlay) {
+                  overlay = this._createMarkdownOverlay(deco);
+              }
+              const screenX = deco.x * this.scale + this.offset.x;
+              const screenY = deco.y * this.scale + this.offset.y;
+              const screenWidth = deco.width * this.scale;
+              const screenHeight = deco.height * this.scale;
+              
+              overlay.style.transform = `translate(${screenX}px, ${screenY}px)`;
+              overlay.style.width = `${screenWidth}px`;
+              overlay.style.height = `${screenHeight}px`;
+              // REVISED: Apply font scaling
+              overlay.style.fontSize = `${(deco.fontSize || 14) / this.scale}px`;
+              overlay.classList.toggle('selected', !!deco.selected);
+
+          } else if (overlay) {
+              this.destroyMarkdownOverlay(deco.id);
+          }
+      });
   }
 
   _createMarkdownOverlay(deco) {
@@ -1958,11 +2137,6 @@ export default class Renderer {
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
       
-      const handle = document.createElement('div');
-      handle.className = 'markdown-drag-handle';
-      handle.dataset.decoId = deco.id;
-      overlay.appendChild(handle);
-      
       this.updateMarkdownOverlayContent(overlay, deco);
 
       this.markdownContainer.appendChild(overlay);
@@ -1970,7 +2144,7 @@ export default class Renderer {
       return overlay;
   }
   
-  refreshMarkdownOverlay(decoId) {
+  updateMarkdownOverlay(decoId) {
       const deco = this.graphData.getDecorationById(decoId);
       const overlay = this.markdownOverlays.get(decoId);
       if (deco && overlay) {
@@ -1980,10 +2154,10 @@ export default class Renderer {
   }
 
   updateMarkdownOverlayContent(overlay, deco) {
-      const handle = overlay.querySelector('.markdown-drag-handle');
-      const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), { ADD_ATTR: ['target'] });
+      const content = DOMPurify.sanitize(marked.parse(deco.textContent, { breaks: true }), {
+        ADD_ATTR: ['target'],
+      });
       overlay.innerHTML = content;
-      if (handle) overlay.prepend(handle);
       overlay.querySelectorAll('a').forEach(a => {
         a.target = '_blank';
         a.rel = 'noopener nofollow';
@@ -2065,14 +2239,11 @@ export default class Renderer {
                  }
             }
         } else {
-            // Only check for rectangles, as markdown blocks are handled by their handles
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                 const deco = this.graphData.decorations[i];
-                if (deco.type === 'rectangle') {
-                    const bounds = this._getDecorationBounds(deco);
-                    if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                        return { type: 'decoration', entity: deco };
-                    }
+                const bounds = this._getDecorationBounds(deco);
+                if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
+                    return { type: 'decoration', entity: deco };
                 }
             }
         }
@@ -2227,6 +2398,11 @@ export default class Renderer {
   resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
   wasDragged() { return this.dragged; }
   
+  _getSnappedPosition(pos, movingEntity) {
+      return pos;
+  }
+  _drawSnapGuides() { }
+
   centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     if (!this.graphData) return;
     const node = this.graphData.getNodeById(nodeId);
@@ -2236,9 +2412,8 @@ export default class Renderer {
     const finalScale = targetScale !== null ? targetScale : this.scale;
     const finalScreenOffset = screenOffset || { x: 0, y: 0 };
     
-    const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
     const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y - contentHeight / 2 + NODE_HEADER_HEIGHT / 2;
+    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
     
     const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) + finalScreenOffset.x;
     const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) + finalScreenOffset.y;
@@ -2276,157 +2451,168 @@ export default class Renderer {
   }
   
   setupCanvasInteraction(callbacks) {
-    const { onClick, onDblClick } = callbacks;
+    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
+    window.addEventListener('resize', () => this.resizeCanvas());
+    this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
-    // Listen on document to catch handle clicks that might be outside other containers
-    document.addEventListener('mousedown', (e) => this.handleMouseDown(e, callbacks));
-    this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+    const handleMouseMove = (e) => {
+        const oldMousePos = this.mousePos;
+        this.mousePos = this.getCanvasCoords(e);
+        if (e.buttons === 0) { handleMouseUp(e); return; }
+        this.dragged = true;
 
-    // Refined click handlers
-    document.addEventListener('click', (e) => {
-        if (this.wasDragged()) return;
-        const target = e.target;
-        if (target === this.canvas) {
-            onClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
-        } else if (target.classList.contains('markdown-drag-handle')) {
-            onClick(e, {type: 'decoration', entity: this.graphData.getDecorationById(target.dataset.decoId)});
+        if (this.dragging) {
+            this.offset.x = e.clientX - this.dragStart.x;
+            this.offset.y = e.clientY - this.dragStart.y;
+        } else if (this.draggingEntity) {
+            const dx = this.mousePos.x - oldMousePos.x;
+            const dy = this.mousePos.y - oldMousePos.y;
+            if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
+
+            const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
+            const movedItems = new Set();
+
+            selection.forEach(entity => {
+                if (movedItems.has(entity.id)) return;
+                
+                let rootToMove = entity;
+                if (entity.parentId) {
+                    rootToMove = this.graphData.getDecorationById(entity.parentId) || entity;
+                }
+                
+                const itemsToMove = new Set([rootToMove]);
+                
+                if (rootToMove.type === 'rectangle') {
+                    this.graphData.decorations.forEach(d => {
+                        if (d.parentId === rootToMove.id) itemsToMove.add(d);
+                    });
+                }
+
+                if (rootToMove.sourceType) { // it's a node
+                    this.graphData.decorations.forEach(d => {
+                        if (d.attachedToNodeId === rootToMove.id && d.type === 'rectangle' && !d.parentId) {
+                            itemsToMove.add(d);
+                            this.graphData.decorations.forEach(child => {
+                                if (child.parentId === d.id) itemsToMove.add(child);
+                            });
+                        }
+                    });
+                }
+                
+                itemsToMove.forEach(item => {
+                    if (getIsDecorationsLocked() && (item.type === 'rectangle' || item.type === 'markdown')) return;
+                    if (item.x !== undefined) item.x += dx;
+                    if (item.y !== undefined) item.y += dy;
+                    
+                    if (item.attachedToNodeId) {
+                      const node = this.graphData.getNodeById(item.attachedToNodeId);
+                      if (node) {
+                        item.attachOffsetX = item.x - node.x;
+                        item.attachOffsetY = item.y - node.y;
+                      }
+                    }
+                    movedItems.add(item.id);
+                });
+            });
+
+        } else if (this.draggingControlPoint) {
+            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].x = this.mousePos.x;
+            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].y = this.mousePos.y;
+        } else if (this.isMarqueeSelecting) {
+            this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
+            this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
         }
-    });
-    this.canvas.addEventListener('dblclick', (e) => {
-        if (this.wasDragged()) return;
-        onDblClick(e, this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {isDecorationsLocked: callbacks.getIsDecorationsLocked()}));
-    });
-  }
+    };
 
-  handleMouseDown(e, callbacks) {
-      const { getIsEditorMode, getIsDecorationsLocked, getSelection, onEdgeCreated } = callbacks;
-      const isHandle = e.target.classList.contains('markdown-drag-handle');
-      const onCanvas = e.target === this.canvas;
-
-      if (!onCanvas && !isHandle) return;
-      
-      this.isAnimatingPan = false;
-      this.mousePos = this.getCanvasCoords(e);
-      this.dragged = false;
-
-      const startPan = () => {
-          this.dragging = true;
-          this.dragStart.x = e.clientX - this.offset.x;
-          this.dragStart.y = e.clientY - this.offset.y;
-      };
-
-      if (e.button === 0) { // Left-click
-          if (!getIsEditorMode()) { startPan(); }
-          else {
-               let clicked = null;
-               if (isHandle) {
-                   const deco = this.graphData.getDecorationById(e.target.dataset.decoId);
-                   if (deco) clicked = { type: 'decoration', entity: deco };
-               } else {
-                   clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-               }
-              
-              if (clicked) {
-                  this.draggingEntity = clicked.entity;
-                  if (clicked.entity.selected) this.isDraggingSelection = true;
-              } else {
-                  this.isMarqueeSelecting = true;
-                  this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
-              }
-          }
-      } else if (e.button === 1) { startPan(); } 
-      else if (e.button === 2) { 
-          e.preventDefault();
-          if (getIsEditorMode()) {
-              const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-              if (clickedNode && clickedNode.type === 'node') {
-                  this.isCreatingEdge = true;
-                  this.edgeCreationSource = clickedNode.entity;
-              }
-          }
-      }
-
-      if (this.dragging || this.draggingEntity || this.isCreatingEdge || this.isMarqueeSelecting) {
-          const handleMouseMove = (moveEvent) => this.handleMouseMove(moveEvent, callbacks);
-          const handleMouseUp = (upEvent) => {
-              window.removeEventListener('mousemove', handleMouseMove);
-              this.handleMouseUp(upEvent, callbacks);
-          };
-          window.addEventListener('mousemove', handleMouseMove);
-          window.addEventListener('mouseup', handleMouseUp, { once: true });
-      }
-  }
-
-  handleMouseMove(e, callbacks) {
-      const { getIsDecorationsLocked, getSelection } = callbacks;
-      const oldMousePos = this.mousePos;
-      this.mousePos = this.getCanvasCoords(e);
-      this.dragged = true;
-      e.preventDefault();
-
-      if (this.dragging) {
-          this.offset.x = e.clientX - this.dragStart.x;
-          this.offset.y = e.clientY - this.dragStart.y;
-      } else if (this.draggingEntity) {
-          const dx = this.mousePos.x - oldMousePos.x;
-          const dy = this.mousePos.y - oldMousePos.y;
-          if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
-
-          const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
-          const movedItems = new Set();
-          selection.forEach(entity => {
-              if (movedItems.has(entity.id)) return;
-              let root = entity.parentId ? this.graphData.getDecorationById(entity.parentId) || entity : entity;
-              const itemsToMove = new Set([root]);
-              if (root.type === 'rectangle') this.graphData.decorations.forEach(d => { if (d.parentId === root.id) itemsToMove.add(d); });
-              if (root.sourceType) this.graphData.decorations.forEach(d => { if (d.attachedToNodeId === root.id && !d.parentId) { itemsToMove.add(d); this.graphData.decorations.forEach(c => { if(c.parentId === d.id) itemsToMove.add(c); }); } });
-              itemsToMove.forEach(item => {
-                  if (!getIsDecorationsLocked() || !item.type) {
-                      if(item.x !== undefined) item.x += dx;
-                      if(item.y !== undefined) item.y += dy;
-                      if(item.attachedToNodeId) { const node = this.graphData.getNodeById(item.attachedToNodeId); if(node){item.attachOffsetX = item.x - node.x; item.attachOffsetY = item.y - node.y;}}
-                      movedItems.add(item.id);
-                  }
-              });
-          });
-      } else if (this.isMarqueeSelecting) {
-          this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
-          this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
-      }
-  }
-
-  handleMouseUp(e, callbacks) {
-      const { onMarqueeSelect, onEdgeCreated } = callbacks;
-      if (this.isMarqueeSelecting) {
-          const norm = this.normalizeRect(this.marqueeRect);
-          if (norm.w > 5 || norm.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
-      }
-      if (this.isCreatingEdge && e.button === 2) {
+    const handleMouseUp = (e) => {
+        if (this.isMarqueeSelecting) {
+            const normalizedRect = this.normalizeRect(this.marqueeRect);
+            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
+        }
+        if (this.isCreatingEdge && e.button === 2) {
             const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
             if (targetClick && targetClick.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) {
                 onEdgeCreated(this.edgeCreationSource, targetClick.entity);
             }
-      }
-      this.dragging = this.draggingEntity = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
-      setTimeout(() => { this.dragged = false; }, 0);
-  }
+        }
+        
+        this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
+        this.canvas.style.cursor = 'grab';
+        
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
 
-  handleWheel(e) {
-      // Prevent wheel event on overlays from zooming the canvas
-      if (e.target.closest('.markdown-overlay')) return;
-      
-      e.preventDefault();
-      this.isAnimatingPan = false;
-      const zoomIntensity = 0.1;
-      const wheel = e.deltaY < 0 ? 1 : -1;
-      const zoom = Math.exp(wheel * zoomIntensity);
-      const rect = this.canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
-      this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
-      this.scale *= zoom;
-      this.scale = Math.max(0.1, Math.min(5, this.scale));
+        setTimeout(() => { this.dragged = false; }, 0);
+    };
+    
+    this.canvas.addEventListener('mousedown', (e) => {
+        this.isAnimatingPan = false; 
+        const isEditor = getIsEditorMode();
+        this.mousePos = this.getCanvasCoords(e);
+        this.dragged = false;
+        
+        const handlePanStart = () => {
+            this.dragging = true;
+            this.dragStart.x = e.clientX - this.offset.x;
+            this.dragStart.y = e.clientY - this.offset.y;
+        };
+
+        if (e.button === 0) { // Left
+            if (!isEditor) { handlePanStart(); }
+            else {
+                 const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
+                 if (cp) { this.draggingControlPoint = cp; }
+                 else {
+                     const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
+                     if (clicked) {
+                         const entity = clicked.entity;
+                         if (entity.selected) this.isDraggingSelection = true;
+                         this.draggingEntity = entity;
+                     } else {
+                         this.isMarqueeSelecting = true;
+                         this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
+                     }
+                 }
+            }
+        } else if (e.button === 1) { handlePanStart(); } // Middle
+        else if (e.button === 2) { // Right
+            e.preventDefault();
+            if (isEditor) {
+                const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
+                if (cp) cp.edge.controlPoints.splice(cp.pointIndex, 1);
+                else {
+                    const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+                    if (clickedNode && clickedNode.type === 'node') {
+                        this.isCreatingEdge = true;
+                        this.edgeCreationSource = clickedNode.entity;
+                    }
+                }
+            }
+        }
+
+        if (this.dragging || this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
+            this.canvas.style.cursor = this.dragging ? 'grabbing' : 'crosshair';
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+    });
+
+    this.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        this.isAnimatingPan = false;
+        const zoomIntensity = 0.1;
+        const wheel = e.deltaY < 0 ? 1 : -1;
+        const zoom = Math.exp(wheel * zoomIntensity);
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+        this.offset.x = mouseX - (mouseX - this.offset.x) * zoom;
+        this.offset.y = mouseY - (mouseY - this.offset.y) * zoom;
+        this.scale *= zoom;
+        this.scale = Math.max(0.1, Math.min(5, this.scale));
+    });
+
+    this.canvas.addEventListener('click', onClick);
+    this.canvas.addEventListener('dblclick', onDblClick);
   }
 }
 
