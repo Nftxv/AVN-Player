@@ -28,13 +28,13 @@ class GraphApp {
     this.graphData = new GraphData();
     this.renderer = new Renderer('graphCanvas', this.iframeContainer);
     this.player = new Player(this.graphData, this.iframeContainer);
+    // CORRECTED: Pass the 'app' instance (this) to Navigation
     this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
     this.editorTools = new EditorTools(this.graphData, this.renderer);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
     this.isFollowing = false;
-    this.followModeGlobalScale = 1.0; // Store the scale for follow mode
   }
 
   async init() {
@@ -42,6 +42,7 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
+      // Apply saved viewport settings if they exist
       if (this.graphData.view) {
         this.renderer.setViewport(this.graphData.view);
       }
@@ -58,18 +59,10 @@ class GraphApp {
 
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
-      
-      // When activating, store the current scale as the "global" view for the journey
-      if (this.isFollowing) {
-          this.followModeGlobalScale = this.renderer.scale;
-      }
-
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
       console.log(`Follow mode is now: ${this.isFollowing}`);
-      
-      // If there's a current node, immediately apply the follow logic
       if (this.isFollowing && this.navigation.currentNode) {
-          this.renderer.centerOnNode(this.navigation.currentNode.id, this.followModeGlobalScale);
+          this.renderer.centerOnNode(this.navigation.currentNode.id);
       }
   }
 
@@ -101,9 +94,11 @@ class GraphApp {
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
         getSelection: () => this.editorTools.getSelection(),
-        // Smart Follow: Manual panning/zooming is now a temporary adjustment and doesn't disable the mode.
+        // CORRECTED: This callback is now correctly passed and used
         onManualPan: () => {
-            // No longer disables follow mode automatically.
+            if (this.isFollowing) {
+                this.toggleFollowMode(false);
+            }
         }
     });
 
@@ -122,7 +117,6 @@ class GraphApp {
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
-        // This logic correctly pre-emptively destroys YT players before their nodes are removed
         selection.forEach(entity => {
             if (entity.sourceType === 'iframe') {
                 this.player.destroyYtPlayer(entity.id);
@@ -145,6 +139,11 @@ class GraphApp {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
+
+    if (clicked && clicked.type === 'collapse_toggle') {
+        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
+        return;
+    }
 
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
@@ -178,7 +177,7 @@ class GraphApp {
   try {
     await loadYouTubeAPI();
     const app = new GraphApp();
-    await app.init(); // Use await to ensure initialization is complete
+    app.init();
   } catch (error) {
     console.error("Fatal error during application startup:", error);
     alert("Could not start the application. Please check the console for details.");

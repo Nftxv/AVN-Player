@@ -2,11 +2,12 @@
  * Manages the user's journey through the graph, handling history and branching choices.
  */
 export default class Navigation {
+  // CORRECTED: Constructor now properly receives and stores the 'app' instance
   constructor(graphData, player, renderer, app) {
     this.graphData = graphData;
     this.player = player;
     this.renderer = renderer;
-    this.app = app; // The main app instance
+    this.app = app;
     this.reset();
   }
 
@@ -31,7 +32,7 @@ export default class Navigation {
     this.player.play(node);
 
     if (this.app.isFollowing) {
-      this.renderer.centerOnNode(nodeId, this.app.followModeGlobalScale);
+      this.renderer.centerOnNode(nodeId);
     }
   }
 
@@ -89,7 +90,7 @@ export default class Navigation {
         this.player.play(prevNode);
 
         if (this.app.isFollowing) {
-            this.renderer.centerOnNode(prevNodeId, this.app.followModeGlobalScale);
+            this.renderer.centerOnNode(prevNodeId);
         }
     }
   }
@@ -106,7 +107,7 @@ export default class Navigation {
     this.player.play(nextNode);
     
     if (this.app.isFollowing) {
-        this.renderer.centerOnNode(nextNode.id, this.app.followModeGlobalScale);
+        this.renderer.centerOnNode(nextNode.id);
     }
   }
 

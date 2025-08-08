@@ -45,11 +45,15 @@ export default class EditorTools {
 
   createNode() {
     const center = this.renderer.getViewportCenter();
+    // A new node is expanded, so we account for the content height to center it visually.
+    // node.y is the top of the header.
+    const visualCenterOffset = (NODE_HEADER_HEIGHT - NODE_CONTENT_HEIGHT) / 2;
+
     const newNode = {
       id: `node-${Date.now()}`,
       title: 'New Node',
       x: center.x - NODE_WIDTH / 2,
-      y: center.y - NODE_HEADER_HEIGHT / 2,
+      y: center.y - visualCenterOffset,
       isCollapsed: false,
       sourceType: 'audio',
       audioUrl: '', coverUrl: '', lyricsUrl: '', iframeUrl: '',
@@ -111,12 +115,11 @@ export default class EditorTools {
     }
     this.closeInspector();
 
-    const selectedIds = new Set(this.selectedEntities.map(e => e.id || `${e.source}->${e.target}`));
+    const selectedIds = new Set(this.selectedEntities.map(e => e.id));
     const nodesToDelete = new Set(this.selectedEntities.filter(e => e.sourceType).map(n => n.id));
     
-    // This is the correct, robust filtering logic.
     this.graphData.nodes = this.graphData.nodes.filter(n => !selectedIds.has(n.id));
-    this.graphData.edges = this.graphData.edges.filter(e => !selectedIds.has(e.id || `${e.source}->${e.target}`) && !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target));
+    this.graphData.edges = this.graphData.edges.filter(e => !selectedIds.has(e.id) && !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target));
     this.graphData.decorations = this.graphData.decorations.filter(d => !selectedIds.has(d.id));
 
     this.updateSelection([], 'set');
@@ -276,7 +279,7 @@ export default class EditorTools {
             entity.iframeUrl = null;
         } else if (entity.sourceType === 'iframe') {
             const userInput = document.getElementById('iframeUrlInput').value;
-            entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null;
+            entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null; // CORRECTED
             entity.audioUrl = null;
             entity.coverUrl = null;
             entity.lyricsUrl = null;
@@ -311,6 +314,7 @@ export default class EditorTools {
       const startNode = this.graphData.getNodeById(edge.source);
       const endNode = this.graphData.getNodeById(edge.target);
       
+      // The "center" for an edge connection is the middle of the header.
       const startPoint = { x: startNode.x + NODE_WIDTH / 2, y: startNode.y + NODE_HEADER_HEIGHT / 2 };
       const endPoint = { x: endNode.x + NODE_WIDTH / 2, y: endNode.y + NODE_HEADER_HEIGHT / 2 };
 
