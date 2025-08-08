@@ -116,15 +116,17 @@ export default class Renderer {
       if (!src || !trg) return;
       
       const controlPoints = edge.controlPoints || [];
+      // ALWAYS define header centers, as they are the logical connection points.
       const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
       const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
       
+      // The line should AIM at the HEADER of the other node for a clean look.
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
-      const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
-      
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
-      const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);
-      
+
+      // The intersection function will correctly find the border of the VISIBLE rectangle.
+      const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
+      const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);      
       const pathPoints = [startPoint, ...controlPoints, endPoint];
       const ctx = this.ctx;
       ctx.save();
@@ -528,7 +530,7 @@ export default class Renderer {
   _getIntersectionWithNodeRect(node, externalPoint) {
     const rect = this._getNodeVisualRect(node);
     const cx = rect.x + rect.width / 2;
-    const cy = node.y + NODE_HEADER_HEIGHT / 2;
+    const cy = rect.y + rect.height / 2;
     const dx = externalPoint.x - cx;
     const dy = externalPoint.y - cy;
     
