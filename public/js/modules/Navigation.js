@@ -2,10 +2,11 @@
  * Manages the user's journey through the graph, handling history and branching choices.
  */
 export default class Navigation {
-  constructor(graphData, player, renderer) {
+  constructor(graphData, player, renderer, app) {
     this.graphData = graphData;
     this.player = player;
     this.renderer = renderer;
+    this.app = app;
     this.reset();
   }
 
@@ -28,6 +29,10 @@ export default class Navigation {
     
     this.renderer.highlight(nodeId, prevNodeId);
     this.player.play(node);
+
+    if (this.app.isFollowing) {
+      this.renderer.centerOnNode(nodeId, this.app.followScale);
+    }
   }
 
   async advance() {
@@ -82,6 +87,10 @@ export default class Navigation {
         this.currentNode = prevNode;
         this.renderer.highlight(prevNodeId, oldNodeId, edgeToHighlight);
         this.player.play(prevNode);
+
+        if (this.app.isFollowing) {
+            this.renderer.centerOnNode(prevNodeId, this.app.followScale);
+        }
     }
   }
 
@@ -95,6 +104,10 @@ export default class Navigation {
     
     this.renderer.highlight(nextNode.id, prevNodeId, edge);
     this.player.play(nextNode);
+    
+    if (this.app.isFollowing) {
+        this.renderer.centerOnNode(nextNode.id, this.app.followScale);
+    }
   }
 
   promptForChoice(options) {
@@ -120,11 +133,10 @@ export default class Navigation {
       };
 
       const cleanup = () => {
-          clearInterval(timerId); // Crucial: stop the timer
+          clearInterval(timerId);
           modal.classList.add('hidden');
           choiceTimerEl.classList.add('hidden');
           closeModalBtn.removeEventListener('click', closeHandler);
-          // Buttons are children of optionsContainer, they will be removed with it
           while (optionsContainer.firstChild) {
               optionsContainer.removeChild(optionsContainer.firstChild);
           }
@@ -140,7 +152,6 @@ export default class Navigation {
       
       closeModalBtn.addEventListener('click', closeHandler);
       
-      // Setup and start the timer
       countdownEl.textContent = countdown;
       choiceTimerEl.classList.remove('hidden');
       modal.classList.remove('hidden');
@@ -150,7 +161,6 @@ export default class Navigation {
         countdownEl.textContent = countdown;
         if (countdown <= 0) {
           const randomChoice = options[Math.floor(Math.random() * options.length)];
-          console.log(`Timer expired. Auto-selecting: ${randomChoice.label || randomChoice.target}`);
           onChoose(randomChoice);
         }
       }, 1000);

@@ -8,42 +8,34 @@ import Player from './modules/Player.js';
 import EditorTools from './modules/EditorTools.js';
 import Navigation from './modules/Navigation.js';
 
-/**
- * Programmatically loads the YouTube IFrame Player API.
- * This approach prevents race conditions on page refresh with cached scripts.
- * @returns {Promise<void>} A promise that resolves when the API is ready.
- */
 function loadYouTubeAPI() {
   return new Promise((resolve) => {
-    // If API is already loaded, resolve immediately.
     if (window.YT && window.YT.Player) {
       return resolve();
     }
-    
-    // Define the global callback function that the API will call.
     window.onYouTubeIframeAPIReady = () => {
       resolve();
     };
-
-    // Create and inject the script tag.
     const tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(tag);
   });
 }
 
-
 class GraphApp {
   constructor() {
     this.iframeContainer = document.getElementById('iframe-container');
+    this.markdownContainer = document.getElementById('markdown-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas', this.iframeContainer);
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer);
     this.player = new Player(this.graphData, this.iframeContainer);
-    this.navigation = new Navigation(this.graphData, this.player, this.renderer);
-    this.editorTools = new EditorTools(this.graphData, this.renderer);
+    this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
+    this.editorTools = new EditorTools(this.graphData, this.renderer, this);
     
     this.player.setNavigation(this.navigation);
     this.isEditorMode = false;
+    this.isFollowing = false;
+    this.followScale = 1.0; // NEW: To store the desired scale for follow mode
   }
 
   async init() {
@@ -51,11 +43,11 @@ class GraphApp {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
       
-      // The line below was causing the error and has been removed.
-      // YouTube players are now initialized on-demand by the Player module itself.
+      if (this.graphData.view) {
+        this.renderer.setViewport(this.graphData.view);
+      }
       
-      this.renderer.render(); // Start rendering loop
-      
+      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -65,6 +57,22 @@ class GraphApp {
     }
   }
 
+  // REVISED: Smart Follow Mode logic
+  toggleFollowMode(forceState = null) {
+      this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
+      document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
+
+      if (this.isFollowing) {
+          this.followScale = this.renderer.getViewport().scale; // Store current scale on activation
+          console.log(`Follow mode activated. Target scale: ${this.followScale}`);
+          if (this.navigation.currentNode) {
+              this.renderer.centerOnNode(this.navigation.currentNode.id, this.followScale);
+          }
+      } else {
+          console.log('Follow mode deactivated.');
+      }
+  }
+
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
@@ -72,6 +80,10 @@ class GraphApp {
     this.navigation.reset();
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
+    }
+    // NEW: When entering player mode, destroy all markdown overlays to ensure clean state
+    if (!isEditor) {
+      this.renderer.destroyAllMarkdownOverlays();
     }
   }
 
@@ -92,7 +104,8 @@ class GraphApp {
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
-        getSelection: () => this.editorTools.getSelection()
+        getSelection: () => this.editorTools.getSelection(),
+        // REVISED: This callback is now gone, manual pan no longer disables follow mode.
     });
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
@@ -107,13 +120,21 @@ class GraphApp {
     document.getElementById('addRectBtn').addEventListener('click', () => this.editorTools.createRectangle());
     document.getElementById('addTextBtn').addEventListener('click', () => this.editorTools.createText());
     document.getElementById('lockDecorationsBtn').addEventListener('click', () => this.editorTools.toggleDecorationsLock());
+    
+    // NEW: Grouping and Attaching Buttons
+    document.getElementById('groupSelectionBtn').addEventListener('click', () => this.editorTools.groupSelection());
+    document.getElementById('attachToNodeBtn').addEventListener('click', () => this.editorTools.attachSelectionToNode());
+
 
     document.getElementById('deleteSelectionBtn').addEventListener('click', () => {
         const selection = this.editorTools.getSelection();
-        // Notify player to destroy any YT players associated with deleted nodes
         selection.forEach(entity => {
             if (entity.sourceType === 'iframe') {
                 this.player.destroyYtPlayer(entity.id);
+            }
+            // NEW: Clean up HTML overlays on delete
+            if (entity.type === 'markdown') {
+                this.renderer.destroyMarkdownOverlay(entity.id);
             }
         });
         this.editorTools.deleteSelection();
@@ -125,6 +146,8 @@ class GraphApp {
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
+    
+    document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
   handleCanvasClick(event) {
@@ -132,18 +155,13 @@ class GraphApp {
     const coords = this.renderer.getCanvasCoords(event);
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
 
-    if (clicked && clicked.type === 'collapse_toggle') {
-        clicked.entity.isCollapsed = !clicked.entity.isCollapsed;
-        return;
-    }
-
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
       if (event.ctrlKey) mode = 'add';
       else if (event.shiftKey) mode = 'remove';
       
-      this.editorTools.updateSelection(clickedEntity ? [entity] : [], mode);
+      this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
     } else { // Player mode
       if (clicked && clicked.type === 'node') {
@@ -165,7 +183,6 @@ class GraphApp {
   }
 }
 
-// Main application entry point
 (async () => {
   try {
     await loadYouTubeAPI();
