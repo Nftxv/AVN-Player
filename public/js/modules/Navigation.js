@@ -6,7 +6,7 @@ export default class Navigation {
     this.graphData = graphData;
     this.player = player;
     this.renderer = renderer;
-    this.app = app;
+    this.app = app; // The main app instance
     this.reset();
   }
 
@@ -19,6 +19,7 @@ export default class Navigation {
 
   startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
+    
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
     
@@ -58,6 +59,7 @@ export default class Navigation {
   
   goBack() {
     if (!this.currentNode) return;
+
     const oldNodeId = this.currentNode.id;
     let prevNodeId = null;
     let edgeToHighlight = null;
@@ -66,14 +68,16 @@ export default class Navigation {
         this.history.pop();
         prevNodeId = this.history[this.history.length - 1];
         edgeToHighlight = this.graphData.edges.find(e => e.source === prevNodeId && e.target === oldNodeId);
-    } else {
+    } 
+    else {
         const incomingEdges = this.graphData.edges.filter(e => e.target === oldNodeId);
         if (incomingEdges.length === 1) {
             edgeToHighlight = incomingEdges[0];
             prevNodeId = edgeToHighlight.source;
-            this.history = [prevNodeId]; // Reset history to the new starting point
+            this.history.unshift(prevNodeId);
+            this.history.pop();
         } else {
-            console.log("Cannot go back: No linear history or predecessor.");
+            console.log("Cannot go back: No history and ambiguous or no predecessor.");
             return;
         }
     }
@@ -97,6 +101,7 @@ export default class Navigation {
     
     this.currentNode = nextNode;
     this.history.push(nextNode.id);
+    
     this.renderer.highlight(nextNode.id, prevNodeId, edge);
     this.player.play(nextNode);
     
@@ -112,18 +117,29 @@ export default class Navigation {
       const closeModalBtn = document.getElementById('closeModalBtn');
       const choiceTimerEl = document.getElementById('choiceTimer');
       const countdownEl = document.getElementById('countdown');
+      
       let countdown = 5;
       let timerId = null;
       optionsContainer.innerHTML = '';
 
-      const onChoose = (edge) => { cleanup(); resolve(edge); };
-      const closeHandler = () => { cleanup(); resolve(null); };
+      const onChoose = (edge) => {
+        cleanup();
+        resolve(edge);
+      };
+      
+      const closeHandler = () => {
+        cleanup();
+        resolve(null);
+      };
+
       const cleanup = () => {
           clearInterval(timerId);
           modal.classList.add('hidden');
           choiceTimerEl.classList.add('hidden');
           closeModalBtn.removeEventListener('click', closeHandler);
-          while (optionsContainer.firstChild) { optionsContainer.removeChild(optionsContainer.firstChild); }
+          while (optionsContainer.firstChild) {
+              optionsContainer.removeChild(optionsContainer.firstChild);
+          }
       }
       
       options.forEach(edge => {
@@ -135,6 +151,7 @@ export default class Navigation {
       });
       
       closeModalBtn.addEventListener('click', closeHandler);
+      
       countdownEl.textContent = countdown;
       choiceTimerEl.classList.remove('hidden');
       modal.classList.remove('hidden');
@@ -143,7 +160,8 @@ export default class Navigation {
         countdown--;
         countdownEl.textContent = countdown;
         if (countdown <= 0) {
-          onChoose(options[Math.floor(Math.random() * options.length)]);
+          const randomChoice = options[Math.floor(Math.random() * options.length)];
+          onChoose(randomChoice);
         }
       }, 1000);
     });

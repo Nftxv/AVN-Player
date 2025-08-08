@@ -5,16 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AVN Player</title>
   <link rel="stylesheet" href="style.css">
-  <!--
-    NOTE: For Markdown functionality, you need to add Markdown and Sanitizer libraries.
-    For example:
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
-  -->
 </head>
 <body>
-  <!-- Container for HTML overlays (iframes and text blocks) -->
-  <div id="html-overlay-container"></div>
+  <!-- Container for HTML overlays (iframes) -->
+  <div id="iframe-container"></div>
 
   <canvas id="graphCanvas" title="Graph"></canvas>
 
@@ -31,10 +25,10 @@
     <!-- Always Visible Buttons -->
     <button id="collapseAllBtn" title="Collapse All Nodes">Collapse All</button>
     <button id="expandAllBtn" title="Expand All Nodes">Expand All</button>
-    <button id="followModeBtn" title="Toggle Follow Mode">[⊙]</button>
+    <button id="followModeBtn" title="Toggle Follow Mode">[⊙]</button> 
     <div class="divider"></div>
 
-    <!-- Player Mode Controls (empty) -->
+    <!-- Player Mode Controls (now empty) -->
     <div id="playerModeControls">
     </div>
 
@@ -42,12 +36,9 @@
     <div id="editorModeControls">
       <button id="addNodeBtn" title="Add New Node">Add Node</button>
       <div class="divider"></div>
-      <button id="addRectBtn" title="Add Rectangle Shape (Container)">Add Container</button>
-      <button id="addTextBtn" title="Add Text Block (Markdown)">Add Text</button>
+      <button id="addRectBtn" title="Add Rectangle Shape">Add Rect</button>
+      <button id="addTextBtn" title="Add Text Label">Add Text</button>
       <button id="lockDecorationsBtn" title="Lock/Unlock Decorations">🔓</button>
-      <div class="divider"></div>
-      <button id="groupSelectionBtn" title="Group Selected Items into Container" disabled>Group</button>
-      <button id="attachToNodeBtn" title="Attach Container to Node" disabled>Attach</button>
       <div class="divider"></div>
       <button id="exportBtn">Export Graph</button>
       <button id="resetBtn">Reset</button>
@@ -66,18 +57,23 @@
 
   <!-- Player and other UI -->
   <div id="player">
+    <img id="currentCover" src="placeholder.svg" alt="Album cover">
     <div id="playerContent">
       <div id="songTitle">Select a node to begin...</div>
       <div id="playerControls">
         <button id="backBtn" title="Go Back">⏮</button>
         <button id="playBtn" title="Play/Pause">▶</button>
         <button id="nextBtn" title="Next">⏭</button>
+        <input type="range" id="progress" value="0">
+        <span id="currentTime">0:00</span>
+        <button id="lyricsBtn" title="Show Lyrics">📜</button>
       </div>
-       <input type="range" id="progress" value="0">
-       <span id="currentTime">0:00</span>
     </div>
   </div>
-
+  <div id="lyricsContainer" class="hidden">
+    <pre id="lyricsText">Loading lyrics...</pre>
+    <button id="closeLyricsBtn" title="Close">×</button>
+  </div>
   <div id="choiceModal" class="hidden">
     <div class="modal-content">
       <h3>Choose the next step:</h3>
@@ -86,8 +82,11 @@
       <button id="closeModalBtn">Cancel</button>
     </div>
   </div>
-
-  <!-- The YouTube API script is loaded programmatically -->
+  
+  <!--
+    The YouTube API script is now loaded programmatically by app.js
+    to prevent race conditions on page refresh.
+  -->
   <script src="js/app.js" type="module"></script>
 
   <footer id="copyright">

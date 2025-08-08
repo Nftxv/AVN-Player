@@ -14,7 +14,7 @@
 body {
   margin: 0;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: var(--dark-bg);
   color: var(--dark-text);
 }
@@ -31,7 +31,7 @@ canvas:active {
   cursor: grabbing;
 }
 
-#html-overlay-container {
+#iframe-container {
   position: absolute;
   top: 0;
   left: 0;
@@ -42,40 +42,21 @@ canvas:active {
   overflow: hidden;
 }
 
-.html-overlay-wrapper {
+.iframe-wrapper {
   position: absolute;
   box-sizing: border-box;
-  background-color: transparent;
-  border: none;
+  background-color: #000;
+  border: 1px solid #444;
 }
 
-.html-overlay-wrapper iframe {
+.iframe-wrapper iframe {
   width: 100%;
   height: 100%;
   border: none;
   pointer-events: auto; /* Iframes are clickable */
 }
 
-.html-overlay-wrapper .text-content-host {
-    width: 100%;
-    height: 100%;
-    color: white;
-    overflow: auto;
-    pointer-events: auto;
-    font-size: 16px; /* Base font size, will be overridden by instance */
-    padding: 10px;
-    box-sizing: border-box;
-    border-radius: 4px;
-    background: rgba(30, 30, 30, 0.7);
-    backdrop-filter: blur(4px);
-}
-.text-content-host p:first-child { margin-top: 0; }
-.text-content-host p:last-child { margin-bottom: 0; }
-.text-content-host a { color: var(--primary-color); }
-.text-content-host img { max-width: 100%; border-radius: 4px; }
-
-
-.html-overlay-wrapper .drag-overlay {
+.iframe-wrapper .drag-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -113,6 +94,7 @@ button:disabled {
     transform: none;
 }
 
+/* NEW: Style for the active lock button */
 button#lockDecorationsBtn.active {
     background-color: var(--danger-color);
 }
@@ -131,52 +113,64 @@ button#lockDecorationsBtn.active:hover {
   padding: 10px 20px;
   display: flex;
   align-items: center;
-  justify-content: center;
   z-index: 100;
+  gap: 15px;
+}
+
+#currentCover {
+  width: 60px;
+  height: 60px;
+  border-radius: 5px;
+  object-fit: cover;
+  background-color: #333;
+  flex-shrink: 0;
 }
 
 #playerContent {
   flex-grow: 1;
-  max-width: 600px;
-  display: grid;
-  grid-template-areas:
-    "title title title"
-    "controls progress time";
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
 }
 
 #songTitle {
-  grid-area: title;
   font-weight: 600;
   font-size: 1em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--dark-text);
-  text-align: center;
-  margin-bottom: 5px;
 }
 
 #playerControls {
-  grid-area: controls;
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-#progress {
-  grid-area: progress;
   width: 100%;
 }
 
-#currentTime {
-  grid-area: time;
-  color: var(--dark-subtle-text);
-  font-size: 0.9em;
-  min-width: 40px;
+#progress { flex-grow: 1; }
+
+#lyricsContainer {
+  position: fixed;
+  bottom: calc(var(--player-height) + 10px);
+  left: 10px;
+  right: 10px;
+  max-height: 40vh;
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  z-index: 300;
+  overflow-y: auto;
+  padding: 20px;
+  color: var(--dark-text);
 }
+#closeLyricsBtn { color: var(--dark-text); }
+#closeLyricsBtn:hover { color: #e74c3c; }
+
 
 .hidden { display: none !important; }
 
@@ -204,19 +198,10 @@ button#lockDecorationsBtn.active:hover {
 }
 
 @media (max-width: 768px) {
-  #playerContent {
-    grid-template-areas:
-      "title"
-      "controls"
-      "progress";
-    grid-template-columns: 1fr;
-    gap: 8px;
-    width: 100%;
-  }
-  #playerControls { justify-content: center; }
-  #currentTime { display: none; }
+  #player { height: auto; flex-direction: column; padding: 10px; gap: 10px; }
+  #playerContent { width: 100%; }
+  #songTitle { text-align: center; }
 }
-
 
 #copyright {
   position: fixed;
@@ -279,8 +264,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 #inspectorContent textarea {
     resize: vertical;
-    min-height: 80px;
-    font-family: Consolas, "Courier New", monospace;
+    min-height: 60px;
 }
 .toggle-switch {
     display: flex;
@@ -300,28 +284,12 @@ input:checked + .slider:before { transform: translateX(20px); }
     background: var(--primary-color);
     color: white;
 }
-#md-toolbar {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 5px;
-    padding: 5px;
-    background: #3c3c3c;
-    border-radius: 4px;
-}
-#md-toolbar button {
-    background: #555;
-    padding: 4px 8px;
-    font-weight: bold;
-}
-#md-toolbar button:hover {
-    background: #666;
-    transform: none;
-}
 
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
 
+/* Style for the new follow mode button */
 #followModeBtn {
     background: #3c3c3c;
     color: var(--dark-subtle-text);

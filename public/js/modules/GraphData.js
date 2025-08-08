@@ -7,9 +7,13 @@ export default class GraphData {
     this.edges = [];
     this.decorations = [];
     this.meta = {};
-    this.view = null;
+    this.view = null; // To store viewport data (pan/zoom)
   }
 
+  /**
+   * Loads graph data from a given URL.
+   * @param {string} url - The URL of the JSON/JSON-LD file.
+   */
   async load(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load graph: ${response.statusText}`);
@@ -17,11 +21,16 @@ export default class GraphData {
     this.parseData(data);
   }
 
+  /**
+   * Parses the raw JSON-LD data and populates nodes, edges, and decorations.
+   * @param {object} data - The raw data object from the JSON file.
+   */
   parseData(data) {
     this.meta = data.meta || {};
     this.view = data.view || null;
     const graph = data['@graph'] || [];
 
+    // Clear existing data
     this.nodes = [];
     this.edges = [];
     this.decorations = [];
@@ -38,6 +47,7 @@ export default class GraphData {
             sourceType: item.sourceType || 'audio',
             audioUrl: item.audioUrl || null,
             coverUrl: item.coverUrl || null,
+            lyricsUrl: item.lyricsUrl || null,
             iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
           });
           break;
@@ -60,8 +70,6 @@ export default class GraphData {
             width: item.size?.width || 200,
             height: item.size?.height || 100,
             backgroundColor: item.backgroundColor || '#333333',
-            parentId: item.parentId || null,
-            attachedToNodeId: item.attachedToNodeId || null,
           });
           break;
         case 'TextAnnotation':
@@ -70,16 +78,23 @@ export default class GraphData {
             type: 'text',
             x: item.position?.x || 0,
             y: item.position?.y || 0,
-            width: item.width || 300,
-            height: item.height || 200,
             textContent: item.textContent || '',
-            parentId: item.parentId || null,
+            fontSize: item.fontSize || 16,
+            color: item.color || '#FFFFFF',
+            textAlign: item.textAlign || 'left',
+            width: item.width,
+            lineHeight: item.lineHeight || 1.2,
           });
           break;
       }
     });
   }
 
+  /**
+   * Serializes the current graph data back into a JSON-LD format for export.
+   * @param {object|null} viewport - Optional viewport data to include.
+   * @returns {object} - The complete graph object.
+   */
   getGraph(viewport = null) {
     const graph = [
       ...this.nodes.map(n => ({
@@ -91,6 +106,7 @@ export default class GraphData {
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,
         coverUrl: n.coverUrl,
+        lyricsUrl: n.lyricsUrl,
         iframeUrl: n.iframeUrl,
       })),
       ...this.edges.map(e => ({
@@ -103,18 +119,13 @@ export default class GraphData {
         controlPoints: e.controlPoints,
       })),
       ...this.decorations.map(d => {
-        const common = { 
-          '@id': d.id, 
-          position: { x: d.x, y: d.y },
-          ...(d.parentId && { parentId: d.parentId })
-        };
+        const common = { '@id': d.id, position: { x: d.x, y: d.y } };
         if (d.type === 'rectangle') {
           return {
             ...common,
             '@type': 'RectangleAnnotation',
             size: { width: d.width, height: d.height },
             backgroundColor: d.backgroundColor,
-             ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId })
           };
         }
         if (d.type === 'text') {
@@ -122,8 +133,11 @@ export default class GraphData {
             ...common,
             '@type': 'TextAnnotation',
             textContent: d.textContent,
+            fontSize: d.fontSize,
+            color: d.color,
+            textAlign: d.textAlign,
             width: d.width,
-            height: d.height,
+            lineHeight: d.lineHeight,
           };
         }
         return null;
@@ -143,12 +157,27 @@ export default class GraphData {
     return data;
   }
   
+  /**
+   * Parses various YouTube URL formats and returns only the video ID.
+   * @param {string} input - The URL or ID provided by the user.
+   * @returns {string|null} - The 11-character video ID or null.
+   */
   parseYoutubeUrl(input) {
       if (!input || typeof input !== 'string') return null;
+      
+      // Regular expression to find the YouTube video ID in various URL formats
       const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       const match = input.match(regex);
-      if (match && match[1]) return match[1];
-      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim();
+      
+      if (match && match[1]) {
+          return match[1];
+      }
+      
+      // If no match from URL, check if the input itself is a valid ID
+      if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) {
+          return input.trim();
+      }
+      
       console.warn("Could not parse YouTube URL/ID:", input);
       return null;
   }
