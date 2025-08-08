@@ -67,12 +67,11 @@ canvas:active {
   border: 1px solid var(--dark-border);
   border-radius: 6px;
   line-height: 1.5;
-  pointer-events: auto; /* Active for player mode and unlocked editor */
+  pointer-events: auto; /* Active for player mode */
 }
 
-/* REVISED: In editor mode with LOCKED decorations, overlays are transparent to clicks. */
-body.editor-mode.decorations-locked .markdown-overlay, 
-body.editor-mode.decorations-locked .iframe-wrapper {
+/* REVISED: In editor mode, all overlays are transparent to clicks, fixing selection. */
+body.editor-mode .markdown-overlay, body.editor-mode .iframe-wrapper {
     pointer-events: none;
 }
 
@@ -296,29 +295,6 @@ input:checked + .slider:before { transform: translateX(20px); }
     background: var(--primary-color);
     color: white;
 }
-
-/* NEW: Markdown Toolbar */
-#md-toolbar {
-    display: flex;
-    gap: 5px;
-    border-bottom: 1px solid var(--dark-border);
-    padding-bottom: 8px;
-    margin-bottom: 8px;
-}
-#md-toolbar button {
-    background: #4a4a4a;
-    padding: 5px 10px;
-    font-size: 14px;
-    font-weight: bold;
-}
-#md-toolbar button:hover {
-    background: #5c5c5c;
-    transform: none;
-}
-#md-toolbar button.md-italic {
-    font-style: italic;
-}
-
 
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }

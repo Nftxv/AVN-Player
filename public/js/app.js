@@ -36,7 +36,7 @@ class GraphApp {
     this.isEditorMode = false;
     this.isFollowing = false;
     this.followScale = 1.0;
-    this.followScreenOffset = { x: 0, y: 0 }; // For smart follow position
+    this.followScreenOffset = { x: 0, y: 0 }; // NEW: For smart follow position
   }
 
   async init() {
@@ -69,17 +69,15 @@ class GraphApp {
           
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
-              const nodeRect = this.renderer._getNodeVisualRect(node);
-              const nodeScreenX = (nodeRect.x + nodeRect.width / 2) * scale + offset.x;
-              const nodeScreenY = (nodeRect.y + nodeRect.height / 2) * scale + offset.y;
+              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
+              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
               
               this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
               
               console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
               
-              // Apply settings to the current node immediately to confirm the position
-              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
+              // Do not recenter immediately. Settings will apply on the next navigation.
           } else {
               // If no node is active, default to a centered view for the next node.
               this.followScreenOffset = { x: 0, y: 0 };
@@ -94,17 +92,13 @@ class GraphApp {
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
-    // Also toggle decoration lock status for CSS rules
-    document.body.classList.toggle('decorations-locked', this.editorTools.decorationsLocked);
-    
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
+    }
+    if (!isEditor) {
       this.renderer.destroyAllMarkdownOverlays();
-    } else {
-      // Recreate overlays if entering editor mode, in case they were destroyed
-      this.renderer.recreateAllMarkdownOverlays();
     }
   }
 
@@ -121,7 +115,7 @@ class GraphApp {
             if (!this.isEditorMode) return;
             const nodes = this.renderer.getNodesInRect(rect);
             const edges = this.renderer.getEdgesInRect(rect, nodes);
-            const decorations = this.renderer.getDecorationsInRect(rect);
+            const decorations = this.editorTools.decorationsLocked ? [] : this.renderer.getDecorationsInRect(rect);
             const mode = ctrlKey ? 'add' : (shiftKey ? 'remove' : 'set');
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },

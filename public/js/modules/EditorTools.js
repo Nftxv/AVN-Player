@@ -15,17 +15,18 @@ export default class EditorTools {
     this.app = app;
     this.inspectedEntity = null;
     this.selectedEntities = [];
-    this.decorationsLocked = true; 
-    this.initLockState(); 
+    this.decorationsLocked = true; // REVISED: Start with decorations locked by default
+    this.initLockState(); // Apply initial state to UI
   }
     
+  // NEW: Helper to set initial lock button state
   initLockState() {
       const lockBtn = document.getElementById('lockDecorationsBtn');
       lockBtn.textContent = this.decorationsLocked ? '🔒' : '🔓';
       lockBtn.classList.toggle('active', this.decorationsLocked);
       lockBtn.title = this.decorationsLocked ? 'Decorations Locked (Click to Unlock)' : 'Decorations Unlocked (Click to Lock)';
-      
-      document.body.classList.toggle('decorations-locked', this.decorationsLocked);
+      document.getElementById('addRectBtn').disabled = this.decorationsLocked;
+      document.getElementById('addTextBtn').disabled = this.decorationsLocked;
   }
 
   collapseAllNodes() {
@@ -38,7 +39,7 @@ export default class EditorTools {
 
   toggleDecorationsLock() {
     this.decorationsLocked = !this.decorationsLocked;
-    this.initLockState(); 
+    this.initLockState(); // Use the helper to update UI
 
     if (this.decorationsLocked) {
       const nonDecorationSelection = this.selectedEntities.filter(e => !e.type);
@@ -64,6 +65,7 @@ export default class EditorTools {
   }
   
   createRectangle() {
+    if (this.decorationsLocked) return;
     const center = this.renderer.getViewportCenter();
     const newRect = {
         id: `deco-rect-${Date.now()}`,
@@ -78,6 +80,7 @@ export default class EditorTools {
   }
 
   createText() {
+    if (this.decorationsLocked) return;
     const center = this.renderer.getViewportCenter();
     const newText = {
         id: `deco-text-${Date.now()}`,
@@ -90,7 +93,6 @@ export default class EditorTools {
         parentId: null,
     };
     this.graphData.decorations.push(newText);
-    this.renderer.recreateMarkdownOverlay(newText);
     this.selectEntity(newText);
   }
 
@@ -148,6 +150,8 @@ export default class EditorTools {
       if (isDetachAction) {
           if (container) {
               container.attachedToNodeId = null;
+              container.attachOffsetX = null;
+              container.attachOffsetY = null;
               console.log(`Detached container ${container.id}`);
           }
       } else {
@@ -157,6 +161,8 @@ export default class EditorTools {
             return;
           }
           container.attachedToNodeId = node.id;
+          container.attachOffsetX = container.x - node.x;
+          container.attachOffsetY = container.y - node.y;
           console.log(`Attached container ${container.id} to node ${node.id}`);
           this.updateSelection([node, container], 'set');
       }
@@ -224,8 +230,6 @@ export default class EditorTools {
   
   updateUIState() {
       document.getElementById('deleteSelectionBtn').disabled = this.selectedEntities.length === 0;
-      document.getElementById('addRectBtn').disabled = false;
-      document.getElementById('addTextBtn').disabled = false;
 
       const groupBtn = document.getElementById('groupSelectionBtn');
       const attachBtn = document.getElementById('attachToNodeBtn');
@@ -235,21 +239,21 @@ export default class EditorTools {
       
       if (container && this.selectedEntities.length === 1 && this.graphData.decorations.some(d => d.parentId === container.id)) {
           groupBtn.textContent = 'Ungroup';
-          groupBtn.disabled = this.decorationsLocked;
+          groupBtn.disabled = false;
           groupBtn.title = 'Ungroup all items from this container';
       } else {
           groupBtn.textContent = 'Group';
-          groupBtn.disabled = !(decos.length > 1 && container) || this.decorationsLocked;
+          groupBtn.disabled = !(decos.length > 1 && container);
           groupBtn.title = 'Group selected items under the selected rectangle';
       }
 
       if (container && container.attachedToNodeId) {
           attachBtn.textContent = 'Detach';
-          attachBtn.disabled = this.selectedEntities.length > 1 || this.decorationsLocked;
+          attachBtn.disabled = this.selectedEntities.length > 1;
           attachBtn.title = 'Detach this container from its node';
       } else {
           attachBtn.textContent = 'Attach';
-          attachBtn.disabled = !(nodes.length === 1 && container) || this.decorationsLocked;
+          attachBtn.disabled = !(nodes.length === 1 && container);
           attachBtn.title = 'Attach selected container to the selected node';
       }
 
@@ -273,23 +277,17 @@ export default class EditorTools {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
+        html = `...`; 
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
-        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
+        html = `...`; 
     } else if (entity.type === 'rectangle') {
         title.textContent = 'Rectangle Properties';
-        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${entity.backgroundColor}"><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
+        html = `...`; 
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
-            <div id="md-toolbar">
-                <button id="md-bold" title="Bold">B</button>
-                <button id="md-italic" title="Italic" class="md-italic">I</button>
-                <button id="md-link" title="Link">🔗</button>
-                <button id="md-image" title="Image">🖼️</button>
-            </div>
-            <label for="textContent" class="sr-only">Markdown Content:</label>
+            <label for="textContent">Markdown Content:</label>
             <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
             <label for="fontSize">Base Font Size (px):</label>
             <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
@@ -301,11 +299,20 @@ export default class EditorTools {
             <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="e.g., #333 or rgba(45,45,45,0.8)">
         `;
     }
+    
+    // Snipped parts for brevity, logic unchanged
+    if (entity.sourceType) { // Node
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
+    } else if (entity.source) { // Edge
+        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
+    } else if (entity.type === 'rectangle') {
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${entity.backgroundColor}"><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
+    }
+
 
     content.innerHTML = html;
     panel.classList.remove('hidden');
     if (entity.sourceType) this._setupInspectorLogic(entity);
-    if (entity.type === 'markdown') this._setupMarkdownToolbar();
   }
   
   _setupInspectorLogic(node) {
@@ -324,37 +331,6 @@ export default class EditorTools {
 
       audioBtn.addEventListener('click', () => setSourceType('audio'));
       iframeBtn.addEventListener('click', () => setSourceType('iframe'));
-  }
-  
-  _setupMarkdownToolbar() {
-      const textarea = document.getElementById('textContent');
-      if (!textarea) return;
-
-      const wrapSelection = (wrapper) => {
-          const start = textarea.selectionStart;
-          const end = textarea.selectionEnd;
-          const selected = textarea.value.substring(start, end);
-          const newText = `${wrapper}${selected}${wrapper}`;
-          textarea.setRangeText(newText, start, end, 'select');
-          textarea.focus();
-      };
-
-      const insertLink = (isImage) => {
-          const url = prompt(`Enter the ${isImage ? 'Image' : 'Link'} URL:`);
-          if (!url) return;
-          const start = textarea.selectionStart;
-          const end = textarea.selectionEnd;
-          const selected = textarea.value.substring(start, end) || (isImage ? 'alt text' : 'link text');
-          const prefix = isImage ? '!' : '';
-          const newText = `${prefix}[${selected}](${url})`;
-          textarea.setRangeText(newText, start, end, 'end');
-          textarea.focus();
-      };
-      
-      document.getElementById('md-bold')?.addEventListener('click', () => wrapSelection('**'));
-      document.getElementById('md-italic')?.addEventListener('click', () => wrapSelection('*'));
-      document.getElementById('md-link')?.addEventListener('click', () => insertLink(false));
-      document.getElementById('md-image')?.addEventListener('click', () => insertLink(true));
   }
 
   saveInspectorChanges() {
@@ -432,14 +408,6 @@ export default class EditorTools {
 
   exportGraph() {
     const viewport = this.renderer.getViewport();
-    this.graphData.nodes.forEach(node => {
-        this.graphData.decorations.forEach(deco => {
-            if (deco.attachedToNodeId === node.id) {
-                deco.x = node.x + (deco.attachOffsetX || 0);
-                deco.y = node.y + (deco.attachOffsetY || 0);
-            }
-        });
-    });
     const graphJSON = JSON.stringify(this.graphData.getGraph(viewport), null, 2);
     const blob = new Blob([graphJSON], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
