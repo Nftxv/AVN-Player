@@ -27,7 +27,7 @@ class GraphApp {
     this.iframeContainer = document.getElementById('iframe-container');
     this.markdownContainer = document.getElementById('markdown-container');
     this.graphData = new GraphData();
-    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer);
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer, () => this.isEditorMode);
     this.player = new Player(this.graphData, this.iframeContainer);
     this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
     this.editorTools = new EditorTools(this.graphData, this.renderer, this);
@@ -48,7 +48,6 @@ class GraphApp {
         this.renderer.setViewport(this.graphData.view);
       }
       
-      this.renderer.render();
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
@@ -58,37 +57,33 @@ class GraphApp {
     }
   }
 
-  // REVISED: Smart Follow Mode logic with immediate centering
+  // REVISED: Final, robust Follow Mode logic
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
-          const { scale } = this.renderer.getViewport();
-          this.followScale = scale; // Capture current scale as the desired follow scale
+          const { scale, offset } = this.renderer.getViewport();
+          this.followScale = scale;
           
-          if (this.navigation.currentNode) {
-              const node = this.navigation.currentNode;
-              const { offset } = this.renderer.getViewport();
+          const activeNode = this.navigation.currentNode;
+          if (activeNode) {
+              // Calculate the node's current center position on the screen
+              const nodeScreenX = (activeNode.x + NODE_WIDTH / 2) * scale + offset.x;
+              const nodeScreenY = (activeNode.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
               
-              // Calculate where the node currently is on screen
-              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
-              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
-              
-              // Calculate the difference between the screen center and the node's current position
-              // This captures the user's desired placement of the node on the screen
+              // This captures the user's desired placement of the node relative to the screen's center
               this.followScreenOffset.x = nodeScreenX - this.renderer.canvas.width / 2;
               this.followScreenOffset.y = nodeScreenY - this.renderer.canvas.height / 2;
-
+              
               console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
-
-              // Immediately and smoothly pan to center the current node with the new settings
-              // This eliminates the "jump" on the next navigation event.
-              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
+              
+              // No immediate re-centering needed if the button is pressed while view is static.
+              // The correct state is now captured for the next navigation event.
           } else {
-              // If no node is active, default to a centered view for the next node.
+              // If no node is active, default to a perfectly centered view.
               this.followScreenOffset = { x: 0, y: 0 };
-              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node, will center next.`);
+              console.log(`Follow mode activated without an active node. Target scale: ${this.followScale}. Next node will be centered.`);
           }
       } else {
           console.log('Follow mode deactivated.');
@@ -108,7 +103,6 @@ class GraphApp {
 
   setupEventListeners() {
     this.renderer.setupCanvasInteraction({
-        getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
         onClick: (e) => this.handleCanvasClick(e),
         onDblClick: (e) => this.handleCanvasDblClick(e),
@@ -172,7 +166,7 @@ class GraphApp {
       if (event.ctrlKey) mode = 'add';
       else if (event.shiftKey) mode = 'remove';
       
-      this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
+      this.editorTools.updateSelection(clickedEntity ? [entity] : [], mode);
 
     } else { // Player mode
       if (clicked && clicked.type === 'node') {

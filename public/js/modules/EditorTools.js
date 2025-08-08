@@ -110,7 +110,6 @@ export default class EditorTools {
     this.selectEntity(newEdge);
   }
   
-  // REVISED: New intuitive grouping logic
   groupOrUngroupSelection() {
       const groupBtn = document.getElementById('groupSelectionBtn');
       const isUngroupAction = groupBtn.textContent === 'Ungroup';
@@ -123,14 +122,13 @@ export default class EditorTools {
           const children = this.graphData.decorations.filter(d => d.parentId === container.id);
           children.forEach(child => child.parentId = null);
 
-          // Remove the container itself
           const index = this.graphData.decorations.findIndex(d => d.id === container.id);
           if(index > -1) this.graphData.decorations.splice(index, 1);
           
           this.updateSelection(children, 'set');
           console.log(`Ungrouped items. Container ${container.id} removed.`);
 
-      } else { // Group action
+      } else {
           if (decorations.length < 2) {
               alert('To group, select at least two decorations.');
               return;
@@ -199,7 +197,6 @@ export default class EditorTools {
     const selectedIds = new Set(this.selectedEntities.map(e => e.id));
     const nodesToDelete = new Set(this.selectedEntities.filter(e => e.sourceType).map(n => n.id));
     
-    // Ungroup children of deleted containers
     this.graphData.decorations.forEach(deco => {
         if (selectedIds.has(deco.parentId)) deco.parentId = null;
         if (nodesToDelete.has(deco.attachedToNodeId)) deco.attachedToNodeId = null;
@@ -247,7 +244,7 @@ export default class EditorTools {
       
       this.selectedEntities.forEach(entity => {
           if (entity.sourceType) this.graphData.getNodeById(entity.id).selected = true;
-          else if (entity.source) { /* Edge selection is tricky, handle via direct prop */ }
+          else if (entity.source) { /* Edge selection is handled via direct prop */ }
           else if (entity.type) this.graphData.getDecorationById(entity.id).selected = true;
       });
       this.graphData.edges.forEach(e => e.selected = selectedIds.has(entityToId(e)));
@@ -267,11 +264,11 @@ export default class EditorTools {
 
       if (isSingleGroupSelected) {
           groupBtn.textContent = 'Ungroup';
-          groupBtn.disabled = false;
+          groupBtn.disabled = this.decorationsLocked;
           groupBtn.title = 'Ungroup all items from this container';
       } else {
           groupBtn.textContent = 'Group';
-          groupBtn.disabled = decos.length < 2;
+          groupBtn.disabled = this.decorationsLocked || decos.length < 2;
           groupBtn.title = 'Group selected decorations into a new container';
       }
       
@@ -279,11 +276,11 @@ export default class EditorTools {
 
       if (container && container.attachedToNodeId) {
           attachBtn.textContent = 'Detach';
-          attachBtn.disabled = this.selectedEntities.length > 1;
+          attachBtn.disabled = this.decorationsLocked || this.selectedEntities.length > 1;
           attachBtn.title = 'Detach this container from its node';
       } else {
           attachBtn.textContent = 'Attach';
-          attachBtn.disabled = !(nodes.length === 1 && container);
+          attachBtn.disabled = this.decorationsLocked || !(nodes.length === 1 && container);
           attachBtn.title = 'Attach selected container to the selected node';
       }
 
@@ -313,7 +310,7 @@ export default class EditorTools {
         html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
     } else if (entity.type === 'rectangle') {
         const isTransparent = entity.backgroundColor === 'transparent';
-        title.textContent = 'Rectangle Properties';
+        title.textContent = 'Container Properties';
         html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
@@ -359,8 +356,9 @@ export default class EditorTools {
           iframeBtn.addEventListener('click', () => setSourceType('iframe'));
       } else if (entity.type === 'rectangle') {
           document.getElementById('rectTransparentBtn').addEventListener('click', () => {
-              entity.backgroundColor = 'transparent';
-              this.renderer.render();
+              const colorInput = document.getElementById('rectColor');
+              colorInput.value = '#2d2d2d'; // Reset picker for consistency
+              this.inspectedEntity.backgroundColor = 'transparent';
           });
       } else if (entity.type === 'markdown') {
           const textarea = document.getElementById('textContent');
@@ -434,7 +432,7 @@ export default class EditorTools {
 
   closeInspector() {
     if (this.inspectedEntity) {
-        this.inspectedEntity.selected = false;
+        // Don't deselect here, selection is managed by updateSelection
         this.inspectedEntity = null;
     }
     document.getElementById('inspectorPanel').classList.add('hidden');
