@@ -1,6 +1,5 @@
 /**
- * Manages audio playback, player UI updates, and lyrics loading.
- * NEW: Implements "lazy loading" for YouTube players to handle large graphs.
+ * Manages audio playback and player UI updates.
  */
 export default class Player {
   constructor(graphData, iframeContainer) {
@@ -9,13 +8,9 @@ export default class Player {
     this.navigation = null;
     this.currentNode = null;
     
-    // Audio player
     this.audio = new Audio();
     
-    // --- YouTube Player Management ---
-    // Stores the ready-to-use YT.Player objects
     this.ytPlayers = new Map(); 
-    // Tracks nodes for which a player is currently being created, to prevent duplicates
     this.ytPlayersCreating = new Set(); 
     this.currentYtPlayer = null;
 
@@ -23,11 +18,6 @@ export default class Player {
   }
 
   setNavigation(navigation) { this.navigation = navigation; }
-  
-  /**
-   * This function is now gone. Players are created on-demand.
-   * initializeAllYouTubePlayers() has been removed.
-   */
 
   async play(node) {
     if (!node) return;
@@ -48,7 +38,6 @@ export default class Player {
     const progress = document.getElementById('progress');
 
     if (node.sourceType === 'audio') {
-        document.getElementById('currentCover').src = node.coverUrl || 'placeholder.svg';
         if (!node.audioUrl) {
           console.warn(`Audio URL is missing for "${node.title}".`);
           this.stop();
@@ -60,30 +49,22 @@ export default class Player {
         progress.disabled = false;
         this.audio.src = node.audioUrl;
         this.audio.play().catch(e => console.error("Playback error:", e));
-        this.loadAndShowLyrics(node.lyricsUrl);
 
     } else if (node.sourceType === 'iframe') {
-        document.getElementById('currentCover').src = `https://i.ytimg.com/vi/${node.iframeUrl}/mqdefault.jpg`;
         playBtn.disabled = false;
         playBtn.textContent = '⏸';
         progress.value = 0;
         progress.disabled = true;
 
         if (this.ytPlayers.has(node.id)) {
-            // Player already exists, get it.
             this.currentYtPlayer = this.ytPlayers.get(node.id);
-            
-            // If the video has ended, seek to the beginning before playing.
             if (this.currentYtPlayer.getPlayerState() === YT.PlayerState.ENDED) {
                 this.currentYtPlayer.seekTo(0);
             }
             this.currentYtPlayer.playVideo();
-
         } else {
-            // Player doesn't exist, create it on-demand (it will auto-play).
             this.currentYtPlayer = await this.createAndPlayYtPlayer(node);
         }
-        this.loadAndShowLyrics(null);
     }
   }
 
@@ -124,19 +105,11 @@ export default class Player {
     document.getElementById('playBtn').disabled = true;
     document.getElementById('progress').disabled = true;
     document.getElementById('songTitle').textContent = 'Select a node to begin...';
-    document.getElementById('currentCover').src = 'placeholder.svg';
     document.getElementById('progress').value = 0;
     document.getElementById('currentTime').textContent = '0:00';
   }
 
-  /**
-   * Creates a new YouTube player on-demand.
-   * Returns a promise that resolves with the player object once it's ready.
-   * @param {object} node The node for which to create a player.
-   * @returns {Promise<YT.Player>}
-   */
   createAndPlayYtPlayer(node) {
-    // If we are already in the process of creating this player, do nothing.
     if (this.ytPlayersCreating.has(node.id)) {
         console.warn(`Player creation for ${node.id} already in progress.`);
         return;
@@ -144,15 +117,12 @@ export default class Player {
 
     return new Promise((resolve) => {
         this.ytPlayersCreating.add(node.id);
-
         const wrapper = document.createElement('div');
         wrapper.id = `iframe-wrapper-${node.id}`;
         wrapper.className = 'iframe-wrapper';
         wrapper.style.display = 'none';
-        
         const playerDiv = document.createElement('div');
         playerDiv.id = `yt-player-${node.id}`;
-
         const dragOverlay = document.createElement('div');
         dragOverlay.className = 'drag-overlay';
 
@@ -168,10 +138,10 @@ export default class Player {
             events: {
                 'onReady': (event) => {
                     console.log(`Lazy-loaded player for ${node.id} is ready.`);
-                    this.ytPlayers.set(node.id, player); // Add to the map of ready players
-                    this.ytPlayersCreating.delete(node.id); // Remove from the "in-progress" set
-                    event.target.playVideo(); // Play it immediately
-                    resolve(player); // Resolve the promise with the new player object
+                    this.ytPlayers.set(node.id, player);
+                    this.ytPlayersCreating.delete(node.id);
+                    event.target.playVideo();
+                    resolve(player);
                 },
                 'onStateChange': (event) => this.onPlayerStateChange(event, node)
             }
@@ -184,17 +154,14 @@ export default class Player {
           this.ytPlayers.get(nodeId).destroy();
           this.ytPlayers.delete(nodeId);
       }
-      this.ytPlayersCreating.delete(nodeId); // Also clear from the creation set
-
+      this.ytPlayersCreating.delete(nodeId);
       const wrapper = document.getElementById(`iframe-wrapper-${nodeId}`);
       if (wrapper) wrapper.remove();
-      
       console.log(`Destroyed player and wrapper for node ${nodeId}`);
   }
 
   onPlayerStateChange(event, node) {
     if (this.currentNode?.id !== node.id) return;
-    
     const playBtn = document.getElementById('playBtn');
     switch(event.data) {
         case YT.PlayerState.ENDED:
@@ -209,24 +176,6 @@ export default class Player {
     }
   }
 
-  async loadAndShowLyrics(url) {
-      const lyricsTextElem = document.getElementById('lyricsText');
-      lyricsTextElem.textContent = 'Loading lyrics...';
-      if (!url) {
-          lyricsTextElem.textContent = 'No lyrics available for this track.';
-          return;
-      }
-      try {
-          const response = await fetch(url);
-          if(!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const text = await response.text();
-          lyricsTextElem.textContent = text;
-      } catch (e) {
-          lyricsTextElem.textContent = 'Could not load lyrics.';
-          console.error('Lyrics loading failed:', e);
-      }
-  }
-
   setupEventListeners() {
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('ended', () => {
@@ -237,14 +186,6 @@ export default class Player {
         if (this.currentNode?.sourceType === 'audio' && this.audio.duration && isFinite(this.audio.duration)) {
             this.audio.currentTime = (e.target.value / 100) * this.audio.duration;
         }
-    });
-
-    const lyricsContainer = document.getElementById('lyricsContainer');
-    document.getElementById('lyricsBtn').addEventListener('click', () => {
-        lyricsContainer.classList.remove('hidden');
-    });
-    document.getElementById('closeLyricsBtn').addEventListener('click', () => {
-        lyricsContainer.classList.add('hidden');
     });
   }
   
