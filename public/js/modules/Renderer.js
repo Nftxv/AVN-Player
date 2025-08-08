@@ -215,9 +215,9 @@ export default class Renderer {
     ctx.fill();
     
     ctx.strokeStyle = (node.selected || node.highlighted) 
-        ? (node.selected ? '#e74c3c' : '#FFD700')
+        ? (node.selected ? '#7febfb' : '#c2a974')
         : '#424242';
-    ctx.lineWidth = (node.selected || node.highlighted) ? 4 : 1;
+    ctx.lineWidth = (node.selected || node.highlighted) ? 3 : 1;
     ctx.stroke();
 
     ctx.fillStyle = '#e0e0e0';
