@@ -36,7 +36,7 @@ class GraphApp {
     this.isEditorMode = false;
     this.isFollowing = false;
     this.followScale = 1.0;
-    this.followScreenOffset = { x: 0, y: 0 }; // NEW: For smart follow position
+    this.followScreenOffset = { x: 0, y: 0 };
   }
 
   async init() {
@@ -58,32 +58,38 @@ class GraphApp {
     }
   }
 
-  // REVISED: Smart Follow Mode logic with position memory
+  // REVISED: Smart Follow Mode logic with immediate centering
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
-          const { scale, offset } = this.renderer.getViewport();
-          this.followScale = scale;
+          const { scale } = this.renderer.getViewport();
+          this.followScale = scale; // Capture current scale as the desired follow scale
           
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
+              const { offset } = this.renderer.getViewport();
+              
+              // Calculate where the node currently is on screen
               const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
               const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
               
-              this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
-              this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
-              
+              // Calculate the difference between the screen center and the node's current position
+              // This captures the user's desired placement of the node on the screen
+              this.followScreenOffset.x = nodeScreenX - this.renderer.canvas.width / 2;
+              this.followScreenOffset.y = nodeScreenY - this.renderer.canvas.height / 2;
+
               console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
-              
-              // Do not recenter immediately. Settings will apply on the next navigation.
+
+              // Immediately and smoothly pan to center the current node with the new settings
+              // This eliminates the "jump" on the next navigation event.
+              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
           } else {
               // If no node is active, default to a centered view for the next node.
               this.followScreenOffset = { x: 0, y: 0 };
-              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node.`);
+              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node, will center next.`);
           }
-
       } else {
           console.log('Follow mode deactivated.');
       }
@@ -97,9 +103,7 @@ class GraphApp {
     if (!isEditor) {
       this.editorTools.updateSelection([], 'set');
     }
-    if (!isEditor) {
-      this.renderer.destroyAllMarkdownOverlays();
-    }
+    this.renderer.destroyAllMarkdownOverlays();
   }
 
   setupEventListeners() {

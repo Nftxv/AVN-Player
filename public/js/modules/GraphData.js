@@ -60,16 +60,18 @@ export default class GraphData {
             width: item.size?.width || 200,
             height: item.size?.height || 100,
             backgroundColor: item.backgroundColor || '#333333',
-            // NEW: Grouping properties
+            // REVISED: Grouping and attachment properties
             parentId: item.parentId || null,
             attachedToNodeId: item.attachedToNodeId || null,
+            attachOffsetX: item.attachOffsetX,
+            attachOffsetY: item.attachOffsetY,
           });
           break;
         case 'TextAnnotation': // Legacy support
-        case 'MarkdownAnnotation': // NEW
+        case 'MarkdownAnnotation':
           this.decorations.push({
             id: item['@id'],
-            type: 'markdown', // REVISED: Unifying to markdown
+            type: 'markdown',
             x: item.position?.x || 0,
             y: item.position?.y || 0,
             width: item.size?.width || 300,
@@ -77,7 +79,7 @@ export default class GraphData {
             textContent: item.textContent || '',
             fontSize: item.fontSize || 14,
             backgroundColor: item.backgroundColor || 'rgba(45, 45, 45, 0.85)',
-            // NEW: Grouping properties
+            // REVISED: Grouping properties
             parentId: item.parentId || null,
           });
           break;
@@ -95,7 +97,7 @@ export default class GraphData {
         isCollapsed: n.isCollapsed,
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,
-        coverUrl: n.coverUrl, // Keep for data, not for UI
+        coverUrl: n.coverUrl,
         iframeUrl: n.iframeUrl,
       })),
       ...this.edges.map(e => ({
@@ -112,7 +114,6 @@ export default class GraphData {
             '@id': d.id, 
             position: { x: d.x, y: d.y },
             ...(d.parentId && { parentId: d.parentId }),
-            ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId })
         };
         if (d.type === 'rectangle') {
           return {
@@ -120,9 +121,13 @@ export default class GraphData {
             '@type': 'RectangleAnnotation',
             size: { width: d.width, height: d.height },
             backgroundColor: d.backgroundColor,
+            // REVISED: Save attachment properties
+            ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId }),
+            ...(d.attachOffsetX !== undefined && { attachOffsetX: d.attachOffsetX }),
+            ...(d.attachOffsetY !== undefined && { attachOffsetY: d.attachOffsetY }),
           };
         }
-        if (d.type === 'markdown') { // REVISED
+        if (d.type === 'markdown') {
           return {
             ...common,
             '@type': 'MarkdownAnnotation',

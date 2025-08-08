@@ -15,11 +15,10 @@ export default class EditorTools {
     this.app = app;
     this.inspectedEntity = null;
     this.selectedEntities = [];
-    this.decorationsLocked = true; // REVISED: Start with decorations locked by default
-    this.initLockState(); // Apply initial state to UI
+    this.decorationsLocked = true;
+    this.initLockState();
   }
     
-  // NEW: Helper to set initial lock button state
   initLockState() {
       const lockBtn = document.getElementById('lockDecorationsBtn');
       lockBtn.textContent = this.decorationsLocked ? '🔒' : '🔓';
@@ -39,10 +38,10 @@ export default class EditorTools {
 
   toggleDecorationsLock() {
     this.decorationsLocked = !this.decorationsLocked;
-    this.initLockState(); // Use the helper to update UI
+    this.initLockState();
 
     if (this.decorationsLocked) {
-      const nonDecorationSelection = this.selectedEntities.filter(e => !e.type);
+      const nonDecorationSelection = this.selectedEntities.filter(e => e.sourceType || e.source);
       this.updateSelection(nonDecorationSelection, 'set');
     }
   }
@@ -85,8 +84,8 @@ export default class EditorTools {
     const newText = {
         id: `deco-text-${Date.now()}`,
         type: 'markdown',
-        x: center.x - 150, y: center.y - 100,
-        width: 300, height: 200,
+        x: center.x - 150, y: center.y - 50,
+        width: 300, height: 100,
         textContent: '### New Block\n\nEdit content in the inspector.',
         fontSize: 14,
         backgroundColor: 'rgba(45, 45, 45, 0.85)',
@@ -111,33 +110,54 @@ export default class EditorTools {
     this.selectEntity(newEdge);
   }
   
+  // REVISED: New intuitive grouping logic
   groupOrUngroupSelection() {
       const groupBtn = document.getElementById('groupSelectionBtn');
       const isUngroupAction = groupBtn.textContent === 'Ungroup';
+      const decorations = this.selectedEntities.filter(e => e.type);
 
       if (isUngroupAction) {
-          const container = this.selectedEntities.find(e => e.type === 'rectangle');
+          const container = decorations[0];
           if (!container) return;
-          this.graphData.decorations.forEach(deco => {
-              if (deco.parentId === container.id) {
-                  deco.parentId = null;
-              }
-          });
-          console.log(`Ungrouped items from parent ${container.id}`);
-      } else {
-          const decorations = this.selectedEntities.filter(e => e.type === 'rectangle' || e.type === 'markdown');
-          const parent = decorations.find(d => d.type === 'rectangle');
-          if (!parent || decorations.length < 2) {
-            alert('To group, select one rectangle (as container) and at least one other decoration.');
-            return;
+
+          const children = this.graphData.decorations.filter(d => d.parentId === container.id);
+          children.forEach(child => child.parentId = null);
+
+          // Remove the container itself
+          const index = this.graphData.decorations.findIndex(d => d.id === container.id);
+          if(index > -1) this.graphData.decorations.splice(index, 1);
+          
+          this.updateSelection(children, 'set');
+          console.log(`Ungrouped items. Container ${container.id} removed.`);
+
+      } else { // Group action
+          if (decorations.length < 2) {
+              alert('To group, select at least two decorations.');
+              return;
           }
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
           decorations.forEach(deco => {
-              if (deco.id !== parent.id) {
-                  deco.parentId = parent.id;
-              }
+              minX = Math.min(minX, deco.x);
+              minY = Math.min(minY, deco.y);
+              maxX = Math.max(maxX, deco.x + deco.width);
+              maxY = Math.max(maxY, deco.y + deco.height);
           });
-          console.log(`Grouped ${decorations.length - 1} items under parent ${parent.id}`);
-          this.updateSelection([parent], 'set');
+          const padding = 20;
+          const container = {
+              id: `deco-rect-group-${Date.now()}`,
+              type: 'rectangle',
+              x: minX - padding, y: minY - padding,
+              width: (maxX - minX) + padding * 2,
+              height: (maxY - minY) + padding * 2,
+              backgroundColor: 'transparent',
+              parentId: null,
+              attachedToNodeId: null,
+          };
+          this.graphData.decorations.push(container);
+          decorations.forEach(deco => deco.parentId = container.id);
+          
+          this.updateSelection([container], 'set');
+          console.log(`Grouped ${decorations.length} items into new container ${container.id}`);
       }
       this.updateUIState();
   }
@@ -179,6 +199,7 @@ export default class EditorTools {
     const selectedIds = new Set(this.selectedEntities.map(e => e.id));
     const nodesToDelete = new Set(this.selectedEntities.filter(e => e.sourceType).map(n => n.id));
     
+    // Ungroup children of deleted containers
     this.graphData.decorations.forEach(deco => {
         if (selectedIds.has(deco.parentId)) deco.parentId = null;
         if (nodesToDelete.has(deco.attachedToNodeId)) deco.attachedToNodeId = null;
@@ -197,33 +218,39 @@ export default class EditorTools {
 
   updateSelection(entities, mode = 'set') {
       const entityToId = (e) => e.id || `${e.source}->${e.target}`;
-      const newSelection = new Map(entities.map(e => [entityToId(e), e]));
+      const newSelectionMap = new Map();
+      entities.forEach(e => { if(e) newSelectionMap.set(entityToId(e), e)});
+
       let finalSelection;
       
       if (mode === 'set') {
-          finalSelection = Array.from(newSelection.values());
+          finalSelection = Array.from(newSelectionMap.values());
       } else {
           const currentSelection = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
           if (mode === 'add') {
-              newSelection.forEach((value, key) => {
+              newSelectionMap.forEach((value, key) => {
                 if (currentSelection.has(key)) currentSelection.delete(key); 
                 else currentSelection.set(key, value);
               });
           } else if (mode === 'remove') {
-              newSelection.forEach((value, key) => currentSelection.delete(key));
+              newSelectionMap.forEach((_value, key) => currentSelection.delete(key));
           }
           finalSelection = Array.from(currentSelection.values());
       }
       
-      this.selectedEntities.forEach(e => { if(e.id) e.selected = false });
+      this.graphData.nodes.forEach(n => n.selected = false);
       this.graphData.edges.forEach(e => e.selected = false);
+      this.graphData.decorations.forEach(d => d.selected = false);
 
       this.selectedEntities = finalSelection;
       const selectedIds = new Set(this.selectedEntities.map(e => entityToId(e)));
       
-      this.graphData.nodes.forEach(n => n.selected = selectedIds.has(n.id));
+      this.selectedEntities.forEach(entity => {
+          if (entity.sourceType) this.graphData.getNodeById(entity.id).selected = true;
+          else if (entity.source) { /* Edge selection is tricky, handle via direct prop */ }
+          else if (entity.type) this.graphData.getDecorationById(entity.id).selected = true;
+      });
       this.graphData.edges.forEach(e => e.selected = selectedIds.has(entityToId(e)));
-      this.graphData.decorations.forEach(d => d.selected = selectedIds.has(d.id));
       
       this.updateUIState();
   }
@@ -235,17 +262,20 @@ export default class EditorTools {
       const attachBtn = document.getElementById('attachToNodeBtn');
       const decos = this.selectedEntities.filter(e => e.type);
       const nodes = this.selectedEntities.filter(e => e.sourceType);
-      const container = this.selectedEntities.find(e => e.type === 'rectangle' && !e.parentId);
       
-      if (container && this.selectedEntities.length === 1 && this.graphData.decorations.some(d => d.parentId === container.id)) {
+      const isSingleGroupSelected = decos.length === 1 && this.graphData.decorations.some(d => d.parentId === decos[0].id);
+
+      if (isSingleGroupSelected) {
           groupBtn.textContent = 'Ungroup';
           groupBtn.disabled = false;
           groupBtn.title = 'Ungroup all items from this container';
       } else {
           groupBtn.textContent = 'Group';
-          groupBtn.disabled = !(decos.length > 1 && container);
-          groupBtn.title = 'Group selected items under the selected rectangle';
+          groupBtn.disabled = decos.length < 2;
+          groupBtn.title = 'Group selected decorations into a new container';
       }
+      
+      const container = decos.find(e => e.type === 'rectangle' && !e.parentId);
 
       if (container && container.attachedToNodeId) {
           attachBtn.textContent = 'Detach';
@@ -277,60 +307,95 @@ export default class EditorTools {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `...`; 
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
-        html = `...`; 
+        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
     } else if (entity.type === 'rectangle') {
+        const isTransparent = entity.backgroundColor === 'transparent';
         title.textContent = 'Rectangle Properties';
-        html = `...`; 
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
+            <div class="markdown-toolbar">
+                <button id="md-bold" title="Bold">B</button>
+                <button id="md-italic" title="Italic" class="italic">I</button>
+                <button id="md-link" title="Link">Link</button>
+                <button id="md-image" title="Image">Img</button>
+            </div>
             <label for="textContent">Markdown Content:</label>
             <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
-            <label for="fontSize">Base Font Size (px):</label>
+            <label for="fontSize">Font Size (px):</label>
             <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
             <label for="rectWidth">Width:</label>
             <input type="number" id="rectWidth" value="${entity.width}" min="10">
             <label for="rectHeight">Height:</label>
             <input type="number" id="rectHeight" value="${entity.height}" min="10">
-            <label for="bgColor">Background Color (CSS value):</label>
+            <label for="bgColor">Background Color:</label>
             <input type="text" id="bgColor" value="${entity.backgroundColor}" placeholder="e.g., #333 or rgba(45,45,45,0.8)">
         `;
     }
-    
-    // Snipped parts for brevity, logic unchanged
-    if (entity.sourceType) { // Node
-        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
-    } else if (entity.source) { // Edge
-        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
-    } else if (entity.type === 'rectangle') {
-        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${entity.backgroundColor}"><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
-    }
-
 
     content.innerHTML = html;
     panel.classList.remove('hidden');
-    if (entity.sourceType) this._setupInspectorLogic(entity);
+    this._setupInspectorLogic(entity);
   }
   
-  _setupInspectorLogic(node) {
-      const audioBtn = document.getElementById('type-audio');
-      const iframeBtn = document.getElementById('type-iframe');
-      const audioFields = document.getElementById('audio-fields');
-      const iframeFields = document.getElementById('iframe-fields');
+  _setupInspectorLogic(entity) {
+      if (entity.sourceType) {
+          const audioBtn = document.getElementById('type-audio');
+          const iframeBtn = document.getElementById('type-iframe');
+          const audioFields = document.getElementById('audio-fields');
+          const iframeFields = document.getElementById('iframe-fields');
+          const setSourceType = (type) => {
+              entity.sourceType = type;
+              audioBtn.classList.toggle('active', type === 'audio');
+              iframeBtn.classList.toggle('active', type === 'iframe');
+              audioFields.classList.toggle('hidden', type !== 'audio');
+              iframeFields.classList.toggle('hidden', type !== 'iframe');
+          };
+          audioBtn.addEventListener('click', () => setSourceType('audio'));
+          iframeBtn.addEventListener('click', () => setSourceType('iframe'));
+      } else if (entity.type === 'rectangle') {
+          document.getElementById('rectTransparentBtn').addEventListener('click', () => {
+              entity.backgroundColor = 'transparent';
+              this.renderer.render();
+          });
+      } else if (entity.type === 'markdown') {
+          const textarea = document.getElementById('textContent');
+          const wrapSelection = (wrapper) => {
+              const start = textarea.selectionStart, end = textarea.selectionEnd;
+              const text = textarea.value;
+              const selectedText = text.substring(start, end);
+              const newText = `${text.substring(0, start)}${wrapper[0]}${selectedText}${wrapper[1]}${text.substring(end)}`;
+              textarea.value = newText;
+              textarea.focus();
+              textarea.setSelectionRange(start + wrapper[0].length, end + wrapper[0].length);
+          };
+          const insertAtCursor = (content, selOffset = 0) => {
+              const start = textarea.selectionStart;
+              const text = textarea.value;
+              textarea.value = text.substring(0, start) + content + text.substring(start);
+              textarea.focus();
+              textarea.setSelectionRange(start + selOffset, start + selOffset);
+          };
 
-      const setSourceType = (type) => {
-          node.sourceType = type;
-          audioBtn.classList.toggle('active', type === 'audio');
-          iframeBtn.classList.toggle('active', type === 'iframe');
-          audioFields.classList.toggle('hidden', type !== 'audio');
-          iframeFields.classList.toggle('hidden', type !== 'iframe');
+          document.getElementById('md-bold').onclick = () => wrapSelection(['**', '**']);
+          document.getElementById('md-italic').onclick = () => wrapSelection(['*', '*']);
+          document.getElementById('md-link').onclick = () => {
+              const url = prompt("Enter link URL:", "https://");
+              if (url) {
+                  const start = textarea.selectionStart, end = textarea.selectionEnd;
+                  if (start !== end) wrapSelection([`[`, `](${url})`]);
+                  else insertAtCursor(`[link text](${url})`, 1);
+              }
+          };
+          document.getElementById('md-image').onclick = () => {
+              const url = prompt("Enter image URL:", "https://");
+              if (url) insertAtCursor(`\n![alt text](${url})\n`);
+          };
       }
-
-      audioBtn.addEventListener('click', () => setSourceType('audio'));
-      iframeBtn.addEventListener('click', () => setSourceType('iframe'));
   }
 
   saveInspectorChanges() {
@@ -368,7 +433,10 @@ export default class EditorTools {
   }
 
   closeInspector() {
-    this.inspectedEntity = null;
+    if (this.inspectedEntity) {
+        this.inspectedEntity.selected = false;
+        this.inspectedEntity = null;
+    }
     document.getElementById('inspectorPanel').classList.add('hidden');
   }
   
