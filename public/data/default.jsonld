@@ -6,14 +6,13 @@
       "@type": "MusicRecording",
       "name": "Chasing the Moon",
       "position": {
-        "x": 92,
-        "y": 230
+        "x": 66.72996220158444,
+        "y": 392.45024298981434
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "4eJpTAxdxiU"
     },
     {
@@ -21,14 +20,13 @@
       "@type": "MusicRecording",
       "name": "Ballad of Everything (2 version)",
       "position": {
-        "x": -72,
-        "y": 495.0138468887229
+        "x": -97.27003779841556,
+        "y": 657.464089878537
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "YGJvDBRbYdM"
     },
     {
@@ -36,14 +34,13 @@
       "@type": "MusicRecording",
       "name": "Ballad of Everything (1 version)",
       "position": {
-        "x": 273.18977016560103,
-        "y": 498.26384688872304
+        "x": 247.91973236718542,
+        "y": 660.7140898785373
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "_IK2VLriSxs"
     },
     {
@@ -51,14 +48,13 @@
       "@type": "MusicRecording",
       "name": "Love Transcends",
       "position": {
-        "x": 92,
-        "y": 678.9786584887257
+        "x": -100.4173988553973,
+        "y": 889.5673414629508
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "4UUnPzG2bC4"
     },
     {
@@ -66,31 +62,30 @@
       "@type": "MusicRecording",
       "name": "Garbage for Ears",
       "position": {
-        "x": 92,
-        "y": 866.9360592337733
+        "x": 249.71176970087993,
+        "y": 895.6684133780024
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "DcRXJrtysG0"
     },
     {
       "@type": "Path",
       "source": "node-1",
-      "target": "node-2",
-      "color": "#808080",
-      "label": "second version",
+      "target": "node-3a",
+      "color": "#888888",
+      "label": "",
       "lineWidth": 2,
       "controlPoints": []
     },
     {
       "@type": "Path",
       "source": "node-1",
-      "target": "node-3a",
-      "color": "#808080",
-      "label": "first version",
+      "target": "node-2",
+      "color": "#888888",
+      "label": "",
       "lineWidth": 2,
       "controlPoints": []
     },
@@ -98,7 +93,7 @@
       "@type": "Path",
       "source": "node-2",
       "target": "node-3b",
-      "color": "#2ced66",
+      "color": "#888888",
       "label": "",
       "lineWidth": 2,
       "controlPoints": []
@@ -106,44 +101,44 @@
     {
       "@type": "Path",
       "source": "node-3a",
-      "target": "node-3b",
-      "color": "#e12d2d",
+      "target": "node-1754588700272",
+      "color": "#888888",
       "label": "",
       "lineWidth": 2,
-      "controlPoints": []
-    },
-    {
-      "@type": "Path",
-      "source": "node-3b",
-      "target": "node-1754588700272",
-      "color": "#58299e",
-      "label": "",
-      "lineWidth": 6,
       "controlPoints": []
     },
     {
       "@type": "Path",
       "source": "node-1754588700272",
       "target": "node-1",
-      "color": "#24b3c6",
-      "label": "playlist replay",
-      "lineWidth": 2,
+      "color": "#47428f",
+      "label": "",
+      "lineWidth": 4,
       "controlPoints": [
         {
-          "x": -188.45755966224445,
-          "y": 889.4360592337733
+          "x": 604.9324001262158,
+          "y": 915.9047658685258
         },
         {
-          "x": -188.45755966224445,
-          "y": 252.5
+          "x": 606.7374028261027,
+          "y": 415.9190179998755
         }
       ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-3b",
+      "target": "node-3a",
+      "color": "#4c8ecd",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
     },
     {
       "@id": "deco-rect-1",
       "position": {
         "x": -283,
-        "y": -6.569811882272688
+        "y": -6.814092433904705
       },
       "@type": "RectangleAnnotation",
       "size": {
@@ -155,50 +150,67 @@
     {
       "@id": "deco-text-1",
       "position": {
-        "x": 443.6062789306635,
-        "y": 52.37341150684294
+        "x": 388.12851971338773,
+        "y": -55.18563211140204
       },
-      "@type": "TextAnnotation",
-      "textContent": "Sample starter playlist",
-      "fontSize": 24,
-      "color": "#fdff9e",
-      "textAlign": "right",
-      "width": 400,
-      "lineHeight": 1.2
-    },
-    {
-      "@id": "deco-rect-1754589215738",
-      "position": {
-        "x": 692.7849770255077,
-        "y": 607.3930629464985
-      },
-      "@type": "RectangleAnnotation",
+      "@type": "MarkdownAnnotation",
       "size": {
-        "width": 300,
-        "height": 700
+        "width": 400,
+        "height": 100
       },
-      "backgroundColor": "#40263c"
+      "textContent": "**Sample starter playlist**",
+      "fontSize": 24,
+      "backgroundColor": "rgba(45, 45, 45, 0.85)"
     },
     {
       "@id": "deco-text-1754589455494",
       "position": {
-        "x": 849.2385344657106,
-        "y": 959.1301881177274
+        "x": 276.1945513983937,
+        "y": 279.99612514713533
       },
-      "@type": "TextAnnotation",
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 30,
+        "height": 40
+      },
       "textContent": "🛡️ License and Usage\n\nThis project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).\n\n---\n\nImportant Clarification for Artists and Creators:\n\nThe CC BY-NC-SA license applies only to the player's source code (the HTML, CSS, and JavaScript files that make it run).\n\nIt does not apply to the content you create, such as your music, cover art, lyrics, or the `.jsonld` graph file that structures your narrative. You retain full ownership of your art and are free to license or sell it however you wish.\n\nYou can freely use this player as a non-commercial tool to display and distribute your commercial or non-commercial artwork.\n\nA Note on Attribution (How to give credit)\n\nTo comply with the license, you must provide a visible credit. We've made this as painless as possible.\n\n1. Required Attribution Text:\nYou must include the following text somewhere visible (e.g., in the footer of your page or on an \"About\" page):\n\n> AVN Player by Nftxv\n\n2. Required License Notice:\nYou must also include a reference to the license, so others know the terms under which the player is shared.\n\nThe Easiest Way to Do Both:\nYou can fulfill both requirements with a single, simple line. Here is a perfect example:\n\npowered by AVN Player by Nftxv, used under CC BY-NC-SA 4.0",
-      "fontSize": 11,
-      "color": "#a18159",
-      "textAlign": "left",
-      "width": 250,
-      "lineHeight": 1.2
+      "fontSize": 3,
+      "backgroundColor": "rgba(45, 45, 45, 0.85)"
+    },
+    {
+      "@id": "deco-rect-1754720945592",
+      "position": {
+        "x": -280.60620007766516,
+        "y": 0.04354551968124554
+      },
+      "@type": "RectangleAnnotation",
+      "size": {
+        "width": 950,
+        "height": 100
+      },
+      "backgroundColor": "#8b079d"
+    },
+    {
+      "@id": "deco-text-1754721399707",
+      "position": {
+        "x": 272.5968878845609,
+        "y": 325.182106265845
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 100,
+        "height": 70
+      },
+      "textContent": "### Global settings 🛠 \n./public/js/modules/Renderer.js\n\n**setupCanvasInteraction**\n\nconst newScale = Math.max(0.05, Math.min(25, this.scale * zoom));\n\n**LOD**\n\nconst DECORATION_LOD_THRESHOLD = 0.1;\n\n./public/js/modules/EditorTools.js\n\n**openInspector**\n\ninput type=\"number\" id=\"fontSize\" value=\"${entity.fontSize || 14}\" min=\"1\">",
+      "fontSize": 10,
+      "backgroundColor": "rgba(45, 45, 45, 0)"
     }
   ],
   "view": {
     "offset": {
-      "x": 570.7378794999497,
-      "y": -46.12923764210575
+      "x": -886.5869346351333,
+      "y": -1396.9664731571597
     },
-    "scale": 1.22140275816017
+    "scale": 5
   }
 }

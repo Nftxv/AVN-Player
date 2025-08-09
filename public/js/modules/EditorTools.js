@@ -327,7 +327,7 @@ export default class EditorTools {
             <label for="textContent">Markdown Content:</label>
             <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
             <label for="fontSize">Font Size (px):</label>
-            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
+            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="1">
             <label for="rectWidth">Width:</label>
             <input type="number" id="rectWidth" value="${entity.width}" min="10">
             <label for="rectHeight">Height:</label>
