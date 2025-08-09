@@ -156,7 +156,8 @@ export default class GraphData {
   
   parseYoutubeUrl(input) {
       if (!input || typeof input !== 'string') return null;
-      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      // REVISED: Added "shorts\/" to the regex to support YouTube Shorts URLs
+      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       const match = input.match(regex);
       if (match && match[1]) return match[1];
       if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim();
