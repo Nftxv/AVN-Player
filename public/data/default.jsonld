@@ -2,20 +2,6 @@
   "@context": "https://schema.org/",
   "@graph": [
     {
-      "@id": "node-1",
-      "@type": "MusicRecording",
-      "name": " Chasing the Moon",
-      "position": {
-        "x": 12.03199401571247,
-        "y": 652.9924199423486
-      },
-      "isCollapsed": false,
-      "sourceType": "iframe",
-      "audioUrl": null,
-      "coverUrl": null,
-      "iframeUrl": "YGJvDBRbYdM"
-    },
-    {
       "@id": "node-2",
       "@type": "MusicRecording",
       "name": "Ballad of Everything (2 version)",
@@ -128,6 +114,20 @@
       "iframeUrl": "h7fiwzMv7Os"
     },
     {
+      "@id": "node-1754732165702",
+      "@type": "MusicRecording",
+      "name": "Chasing the Moon",
+      "position": {
+        "x": 11.875718414828924,
+        "y": 659.9462234061001
+      },
+      "isCollapsed": false,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "iframeUrl": "4eJpTAxdxiU"
+    },
+    {
       "@type": "Path",
       "source": "node-1754728755939",
       "target": "node-1754588700272",
@@ -148,25 +148,7 @@
     {
       "@type": "Path",
       "source": "node-2",
-      "target": "node-1",
-      "color": "#888888",
-      "label": "",
-      "lineWidth": 2,
-      "controlPoints": []
-    },
-    {
-      "@type": "Path",
-      "source": "node-2",
       "target": "node-1754728254075",
-      "color": "#888888",
-      "label": "",
-      "lineWidth": 2,
-      "controlPoints": []
-    },
-    {
-      "@type": "Path",
-      "source": "node-1",
-      "target": "node-3a",
       "color": "#888888",
       "label": "",
       "lineWidth": 2,
@@ -219,28 +201,6 @@
     },
     {
       "@type": "Path",
-      "source": "node-1754728644575",
-      "target": "node-1",
-      "color": "#2f8e65",
-      "label": "",
-      "lineWidth": 2,
-      "controlPoints": [
-        {
-          "x": 860.9759554314071,
-          "y": 1236.309471710671
-        },
-        {
-          "x": -57.403221800444534,
-          "y": 1231.4822487028819
-        },
-        {
-          "x": -65.35712397440945,
-          "y": 676.122986094529
-        }
-      ]
-    },
-    {
-      "@type": "Path",
       "source": "node-3b",
       "target": "node-1754728755939",
       "color": "#179bd3",
@@ -248,8 +208,8 @@
       "lineWidth": 2,
       "controlPoints": [
         {
-          "x": 356.7094584681372,
-          "y": 1096.5906829508367
+          "x": 356.982433876294,
+          "y": 1093.2962450032737
         },
         {
           "x": 351.04683585772773,
@@ -282,17 +242,48 @@
     {
       "@type": "Path",
       "source": "node-1754588700272",
-      "target": "node-1",
-      "color": "#e3bd91",
+      "target": "node-1754728254075",
+      "color": "#827b30",
       "label": "",
       "lineWidth": 2,
       "controlPoints": []
     },
     {
       "@type": "Path",
+      "source": "node-1754732165702",
+      "target": "node-3a",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754728644575",
+      "target": "node-1754732165702",
+      "color": "#396f3d",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 859.0136266863468,
+          "y": 1229.665294973312
+        },
+        {
+          "x": -38.84985276240153,
+          "y": 1228.4584892213647
+        },
+        {
+          "x": -40.056658514348776,
+          "y": 684.1890950931585
+        }
+      ]
+    },
+    {
+      "@type": "Path",
       "source": "node-1754588700272",
-      "target": "node-1754728254075",
-      "color": "#827b30",
+      "target": "node-1754732165702",
+      "color": "#888888",
       "label": "",
       "lineWidth": 2,
       "controlPoints": []
@@ -443,7 +434,7 @@
       },
       "textContent": "### Ballad of Everything\n\nYou’ve traveled far, you’ve seen it all,\nThe mountains high, the cities tall.\nNow you’ve got a song to sing,\nTo capture every sight and thing.\n\nThe day you failed but stood up strong,\nProving that you still belong.\nNow your song can tell the tale,\nOf how you rose when you could fail.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nThere’s that story from your past,\nA lesson learned that’s meant to last.\nNow you’ve got the tune to share,\nAnd let the world know you were there.\n\nA simple day, a quiet breeze,\nMoments like these put you at ease.\nNow you’ve got a tune to hum,\nAnd let the peace of life become.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nYou’ve got a joke you want to tell,\nThe one that always makes them yell.\nNow you’ve got the chance to sing,\nTurn those laughs into everything.\n\nYou’ve been holding love inside your chest,\nWaiting for the time that’s best.\nNow you’ve got the perfect way,\nTo let your heart sing what you’d say.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nWhen words alone just fall apart,\nAnd you need to speak straight from the heart.\nTurn it into something true,\nA song that shows what you’ve been through.\n\nMaybe it’s the things you never say,\nThe quiet thoughts that slip away.\nNow’s your time, don’t let them fade,\nMake a song of every day.\n\nYou’ve danced with joy, you’ve cried with pain,\nLife’s a journey, not in vain.\nNow your voice can set it free,\nA song for every memory.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.",
       "fontSize": 8,
-      "backgroundColor": "rgba(46,35,64, 1)"
+      "backgroundColor": "rgba(46,46,46, 0.5)"
     },
     {
       "@id": "deco-text-1754730049282",
@@ -508,9 +499,9 @@
   ],
   "view": {
     "offset": {
-      "x": -1379.5016972511812,
-      "y": -815.9252136524697
+      "x": -1245.170532131879,
+      "y": -720.2839026945057
     },
-    "scale": 3.7136789107166885
+    "scale": 3.360275636987483
   }
 }
