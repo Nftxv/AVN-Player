@@ -7,7 +7,7 @@ const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
 const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
 const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
-const DECORATION_LOD_THRESHOLD = 0.4;
+const DECORATION_LOD_THRESHOLD = 0.1;
 
 export default class Renderer {
   constructor(canvasId, iframeContainer, markdownContainer) {
@@ -110,19 +110,19 @@ export default class Renderer {
     ctx.restore();
   }
   
-  drawEdge(edge) {
+drawEdge(edge) {
       const src = this.graphData.getNodeById(edge.source);
       const trg = this.graphData.getNodeById(edge.target);
       if (!src || !trg) return;
       
       const controlPoints = edge.controlPoints || [];
+      // Use header centers for stable angle calculation
       const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
       const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
       
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
 
-      // CORRECTED: Use the robust intersection function with the original name
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);      
       
@@ -138,24 +138,25 @@ export default class Renderer {
       const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
       const arrowSize = 6 + edgeLineWidth * 2.5;
 
-      const pForArrow = pathPoints.at(-1); // The actual intersection point on the border
+      // This part is crucial and correct:
+      const pForArrow = pathPoints.at(-1); // The point ON the border
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       
-      // Pull back the line's endpoint
+      // Pull back the line to make space for the arrow
       const offset = arrowSize; 
       const adjustedEndPoint = {
           x: pForArrow.x - offset * Math.cos(angle),
           y: pForArrow.y - offset * Math.sin(angle)
       };
 
-      // Draw the path to the adjusted end point
+      // Draw the line to the adjusted point
       ctx.beginPath();
       ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
       for (let i = 1; i < pathPoints.length - 1; i++) {
           ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       }
-      if (pathPoints.length > 1) { // Shortened final segment
+      if (Math.hypot(adjustedEndPoint.x - pBeforeArrow.x, adjustedEndPoint.y - pBeforeArrow.y) > 1) {
           ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
       }
 
@@ -163,9 +164,10 @@ export default class Renderer {
       ctx.lineWidth = lineWidth / this.scale; 
       ctx.stroke();
       
-      // Draw the arrow at the original, un-adjusted endpoint on the border
+      // Draw the arrow at the original border point
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
-            
+      
+      // ... rest of the function ...
       if(this.scale > 0.5) {
           controlPoints.forEach(point => {
               ctx.beginPath();
@@ -174,7 +176,6 @@ export default class Renderer {
               ctx.fill();
           });
       }
-      
       if (edge.label && this.scale > 0.3) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
@@ -189,10 +190,9 @@ export default class Renderer {
         ctx.fillText(edge.label, 0, -8 / this.scale);
         ctx.restore();
       }
-      
       ctx.restore();
   }
-  
+
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
@@ -557,43 +557,57 @@ _drawNodeHeader(node) {
       this.ctx.lineTo(-size, size * 0.4); this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill(); this.ctx.restore();
   }
   
-  _getIntersectionWithNodeRect(node, externalPoint) {
+_getIntersectionWithNodeRect(node, externalPoint) {
     const rect = this._getNodeVisualRect(node);
-    const rectCenter = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    // The ray MUST originate from the stable header center for consistent angles.
+    const rayOrigin = { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEADER_HEIGHT / 2 };
 
-    // This is the correct logic: a ray from the external point towards the node's center.
-    const dx = rectCenter.x - externalPoint.x;
-    const dy = rectCenter.y - externalPoint.y;
+    const dir = { x: externalPoint.x - rayOrigin.x, y: externalPoint.y - rayOrigin.y };
 
-    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) {
-        return rectCenter; // Points are identical
+    if (Math.abs(dir.x) < 1e-6 && Math.abs(dir.y) < 1e-6) {
+      return rayOrigin;
+    }
+
+    let t_values = [];
+
+    // Check intersection with vertical sides
+    if (Math.abs(dir.x) > 1e-6) {
+      let t1 = (rect.x - rayOrigin.x) / dir.x;
+      let t2 = (rect.x + rect.width - rayOrigin.x) / dir.x;
+      let y1 = rayOrigin.y + t1 * dir.y;
+      if (t1 >= 0 && y1 >= rect.y && y1 <= rect.y + rect.height) t_values.push(t1);
+      let y2 = rayOrigin.y + t2 * dir.y;
+      if (t2 >= 0 && y2 >= rect.y && y2 <= rect.y + rect.height) t_values.push(t2);
+    }
+
+    // Check intersection with horizontal sides
+    if (Math.abs(dir.y) > 1e-6) {
+      let t3 = (rect.y - rayOrigin.y) / dir.y;
+      let t4 = (rect.y + rect.height - rayOrigin.y) / dir.y;
+      let x3 = rayOrigin.x + t3 * dir.x;
+      if (t3 >= 0 && x3 >= rect.x && x3 <= rect.x + rect.width) t_values.push(t3);
+      let x4 = rayOrigin.x + t4 * dir.x;
+      if (t4 >= 0 && x4 >= rect.x && x4 <= rect.x + rect.width) t_values.push(x4);
     }
     
-    // Using Liang-Barsky algorithm for robust line clipping
-    let t0 = 0, t1 = 1;
-    const p = [-dx, dx, -dy, dy];
-    const q = [externalPoint.x - rect.x, (rect.x + rect.width) - externalPoint.x, externalPoint.y - rect.y, (rect.y + rect.height) - externalPoint.y];
-
-    for (let i = 0; i < 4; i++) {
-        if (p[i] === 0) {
-            if (q[i] < 0) return rectCenter; // Parallel line outside the box, should not happen with this logic
-        } else {
-            const r = q[i] / p[i];
-            if (p[i] < 0) {
-                t0 = Math.max(t0, r);
-            } else {
-                t1 = Math.min(t1, r);
-            }
-        }
+    // Find the closest valid intersection point
+    if (t_values.length > 0) {
+      const t = Math.min(...t_values);
+      // Ensure we don't go past the target (important for control points)
+      if (t <= 1.0) {
+        return { x: rayOrigin.x + t * dir.x, y: rayOrigin.y + t * dir.y };
+      }
     }
 
-    if (t0 <= t1) {
-       // We found an intersection. t0 is the first intersection point.
-       return { x: externalPoint.x + t0 * dx, y: externalPoint.y + t0 * dy };
+    // Fallback if target is inside the node area
+    const targetIsInside = externalPoint.x >= rect.x && externalPoint.x <= rect.x + rect.width &&
+                           externalPoint.y >= rect.y && externalPoint.y <= rect.y + rect.height;
+    if(targetIsInside) {
+        return externalPoint;
     }
-    
-    // Fallback in case of floating point errors or if the externalPoint is inside.
-    return rectCenter;
+
+    // Final fallback to prevent errors
+    return rayOrigin;
   }
 
   drawTemporaryEdge() {
@@ -833,7 +847,7 @@ _drawNodeHeader(node) {
         const zoom = Math.exp(wheel * zoomIntensity);
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        const newScale = Math.max(0.05, Math.min(25, this.scale * zoom));
+        const newScale = Math.max(0.05, Math.min(50, this.scale * zoom));
         const actualZoom = newScale / this.scale;
 
         this.offset.x = mouseX - (mouseX - this.offset.x) * actualZoom;

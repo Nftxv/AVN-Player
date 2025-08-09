@@ -6,8 +6,8 @@
       "@type": "MusicRecording",
       "name": "Chasing the Moon",
       "position": {
-        "x": 66.72996220158444,
-        "y": 392.45024298981434
+        "x": 67.01035849367815,
+        "y": 395.6306768765507
       },
       "isCollapsed": false,
       "sourceType": "iframe",
@@ -150,23 +150,23 @@
     {
       "@id": "deco-text-1",
       "position": {
-        "x": 388.12851971338773,
-        "y": -55.18563211140204
+        "x": 375.7192311568307,
+        "y": -6.5498745776013365
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 400,
+        "width": 350,
         "height": 100
       },
       "textContent": "**Sample starter playlist**",
       "fontSize": 24,
-      "backgroundColor": "rgba(45, 45, 45, 0.85)"
+      "backgroundColor": "rgba(45, 45, 45, 0)"
     },
     {
       "@id": "deco-text-1754589455494",
       "position": {
-        "x": 276.1945513983937,
-        "y": 279.99612514713533
+        "x": 292.4395756973752,
+        "y": 354.36223638247253
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -180,8 +180,8 @@
     {
       "@id": "deco-rect-1754720945592",
       "position": {
-        "x": -280.60620007766516,
-        "y": 0.04354551968124554
+        "x": -284.37604672746545,
+        "y": -6.709433817692496
       },
       "@type": "RectangleAnnotation",
       "size": {
@@ -193,8 +193,8 @@
     {
       "@id": "deco-text-1754721399707",
       "position": {
-        "x": 272.5968878845609,
-        "y": 325.182106265845
+        "x": 270.134969762508,
+        "y": 281.7172937505297
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -204,13 +204,28 @@
       "textContent": "### Global settings 🛠 \n./public/js/modules/Renderer.js\n\n**setupCanvasInteraction**\n\nconst newScale = Math.max(0.05, Math.min(25, this.scale * zoom));\n\n**LOD**\n\nconst DECORATION_LOD_THRESHOLD = 0.1;\n\n./public/js/modules/EditorTools.js\n\n**openInspector**\n\ninput type=\"number\" id=\"fontSize\" value=\"${entity.fontSize || 14}\" min=\"1\">",
       "fontSize": 10,
       "backgroundColor": "rgba(45, 45, 45, 0)"
+    },
+    {
+      "@id": "deco-text-1754724649323",
+      "position": {
+        "x": 327.17579687721627,
+        "y": 353.1929643060011
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 40,
+        "height": 48
+      },
+      "textContent": "### Fan art \n![FrozenPlanetLord](https://pbs.twimg.com/media/GYzEVFxWUAgFjG0?format=jpg&name=900x900)",
+      "fontSize": 3,
+      "backgroundColor": "rgba(45, 45, 45, 0.85)"
     }
   ],
   "view": {
     "offset": {
-      "x": -886.5869346351333,
-      "y": -1396.9664731571597
+      "x": -147.41453337461178,
+      "y": -832.8186189928922
     },
-    "scale": 5
+    "scale": 3.383382080915314
   }
 }
