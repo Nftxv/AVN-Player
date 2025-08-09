@@ -6,7 +6,7 @@
       "@type": "MusicRecording",
       "name": "Ballad of Everything (2 version)",
       "position": {
-        "x": 388.21688743400966,
+        "x": 378.0058298445465,
         "y": 390.3893227462136
       },
       "isCollapsed": false,
@@ -104,8 +104,8 @@
       "@type": "MusicRecording",
       "name": "Ode to the Hero",
       "position": {
-        "x": 760.2115596824626,
-        "y": 859.9609119261481
+        "x": 760.9435243713363,
+        "y": 869.4764528815044
       },
       "isCollapsed": false,
       "sourceType": "iframe",
@@ -133,16 +133,16 @@
       "target": "node-1754588700272",
       "color": "#888888",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
       "@type": "Path",
       "source": "node-2",
       "target": "node-1754728755939",
-      "color": "#888888",
+      "color": "#888887",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
@@ -151,7 +151,7 @@
       "target": "node-1754728254075",
       "color": "#888888",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
@@ -160,7 +160,7 @@
       "target": "node-3b",
       "color": "#888888",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
@@ -169,7 +169,7 @@
       "target": "node-1754729280653",
       "color": "#888888",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
@@ -178,7 +178,7 @@
       "target": "node-1754728644575",
       "color": "#888888",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
@@ -186,7 +186,7 @@
       "source": "node-1754728644575",
       "target": "node-1754728755939",
       "color": "#8880ff",
-      "label": "",
+      "label": "<< -- Hard to wait",
       "lineWidth": 2,
       "controlPoints": [
         {
@@ -204,7 +204,7 @@
       "source": "node-3b",
       "target": "node-1754728755939",
       "color": "#179bd3",
-      "label": "",
+      "label": "Hard to wait -->>",
       "lineWidth": 2,
       "controlPoints": [
         {
@@ -212,8 +212,8 @@
           "y": 1093.2962450032737
         },
         {
-          "x": 351.04683585772773,
-          "y": 677.5566097805377
+          "x": 357.0737088206952,
+          "y": 673.5706058157207
         }
       ]
     },
@@ -222,7 +222,7 @@
       "source": "node-3b",
       "target": "node-1754728254075",
       "color": "#ae1e1e",
-      "label": "",
+      "label": "Ode -->>",
       "lineWidth": 2,
       "controlPoints": [
         {
@@ -230,12 +230,12 @@
           "y": 1202.596512361893
         },
         {
-          "x": 1179.5010154850572,
-          "y": 1209.8273056542405
+          "x": 1115.6531728232844,
+          "y": 1205.0729288471837
         },
         {
-          "x": 1168.7579892313854,
-          "y": 677.027890425357
+          "x": 1110.2560161799204,
+          "y": 680.5674332329856
         }
       ]
     },
@@ -254,7 +254,7 @@
       "target": "node-3a",
       "color": "#888888",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
@@ -262,7 +262,7 @@
       "source": "node-1754728644575",
       "target": "node-1754732165702",
       "color": "#396f3d",
-      "label": "",
+      "label": "<<-- Chasing the Moon",
       "lineWidth": 2,
       "controlPoints": [
         {
@@ -283,16 +283,53 @@
       "@type": "Path",
       "source": "node-1754588700272",
       "target": "node-1754732165702",
-      "color": "#888888",
+      "color": "#da540b",
       "label": "",
       "lineWidth": 2,
       "controlPoints": []
     },
     {
+      "@type": "Path",
+      "source": "node-2",
+      "target": "node-1754732165702",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 7,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754728254075",
+      "target": "node-2",
+      "color": "#000000",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 858.7246036846047,
+          "y": 416.77239598625897
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754732165702",
+      "target": "node-2",
+      "color": "#000000",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 112.93568569248006,
+          "y": 412.3565405507793
+        }
+      ]
+    },
+    {
       "@id": "deco-text-1",
       "position": {
-        "x": 388.3857033016342,
-        "y": 228.02637520987835
+        "x": 304.96864331677847,
+        "y": 170.99178445894216
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -306,8 +343,8 @@
     {
       "@id": "deco-text-1754589455494",
       "position": {
-        "x": 756.9874832315593,
-        "y": 351.29709938078815
+        "x": 762.2097228315881,
+        "y": 354.51078528849814
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -315,14 +352,14 @@
         "height": 48
       },
       "textContent": "🛡️ License and Usage\n\nThis project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).\n\n---\n\nImportant Clarification for Artists and Creators:\n\nThe CC BY-NC-SA license applies only to the player's source code (the HTML, CSS, and JavaScript files that make it run).\n\nIt does not apply to the content you create, such as your music, cover art, lyrics, or the `.jsonld` graph file that structures your narrative. You retain full ownership of your art and are free to license or sell it however you wish.\n\nYou can freely use this player as a non-commercial tool to display and distribute your commercial or non-commercial artwork.\n\nA Note on Attribution (How to give credit)\n\nTo comply with the license, you must provide a visible credit. We've made this as painless as possible.\n\n1. Required Attribution Text:\nYou must include the following text somewhere visible (e.g., in the footer of your page or on an \"About\" page):\n\n> AVN Player by Nftxv\n\n2. Required License Notice:\nYou must also include a reference to the license, so others know the terms under which the player is shared.\n\nThe Easiest Way to Do Both:\nYou can fulfill both requirements with a single, simple line. Here is a perfect example:\n\npowered by AVN Player by Nftxv, used under CC BY-NC-SA 4.0",
-      "fontSize": 3,
+      "fontSize": 4,
       "backgroundColor": "rgba(45, 45, 45, 0.85)"
     },
     {
       "@id": "deco-rect-1754720945592",
       "position": {
-        "x": 296.2009653594806,
-        "y": 254.66609236355904
+        "x": 302.74123870714993,
+        "y": 218.723020267453
       },
       "@type": "RectangleAnnotation",
       "size": {
@@ -334,8 +371,8 @@
     {
       "@id": "deco-text-1754721399707",
       "position": {
-        "x": 756.4945471767829,
-        "y": 275.9909171819985
+        "x": 761.7167867768118,
+        "y": 279.2046030897085
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -349,8 +386,8 @@
     {
       "@id": "deco-text-1754724649323",
       "position": {
-        "x": 816.7227399403437,
-        "y": 352.3988450463475
+        "x": 821.9449795403725,
+        "y": 355.6125309540575
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -389,13 +426,13 @@
       },
       "textContent": "### Ode\n\n... Their echo, distorted, across worlds flows,\nLeaving inkblots on thought, where it never goes.\nSometimes this echo will brush the mind,\nAnd forms take shape in a desperate bind...",
       "fontSize": 8,
-      "backgroundColor": "rgba(45, 45, 45, 0.85)"
+      "backgroundColor": "rgba(45, 45, 45, 0.0)"
     },
     {
       "@id": "deco-text-1754729757634",
       "position": {
-        "x": 589.1321637276038,
-        "y": 541.2915141911267
+        "x": 595.6792456865479,
+        "y": 540.1011356531369
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -404,7 +441,7 @@
       },
       "textContent": "### Hard to wait\n\nYou know, sometimes it's hard to wait,  \nNot knowing if things will turn out great.  \nYou worry and fear that plans may fall,  \nThat dreams might never come true at all.  \n\nBut then you see those who waited through,  \nThe ones who held on, who stayed true.  \nAnd when they finally get what they sought,  \nTheir joy is real, it's what they fought.  \n\nYou see them smile, their hearts so light,  \nAnd you realize their struggle was right.  \nThe best rewards come to those who stay,  \nWho keep on going, who find their way.  \n\nEven when waiting seems too tough,  \nAnd the road ahead is long and rough.  \nTrue joy comes to those who believe,  \nWho hold on tight and never leave.\n\nWaiting is hard, with doubts that persist,  \nBut remember, together we'll overcome this.  \nEpic triumphs await us as we heed the call,  \nFor Troverse is near—come, conquer it all!",
       "fontSize": 8,
-      "backgroundColor": "rgba(45, 45, 45, 0.85)"
+      "backgroundColor": "rgba(45, 45, 45, 0.0)"
     },
     {
       "@id": "deco-text-1754729871647",
@@ -419,7 +456,7 @@
       },
       "textContent": "### Garbage for Ears\n\nSometimes you meet someone who seems just fine,\nYou lend a hand, you’re glad to give your time.\nYou help them find their way, no strings attached,\nYou hope they grow and find the dream they’ve hatched.\n\nBut then, without a reason, there they stand—\nA knife in hand, though never planned.\nNo real cause, no warning sign or fight,\nJust a little stab that doesn’t feel quite right.\n\nThey seek excuses, paint themselves as just,\nBut you’re already done—you’ve lost that trust.\nNo anger now, no burning flame, just there\nA piece of shit you simply choose to spare.\n\nIt stings a bit, but nothing’s truly lost,\nJust people showing who they are, at cost.\nAnd once you see it, once it’s clear as day,\nYou know what’s real, and calmly walk away.\n\nThen write your song, and let the words just flow,\nFor in the end, it’s just another show.\nPeople will disappoint, it’s how they are,\nBut don’t let little wounds become a scar.\n\nIt’s not another mess upon your road,\nJust one more song to lighten up the load.\nA song to store among the rest you’ve spun,\nA story told, a chapter that is done.\n\nAnd if the song’s created by machine,\nThat doesn’t change the truth it may have seen.\nFor songs need sparks, wherever they may start,\nEach little note a piece of someone's heart.",
       "fontSize": 8,
-      "backgroundColor": "rgba(25,25,85,1)"
+      "backgroundColor": "rgba(25,25,85,0.3)"
     },
     {
       "@id": "deco-text-1754729973346",
@@ -439,8 +476,8 @@
     {
       "@id": "deco-text-1754730049282",
       "position": {
-        "x": 218.00195736561915,
-        "y": 540.2479854269234
+        "x": 225.73941786255307,
+        "y": 543.8191210408929
       },
       "@type": "MarkdownAnnotation",
       "size": {
@@ -449,7 +486,7 @@
       },
       "textContent": "### Chasing the Moon\n\nI was lost in the city lights,\nChasing shadows in the night,\nSaw the stars up in the sky,\nBut they couldn’t tell me why.\n\nI’ve been running far and wide,\nFrom the ocean to the mountainside,\nLooking for a spark to hold,\nSomething warm, in a world so cold.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.\n\nIn the echoes of a desert breeze,\nFound a dream beneath the trees,\nIn the silence, I heard it call,\nA whisper that could break my fall.\n\nThrough the rivers deep and wide,\nI’ll follow where my heart decides,\nNo more waiting for a sign,\nThe stars are gonna align this time.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.\n\nAnd if the road gets long, and the nights too dark,\nI’ll find my way back to where dreams spark,\nFor every night there’s a light that guides,\nIt’s the moon, it’s the moon, shining by my side.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.",
       "fontSize": 8,
-      "backgroundColor": "rgba(114,65,25, 0.85)"
+      "backgroundColor": "rgba(114,65,25, 0.3)"
     },
     {
       "@id": "deco-text-1754730094583",
@@ -464,7 +501,7 @@
       },
       "textContent": "### Ballad of Everything\n\nYou’ve traveled far, you’ve seen it all,\nThe mountains high, the cities tall.\nNow you’ve got a song to sing,\nTo capture every sight and thing.\n\nThe day you failed but stood up strong,\nProving that you still belong.\nNow your song can tell the tale,\nOf how you rose when you could fail.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nThere’s that story from your past,\nA lesson learned that’s meant to last.\nNow you’ve got the tune to share,\nAnd let the world know you were there.\n\nA simple day, a quiet breeze,\nMoments like these put you at ease.\nNow you’ve got a tune to hum,\nAnd let the peace of life become.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nYou’ve got a joke you want to tell,\nThe one that always makes them yell.\nNow you’ve got the chance to sing,\nTurn those laughs into everything.\n\nYou’ve been holding love inside your chest,\nWaiting for the time that’s best.\nNow you’ve got the perfect way,\nTo let your heart sing what you’d say.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nWhen words alone just fall apart,\nAnd you need to speak straight from the heart.\nTurn it into something true,\nA song that shows what you’ve been through.\n\nMaybe it’s the things you never say,\nThe quiet thoughts that slip away.\nNow’s your time, don’t let them fade,\nMake a song of every day.\n\nYou’ve danced with joy, you’ve cried with pain,\nLife’s a journey, not in vain.\nNow your voice can set it free,\nA song for every memory.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.",
       "fontSize": 8,
-      "backgroundColor": "rgba(45, 45, 45, 0.85)"
+      "backgroundColor": "rgba(45, 45, 45, 0)"
     },
     {
       "@id": "deco-text-1754730140421",
@@ -479,7 +516,7 @@
       },
       "textContent": "### Love Transcends\n\nWe met like strangers passing in the rain,\nNo spark to light, no fire, no flame.\nJust two souls in the city's hum,\nNo signs or whispers of what we’d become.\n\nBut as the days turned into nights,\nWe found a rhythm in shared sights.\nLaughter came easy, moments felt right,\nWe held on close, if only for a while.\n\nAnd the world kept spinning, day by day,\nAnd no one cared — we were okay.\n\nWe parted like the setting of the sun,\nNo tears, no fight, just said it’s done.\nBut silence now is louder than before,\nAn empty space where there was more.\n\nI see you in the little things I do,\nIn every breeze, in every shade of blue.\nI never knew what lingered in the air,\nUntil the quiet made me care.\n\nAnd the world kept spinning, day by day,\nWhile we let our chances drift away.\n\nThe nights were warm when you were near,\nIn simple talks, we’d lose the fear.\nI thought it’d last, but time slips fast,\nAnd now I see what we let pass.\n\nThe mornings bloom, but not the same,\nYour smile was more than just a name.\nI thought I’d move on, find my way,\nBut here I stand, with words to say.\n\nAnd the world kept spinning, day by day,\nBut something in us chose to stay.\n\nI thought the distance would fade the ache,\nBut every step is a heart to break.\n\nI thought I’d heal, let memories fly,\nBut you are still the reason why.\n\nSo here we are, no more disguise,\nIt’s you I see through different eyes.\nThe simple truth we tried to hide—\nWe were meant to walk side by side.\n\nWe turned away, but in the end,\nI found in you my greatest friend.\nIn you, I found what words can't send,\nAnd starts again where love transcends.",
       "fontSize": 8,
-      "backgroundColor": "rgba(8,80,80,1)"
+      "backgroundColor": "rgba(8,80,80,0.2)"
     },
     {
       "@id": "deco-text-1754730196459",
@@ -492,16 +529,16 @@
         "width": 120,
         "height": 90
       },
-      "textContent": "### Broken Lights\n\n...I’ve seen the lies, I’ve heard the pleas,\nFelt the sorrow in the breeze,\nBut if you think you’ll know me well,\nYou’re just a fool caught in my spell...",
+      "textContent": "### Broken Lights\n\n...I’ve seen the lies, I’ve heard the pleas,\nFelt the sorrow in the breeze...",
       "fontSize": 8,
       "backgroundColor": "rgba(0,0,0, 0.85)"
     }
   ],
   "view": {
     "offset": {
-      "x": -1245.170532131879,
-      "y": -720.2839026945057
+      "x": -1497.2226812127114,
+      "y": -1017.3671671418492
     },
-    "scale": 3.360275636987483
+    "scale": 4.104249931194941
   }
 }
