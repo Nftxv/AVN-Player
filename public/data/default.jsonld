@@ -208,12 +208,8 @@
       "lineWidth": 2,
       "controlPoints": [
         {
-          "x": 848.2289037843199,
-          "y": 1225.288751044171
-        },
-        {
-          "x": 742.9721559638419,
-          "y": 1225.288751044171
+          "x": 736.1051733655702,
+          "y": 1102.2533055612462
         },
         {
           "x": 732.4407580355871,
@@ -230,12 +226,12 @@
       "lineWidth": 2,
       "controlPoints": [
         {
-          "x": 860.6504254449752,
-          "y": 1232.8645905126557
+          "x": 860.9759554314071,
+          "y": 1236.309471710671
         },
         {
-          "x": -67.22393811928562,
-          "y": 1232.8645905126557
+          "x": -57.403221800444534,
+          "y": 1231.4822487028819
         },
         {
           "x": -65.35712397440945,
@@ -252,16 +248,12 @@
       "lineWidth": 2,
       "controlPoints": [
         {
-          "x": 120.2030646926804,
-          "y": 1217.4919549093208
+          "x": 356.7094584681372,
+          "y": 1096.5906829508367
         },
         {
-          "x": 336.5641574347741,
-          "y": 1219.9284537014614
-        },
-        {
-          "x": 335.9950700502997,
-          "y": 676.122986094529
+          "x": 351.04683585772773,
+          "y": 677.5566097805377
         }
       ]
     },
@@ -308,16 +300,16 @@
     {
       "@id": "deco-text-1",
       "position": {
-        "x": 375.7192311568307,
-        "y": -6.5498745776013365
+        "x": 388.3857033016342,
+        "y": 228.02637520987835
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 350,
-        "height": 100
+        "width": 150,
+        "height": 40
       },
       "textContent": "**Sample starter playlist**",
-      "fontSize": 24,
+      "fontSize": 16,
       "backgroundColor": "rgba(45, 45, 45, 0)"
     },
     {
@@ -338,13 +330,13 @@
     {
       "@id": "deco-rect-1754720945592",
       "position": {
-        "x": -284.37604672746545,
-        "y": -6.709433817692496
+        "x": 296.2009653594806,
+        "y": 254.66609236355904
       },
       "@type": "RectangleAnnotation",
       "size": {
-        "width": 950,
-        "height": 100
+        "width": 600,
+        "height": 2
       },
       "backgroundColor": "#8b079d"
     },
@@ -374,7 +366,7 @@
         "width": 40,
         "height": 48
       },
-      "textContent": "### Fan art \n![FrozenPlanetLord](https://pbs.twimg.com/media/GYzEVFxWUAgFjG0?format=jpg&name=900x900)",
+      "textContent": "### Fan art \n![FrozenPlanetLord](https://pbs.twimg.com/media/GYzEVFxWUAgFjG0?format=jpg&name=900x900)\n[link img](https://pbs.twimg.com/media/GYzEVFxWUAgFjG0?format=jpg&name=900x900)",
       "fontSize": 3,
       "backgroundColor": "rgba(45, 45, 45, 0.85)"
     },
@@ -451,7 +443,7 @@
       },
       "textContent": "### Ballad of Everything\n\nYou’ve traveled far, you’ve seen it all,\nThe mountains high, the cities tall.\nNow you’ve got a song to sing,\nTo capture every sight and thing.\n\nThe day you failed but stood up strong,\nProving that you still belong.\nNow your song can tell the tale,\nOf how you rose when you could fail.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nThere’s that story from your past,\nA lesson learned that’s meant to last.\nNow you’ve got the tune to share,\nAnd let the world know you were there.\n\nA simple day, a quiet breeze,\nMoments like these put you at ease.\nNow you’ve got a tune to hum,\nAnd let the peace of life become.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nYou’ve got a joke you want to tell,\nThe one that always makes them yell.\nNow you’ve got the chance to sing,\nTurn those laughs into everything.\n\nYou’ve been holding love inside your chest,\nWaiting for the time that’s best.\nNow you’ve got the perfect way,\nTo let your heart sing what you’d say.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nWhen words alone just fall apart,\nAnd you need to speak straight from the heart.\nTurn it into something true,\nA song that shows what you’ve been through.\n\nMaybe it’s the things you never say,\nThe quiet thoughts that slip away.\nNow’s your time, don’t let them fade,\nMake a song of every day.\n\nYou’ve danced with joy, you’ve cried with pain,\nLife’s a journey, not in vain.\nNow your voice can set it free,\nA song for every memory.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.",
       "fontSize": 8,
-      "backgroundColor": "rgba(57,27,98, 0.85)"
+      "backgroundColor": "rgba(46,35,64, 1)"
     },
     {
       "@id": "deco-text-1754730049282",
@@ -516,9 +508,9 @@
   ],
   "view": {
     "offset": {
-      "x": -1377.2479104420704,
-      "y": -899.0055083129687
+      "x": -1379.5016972511812,
+      "y": -815.9252136524697
     },
-    "scale": 3.739215480565878
+    "scale": 3.7136789107166885
   }
 }
