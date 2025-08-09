@@ -7,7 +7,7 @@ const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
 const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
 const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
-const DECORATION_LOD_THRESHOLD = 0.1;
+const DECORATION_LOD_THRESHOLD = 1.5;
 
 export default class Renderer {
   constructor(canvasId, iframeContainer, markdownContainer) {
@@ -208,7 +208,7 @@ drawEdge(edge) {
     }
   }
 
-_drawNodeHeader(node) {
+  _drawNodeHeader(node) {
     const ctx = this.ctx;
     ctx.save();
     
@@ -219,9 +219,8 @@ _drawNodeHeader(node) {
     ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, cornerRadius, cornerRadius]);
     ctx.fill();
     
-    // --- REVISED BORDER & HIGHLIGHT LOGIC ---
-    // The border is now ONLY for editor selection (red) or default state.
-    ctx.strokeStyle = node.selected ? '#7febfb' : '#424242';
+    // Border for selection or default state
+    ctx.strokeStyle = node.selected ? '#16e049ff' : '#424242';
     ctx.lineWidth = node.selected ? 2 : 1;
     ctx.stroke();
 
@@ -235,29 +234,43 @@ _drawNodeHeader(node) {
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
     ctx.fillText(fittedTitle, titleX, titleY);
 
-    // --- NEW: Draw player mode highlight indicator ---
-    // If the node is active in player mode, draw a green circle.
+    // Draw player mode highlight indicator with pulsing animation
     if (node.highlighted) {
+        // --- Pulsing Animation Logic ---
+        const period = 2000; // 2 seconds for a full cycle
+        const currentTime = Date.now();
+        
+        // Create a wave that oscillates between -1 and 1 over the period
+        const wave = Math.sin((currentTime % period) / period * Math.PI * 2);
+        
+        // Normalize the wave to a 0-1 range (0 -> 0.5 -> 1 -> 0.5 -> 0)
+        const normalizedWave = (wave + 1) / 2; 
+        
+        // Map the 0-1 range to a desired opacity range, e.g., 0.3 to 1.0
+        const minOpacity = 0.3;
+        const maxOpacity = 1.0;
+        const opacity = minOpacity + normalizedWave * (maxOpacity - minOpacity);
+        
+        // --- Drawing Logic ---
         const radius = 5;
         const padding = 8;
         const circleX = node.x + padding;
         const circleY = node.y + NODE_HEADER_HEIGHT - padding;
+
+        ctx.save(); // Save the context state before changing alpha
+        ctx.globalAlpha = opacity; // Apply the calculated opacity
         
-        ctx.fillStyle = '#7febfb'; // A nice, modern green
+        ctx.fillStyle = '#7febfb'; 
         ctx.beginPath();
         ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
         ctx.fill();
         
-        // Optional: add a subtle inner dot to make it look "live"
-        //ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        //ctx.beginPath();
-        //ctx.arc(circleX, circleY, radius * 0.4, 0, Math.PI * 2);
-        //ctx.fill();
+        ctx.restore(); // Restore context state (resets globalAlpha to its previous value)
     }
-    
-    ctx.restore();
-  }
 
+    ctx.restore(); // Final restore for the entire function
+  }
+  
   drawMarquee() {
     const ctx = this.ctx;
     ctx.save();
