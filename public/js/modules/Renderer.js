@@ -594,55 +594,64 @@ _drawNodeHeader(node) {
   
 _getIntersectionWithNodeRect(node, externalPoint) {
     const rect = this._getNodeVisualRect(node);
-    // The ray MUST originate from the stable header center for consistent angles.
     const rayOrigin = { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEADER_HEIGHT / 2 };
-
     const dir = { x: externalPoint.x - rayOrigin.x, y: externalPoint.y - rayOrigin.y };
 
     if (Math.abs(dir.x) < 1e-6 && Math.abs(dir.y) < 1e-6) {
-      return rayOrigin;
+      return rayOrigin; // Points are identical.
     }
 
-    let t_values = [];
+    let t = Infinity;
 
-    // Check intersection with vertical sides
-    if (Math.abs(dir.x) > 1e-6) {
-      let t1 = (rect.x - rayOrigin.x) / dir.x;
-      let t2 = (rect.x + rect.width - rayOrigin.x) / dir.x;
-      let y1 = rayOrigin.y + t1 * dir.y;
-      if (t1 >= 0 && y1 >= rect.y && y1 <= rect.y + rect.height) t_values.push(t1);
-      let y2 = rayOrigin.y + t2 * dir.y;
-      if (t2 >= 0 && y2 >= rect.y && y2 <= rect.y + rect.height) t_values.push(t2);
-    }
-
-    // Check intersection with horizontal sides
-    if (Math.abs(dir.y) > 1e-6) {
-      let t3 = (rect.y - rayOrigin.y) / dir.y;
-      let t4 = (rect.y + rect.height - rayOrigin.y) / dir.y;
-      let x3 = rayOrigin.x + t3 * dir.x;
-      if (t3 >= 0 && x3 >= rect.x && x3 <= rect.x + rect.width) t_values.push(t3);
-      let x4 = rayOrigin.x + t4 * dir.x;
-      if (t4 >= 0 && x4 >= rect.x && x4 <= rect.x + rect.width) t_values.push(x4);
-    }
-    
-    // Find the closest valid intersection point
-    if (t_values.length > 0) {
-      const t = Math.min(...t_values);
-      // Ensure we don't go past the target (important for control points)
-      if (t <= 1.0) {
-        return { x: rayOrigin.x + t * dir.x, y: rayOrigin.y + t * dir.y };
+    // --- Vertical Sides (Left and Right) ---
+    if (dir.x !== 0) {
+      const tLeft = (rect.x - rayOrigin.x) / dir.x;
+      if (tLeft >= 0) {
+        const y = rayOrigin.y + tLeft * dir.y;
+        if (y >= rect.y && y <= rect.y + rect.height) {
+          t = Math.min(t, tLeft);
+        }
+      }
+      
+      const tRight = (rect.x + rect.width - rayOrigin.x) / dir.x;
+      if (tRight >= 0) {
+        const y = rayOrigin.y + tRight * dir.y;
+        if (y >= rect.y && y <= rect.y + rect.height) {
+          t = Math.min(t, tRight);
+        }
       }
     }
 
-    // Fallback if target is inside the node area
-    const targetIsInside = externalPoint.x >= rect.x && externalPoint.x <= rect.x + rect.width &&
-                           externalPoint.y >= rect.y && externalPoint.y <= rect.y + rect.height;
-    if(targetIsInside) {
-        return externalPoint;
+    // --- Horizontal Sides (Top and Bottom) ---
+    if (dir.y !== 0) {
+      const tTop = (rect.y - rayOrigin.y) / dir.y;
+      if (tTop >= 0) {
+        // CORRECTED: Was dir.y, should be dir.x
+        const x = rayOrigin.x + tTop * dir.x;
+        if (x >= rect.x && x <= rect.x + rect.width) {
+          t = Math.min(t, tTop);
+        }
+      }
+      
+      const tBottom = (rect.y + rect.height - rayOrigin.y) / dir.y;
+      if (tBottom >= 0) {
+        // CORRECTED: Was dir.y, should be dir.x
+        const x = rayOrigin.x + tBottom * dir.x;
+        if (x >= rect.x && x <= rect.x + rect.width) {
+          t = Math.min(t, tBottom);
+        }
+      }
     }
 
-    // Final fallback to prevent errors
-    return rayOrigin;
+    // Clamp 't' to not go past the external point (e.g. control points)
+    t = Math.min(t, 1.0);
+
+    if (Number.isFinite(t)) {
+      return { x: rayOrigin.x + t * dir.x, y: rayOrigin.y + t * dir.y };
+    }
+
+    // Fallback if target is inside the node
+    return externalPoint;
   }
 
   drawTemporaryEdge() {
