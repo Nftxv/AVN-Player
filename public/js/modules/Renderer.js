@@ -7,7 +7,7 @@ const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
 const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
 const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
-const DECORATION_LOD_THRESHOLD = 1.5;
+const DECORATION_LOD_THRESHOLD = 2.0;
 
 export default class Renderer {
   constructor(canvasId, iframeContainer, markdownContainer) {
@@ -208,7 +208,7 @@ drawEdge(edge) {
     }
   }
 
-  _drawNodeHeader(node) {
+_drawNodeHeader(node) {
     const ctx = this.ctx;
     ctx.save();
     
@@ -234,22 +234,44 @@ drawEdge(edge) {
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
     ctx.fillText(fittedTitle, titleX, titleY);
 
-    // Draw player mode highlight indicator with pulsing animation
+    // Draw player mode highlight indicator with custom blink animation
     if (node.highlighted) {
-        // --- Pulsing Animation Logic ---
-        const period = 2000; // 2 seconds for a full cycle
-        const currentTime = Date.now();
         
-        // Create a wave that oscillates between -1 and 1 over the period
-        const wave = Math.sin((currentTime % period) / period * Math.PI * 2);
-        
-        // Normalize the wave to a 0-1 range (0 -> 0.5 -> 1 -> 0.5 -> 0)
-        const normalizedWave = (wave + 1) / 2; 
-        
-        // Map the 0-1 range to a desired opacity range, e.g., 0.3 to 1.0
-        const minOpacity = 0.3;
+        // --- Animation Configuration (Easy to tweak) ---
+        const ON_DURATION = 1200;      // ms -- How long it stays fully bright
+        const FADE_OUT_DURATION = 300; // ms -- How long it takes to fade out
+        const OFF_DURATION = 200;      // ms -- How long it stays dim
+        const FADE_IN_DURATION = 300;  // ms -- How long it takes to fade in
+
         const maxOpacity = 1.0;
-        const opacity = minOpacity + normalizedWave * (maxOpacity - minOpacity);
+        const minOpacity = 0.2;
+        
+        // --- Animation Logic ---
+        const TOTAL_CYCLE_DURATION = ON_DURATION + FADE_OUT_DURATION + OFF_DURATION + FADE_IN_DURATION;
+        const timeInCycle = Date.now() % TOTAL_CYCLE_DURATION;
+
+        let opacity = maxOpacity;
+
+        // Phase 1: ON
+        if (timeInCycle < ON_DURATION) {
+            opacity = maxOpacity;
+        }
+        // Phase 2: Fading Out
+        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION) {
+            const timeInFade = timeInCycle - ON_DURATION;
+            const progress = timeInFade / FADE_OUT_DURATION;
+            opacity = maxOpacity - progress * (maxOpacity - minOpacity);
+        }
+        // Phase 3: OFF
+        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION + OFF_DURATION) {
+            opacity = minOpacity;
+        }
+        // Phase 4: Fading In
+        else {
+            const timeInFade = timeInCycle - (ON_DURATION + FADE_OUT_DURATION + OFF_DURATION);
+            const progress = timeInFade / FADE_IN_DURATION;
+            opacity = minOpacity + progress * (maxOpacity - minOpacity);
+        }
         
         // --- Drawing Logic ---
         const radius = 5;
@@ -257,19 +279,19 @@ drawEdge(edge) {
         const circleX = node.x + padding;
         const circleY = node.y + NODE_HEADER_HEIGHT - padding;
 
-        ctx.save(); // Save the context state before changing alpha
-        ctx.globalAlpha = opacity; // Apply the calculated opacity
+        ctx.save();
+        ctx.globalAlpha = opacity;
         
         ctx.fillStyle = '#7febfb'; 
         ctx.beginPath();
         ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
         ctx.fill();
         
-        ctx.restore(); // Restore context state (resets globalAlpha to its previous value)
+        ctx.restore();
     }
 
-    ctx.restore(); // Final restore for the entire function
-  }
+    ctx.restore();
+}
   
   drawMarquee() {
     const ctx = this.ctx;
