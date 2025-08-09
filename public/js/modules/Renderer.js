@@ -238,13 +238,13 @@ _drawNodeHeader(node) {
     if (node.highlighted) {
         
         // --- Animation Configuration (Easy to tweak) ---
-        const ON_DURATION = 1200;      // ms -- How long it stays fully bright
+        const ON_DURATION = 2400;      // ms -- How long it stays fully bright
         const FADE_OUT_DURATION = 300; // ms -- How long it takes to fade out
-        const OFF_DURATION = 200;      // ms -- How long it stays dim
+        const OFF_DURATION = 600;      // ms -- How long it stays dim
         const FADE_IN_DURATION = 300;  // ms -- How long it takes to fade in
 
         const maxOpacity = 1.0;
-        const minOpacity = 0.2;
+        const minOpacity = 0.0;
         
         // --- Animation Logic ---
         const TOTAL_CYCLE_DURATION = ON_DURATION + FADE_OUT_DURATION + OFF_DURATION + FADE_IN_DURATION;
@@ -282,7 +282,7 @@ _drawNodeHeader(node) {
         ctx.save();
         ctx.globalAlpha = opacity;
         
-        ctx.fillStyle = '#7febfb'; 
+        ctx.fillStyle = '#21da58ff'; 
         ctx.beginPath();
         ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
         ctx.fill();
