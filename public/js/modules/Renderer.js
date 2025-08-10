@@ -771,6 +771,7 @@ disableLocalInteraction() {
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
+    // --- Mouse Handlers (for Desktop) ---
     const handleMouseMove = (e) => {
         const oldMousePos = this.mousePos;
         this.mousePos = this.getCanvasCoords(e);
@@ -854,7 +855,6 @@ disableLocalInteraction() {
             window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp);
         }
     });
-
     this.canvas.addEventListener('wheel', (e) => {
         e.preventDefault(); this.disableLocalInteraction(); this.isAnimatingPan = false;
         const zoom = Math.exp((e.deltaY < 0 ? 1 : -1) * 0.1);
@@ -866,57 +866,118 @@ disableLocalInteraction() {
         this.offset.y = mY - (mY - this.offset.y) * aZ;
         this.scale = nS;
     });
-
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
 
     // --- Mobile Touch Handlers ---
     let touchStartPos = { x: 0, y: 0 };
+    let isPinching = false;
+    let pinchStartDistance = 0;
+    let pinchStartScale = 1;
+    let pinchStartMidpoint = { x: 0, y: 0 };
+    let pinchStartOffset = { x: 0, y: 0 };
+
     this.canvas.addEventListener('touchstart', (e) => {
       if (getIsEditorMode()) return;
       e.preventDefault();
-      this.disableLocalInteraction(); this.isAnimatingPan = false;
-      if (e.touches.length > 1) return; // Pinch zoom is handled by wheel event
-      
-      const touch = e.touches[0];
-      touchStartPos = { x: touch.clientX, y: touch.clientY };
-      this.dragged = false;
-      this.dragStart = { x: touch.clientX - this.offset.x, y: touch.clientY - this.offset.y };
-      
-      this.longPressTimer = setTimeout(() => {
+      this.disableLocalInteraction();
+      this.isAnimatingPan = false;
+      if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
+
+      if (e.touches.length === 2) {
+        isPinching = true;
+        this.dragged = true;
+        
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        
+        pinchStartDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        pinchStartScale = this.scale;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        pinchStartMidpoint = {
+            x: (t1.clientX + t2.clientX) / 2 - rect.left,
+            y: (t1.clientY + t2.clientY) / 2 - rect.top
+        };
+        pinchStartOffset = { ...this.offset };
+
+      } else if (e.touches.length === 1) {
+        isPinching = false;
+        const touch = e.touches[0];
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
+        this.dragged = false;
+        this.dragStart = { x: touch.clientX - this.offset.x, y: touch.clientY - this.offset.y };
+
+        this.longPressTimer = setTimeout(() => {
           this.longPressTimer = null;
           if (this.dragged) return;
           const targetOverlay = this.findOverlayAtScreenPoint(touch.clientX, touch.clientY);
           if (targetOverlay) {
-              this.activeInteractionOverlay = targetOverlay;
-              targetOverlay.classList.add('interaction-enabled');
+            this.activeInteractionOverlay = targetOverlay;
+            targetOverlay.classList.add('interaction-enabled');
           }
-      }, 500);
+        }, 500);
+      }
     }, { passive: false });
 
     this.canvas.addEventListener('touchmove', (e) => {
-        if (getIsEditorMode() || e.touches.length > 1 || this.activeInteractionOverlay) return;
+      if (getIsEditorMode() || this.activeInteractionOverlay) return;
+      e.preventDefault();
+
+      if (isPinching && e.touches.length === 2) {
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+        if (pinchStartDistance === 0) return;
+        const scaleRatio = currentDistance / pinchStartDistance;
+        const newScale = Math.max(0.05, Math.min(50, pinchStartScale * scaleRatio));
+        
+        const worldPointX = (pinchStartMidpoint.x - pinchStartOffset.x) / pinchStartScale;
+        const worldPointY = (pinchStartMidpoint.y - pinchStartOffset.y) / pinchStartScale;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const currentMidpointX = (t1.clientX + t2.clientX) / 2 - rect.left;
+        const currentMidpointY = (t1.clientY + t2.clientY) / 2 - rect.top;
+
+        this.scale = newScale;
+        this.offset.x = currentMidpointX - worldPointX * newScale;
+        this.offset.y = currentMidpointY - worldPointY * newScale;
+
+      } else if (!isPinching && e.touches.length === 1) {
         const touch = e.touches[0];
         const dx = touch.clientX - touchStartPos.x;
         const dy = touch.clientY - touchStartPos.y;
 
         if (!this.dragged && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
-            this.dragged = true;
-            if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
+          this.dragged = true;
+          if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
         }
         if (this.dragged) {
-            this.offset.x = touch.clientX - this.dragStart.x;
-            this.offset.y = touch.clientY - this.dragStart.y;
+          this.offset.x = touch.clientX - this.dragStart.x;
+          this.offset.y = touch.clientY - this.dragStart.y;
         }
-    });
+      }
+    }, { passive: false });
 
     this.canvas.addEventListener('touchend', (e) => {
       if (getIsEditorMode()) return;
       if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
-      if (!this.dragged && !this.activeInteractionOverlay) {
-          onClick({ clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY, ctrlKey: false, shiftKey: false });
+      
+      if (!isPinching && !this.dragged && !this.activeInteractionOverlay) {
+        onClick({ clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY, ctrlKey: false, shiftKey: false });
       }
+
+      if (e.touches.length < 2) isPinching = false;
+      
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        this.dragged = false;
+        this.dragStart = { x: touch.clientX - this.offset.x, y: touch.clientY - this.offset.y };
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
+      }
+      
       setTimeout(() => { this.dragged = false; }, 0);
     });
-  }  
+  }
 }
