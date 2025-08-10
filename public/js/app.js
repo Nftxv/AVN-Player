@@ -31,8 +31,8 @@ class GraphApp {
     this.iframeContainer = document.getElementById('iframe-container');
     this.markdownContainer = document.getElementById('markdown-container');
     this.graphData = new GraphData();
+    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer);
     this.player = new Player(this.graphData, this.iframeContainer);
-    this.renderer = new Renderer('graphCanvas', this.iframeContainer, this.markdownContainer, this);
     this.navigation = new Navigation(this.graphData, this.player, this.renderer, this);
     this.editorTools = new EditorTools(this.graphData, this.renderer, this);
     

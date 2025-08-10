@@ -409,20 +409,11 @@ export default class EditorTools {
             entity.coverUrl = document.getElementById('coverUrl').value || null;
             entity.iframeUrl = null;
         } else if (entity.sourceType === 'iframe') {
-        const oldUrl = entity.iframeUrl;
-        const userInput = document.getElementById('iframeUrlInput').value;
-        const newUrl = this.graphData.parseYoutubeUrl(userInput) || null;
-
-        entity.iframeUrl = newUrl;
-        entity.audioUrl = null;
-        entity.coverUrl = null;
-
-        // The fix is here: If URL changed, destroy the old player instance.
-        if (oldUrl !== newUrl) {
-            console.log(`YouTube URL changed for ${entity.id}. Destroying old player.`);
-            this.app.player.destroyYtPlayer(entity.id);
+            const userInput = document.getElementById('iframeUrlInput').value;
+            entity.iframeUrl = this.graphData.parseYoutubeUrl(userInput) || null;
+            entity.audioUrl = null;
+            entity.coverUrl = null;
         }
-    }
     } else if (entity.source) { // Edge
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
