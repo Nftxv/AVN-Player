@@ -739,17 +739,17 @@ _getIntersectionWithNodeRect(node, externalPoint) {
     requestAnimationFrame(animate);
   }
   
-  setupCanvasInteraction(callbacks) {
+setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
+    // --- Mouse Controls ---
     const handleMouseMove = (e) => {
         const oldMousePos = this.mousePos;
         this.mousePos = this.getCanvasCoords(e);
         if (e.buttons === 0) { handleMouseUp(e); return; }
         this.dragged = true;
-
         if (this.dragging) {
             this.offset.x = e.clientX - this.dragStart.x;
             this.offset.y = e.clientY - this.dragStart.y;
@@ -757,190 +757,46 @@ _getIntersectionWithNodeRect(node, externalPoint) {
             const dx = this.mousePos.x - oldMousePos.x;
             const dy = this.mousePos.y - oldMousePos.y;
             if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
-
             const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
             const movedItems = new Set();
-            
-            // REVISED: Comprehensive move logic for groups and attachments
             const move = (entity) => {
                 if (!entity || movedItems.has(entity.id) || (getIsDecorationsLocked() && entity.type)) return;
-                
                 movedItems.add(entity.id);
-                entity.x += dx;
-                entity.y += dy;
-
-                if (entity.type === 'rectangle' || entity.sourceType) { // is a container or node
-                    // Move children of a group
-                    this.graphData.decorations.forEach(child => {
-                        if (child.parentId === entity.id) move(child);
-                    });
-                    // Move attached groups to a node
-                    if (entity.sourceType) {
-                        this.graphData.decorations.forEach(container => {
-                           if(container.attachedToNodeId === entity.id && !container.parentId) {
-                               move(container);
-                           }
-                        });
-                    }
+                entity.x += dx; entity.y += dy;
+                if (entity.type === 'rectangle' || entity.sourceType) {
+                    this.graphData.decorations.forEach(child => { if (child.parentId === entity.id) move(child); });
+                    if (entity.sourceType) { this.graphData.decorations.forEach(container => { if(container.attachedToNodeId === entity.id && !container.parentId) move(container); });}
                 }
-                
-                // Update attachment offset if the container is moved independently
-                if(entity.type === 'rectangle' && entity.attachedToNodeId) {
-                    const node = this.graphData.getNodeById(entity.attachedToNodeId);
-                    if(node) {
-                        entity.attachOffsetX = entity.x - node.x;
-                        entity.attachOffsetY = entity.y - node.y;
-                    }
-                }
+                if(entity.type === 'rectangle' && entity.attachedToNodeId) { const node = this.graphData.getNodeById(entity.attachedToNodeId); if(node) { entity.attachOffsetX = entity.x - node.x; entity.attachOffsetY = entity.y - node.y; } }
             };
-            
             selection.forEach(move);
-
         } else if (this.draggingControlPoint) {
-            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].x = this.mousePos.x;
-            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].y = this.mousePos.y;
+            this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex] = { ...this.mousePos };
         } else if (this.isMarqueeSelecting) {
-            this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x;
-            this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
+            this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x; this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
         }
     };
-
     const handleMouseUp = (e) => {
-        if (this.isMarqueeSelecting) {
-            const normalizedRect = this.normalizeRect(this.marqueeRect);
-            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
-        }
-        if (this.isCreatingEdge && e.button === 2) {
-            const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-            if (targetClick && targetClick.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) {
-                onEdgeCreated(this.edgeCreationSource, targetClick.entity);
-            }
-        }
-        
+        if (this.isMarqueeSelecting) { if (Math.abs(this.marqueeRect.w) > 5 || Math.abs(this.marqueeRect.h) > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey); }
+        if (this.isCreatingEdge && e.button === 2) { const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true }); if (targetClick?.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) { onEdgeCreated(this.edgeCreationSource, targetClick.entity); } }
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab';
-        
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-
+        window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp);
         setTimeout(() => { this.dragged = false; }, 0);
     };
-    
     this.canvas.addEventListener('mousedown', (e) => {
         this.isAnimatingPan = false; 
         const isEditor = getIsEditorMode();
         this.mousePos = this.getCanvasCoords(e);
         this.dragged = false;
-        
-        const handlePanStart = () => {
-            this.dragging = true;
-            this.dragStart.x = e.clientX - this.offset.x;
-            this.dragStart.y = e.clientY - this.offset.y;
-            this.canvas.style.cursor = 'grabbing';
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        };
-
-        if (e.button === 1 || (e.button === 0 && !isEditor)) { // Middle click or Left click in player mode
-            handlePanStart();
-            return;
-        }
-
+        const handlePanStart = () => { this.dragging = true; this.dragStart.x = e.clientX - this.offset.x; this.dragStart.y = e.clientY - this.offset.y; this.canvas.style.cursor = 'grabbing'; window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp); };
+        if (e.button === 1 || (e.button === 0 && !isEditor)) { handlePanStart(); return; }
         if (!isEditor) return;
-
-        // Editor mode interactions
-        if (e.button === 0) { // Left
-             const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
-             if (cp) { this.draggingControlPoint = cp; }
-             else {
-                 const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-                 if (clicked) {
-                     const entity = clicked.entity;
-                     this.draggingEntity = entity;
-                     if (entity.selected) this.isDraggingSelection = true;
-                 } else {
-                     this.isMarqueeSelecting = true;
-                     this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
-                 }
-             }
-        } else if (e.button === 2) { // Right
-            e.preventDefault();
-            const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
-            if (cp) {
-                cp.edge.controlPoints.splice(cp.pointIndex, 1);
-            } else {
-                const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-                if (clickedNode && clickedNode.type === 'node') {
-                    this.isCreatingEdge = true;
-                    this.edgeCreationSource = clickedNode.entity;
-                }
-            }
-        }
-
-        if (this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
-            this.canvas.style.cursor = 'crosshair';
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        }
+        if (e.button === 0) { const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y); if (cp) { this.draggingControlPoint = cp; } else { const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() }); if (clicked) { this.draggingEntity = clicked.entity; if (clicked.entity.selected) this.isDraggingSelection = true; } else { this.isMarqueeSelecting = true; this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 }; } } } 
+        else if (e.button === 2) { e.preventDefault(); const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y); if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); } else { const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true }); if (clickedNode?.type === 'node') { this.isCreatingEdge = true; this.edgeCreationSource = clickedNode.entity; } } }
+        if (this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) { this.canvas.style.cursor = 'crosshair'; window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp); }
     });
-
-this.canvas.addEventListener('mousedown', (e) => {
-        this.isAnimatingPan = false; 
-        const isEditor = getIsEditorMode();
-        this.mousePos = this.getCanvasCoords(e);
-        this.dragged = false;
-        
-        const handlePanStart = () => {
-            this.dragging = true;
-            this.dragStart.x = e.clientX - this.offset.x;
-            this.dragStart.y = e.clientY - this.offset.y;
-            this.canvas.style.cursor = 'grabbing';
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        };
-
-        if (e.button === 1 || (e.button === 0 && !isEditor)) { // Middle click or Left click in player mode
-            handlePanStart();
-            return;
-        }
-
-        if (!isEditor) return;
-
-        // Editor mode interactions
-        if (e.button === 0) { // Left
-             const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
-             if (cp) { this.draggingControlPoint = cp; }
-             else {
-                 const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-                 if (clicked) {
-                     const entity = clicked.entity;
-                     this.draggingEntity = entity;
-                     if (entity.selected) this.isDraggingSelection = true;
-                 } else {
-                     this.isMarqueeSelecting = true;
-                     this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
-                 }
-             }
-        } else if (e.button === 2) { // Right
-            e.preventDefault();
-            const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
-            if (cp) {
-                cp.edge.controlPoints.splice(cp.pointIndex, 1);
-            } else {
-                const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-                if (clickedNode && clickedNode.type === 'node') {
-                    this.isCreatingEdge = true;
-                    this.edgeCreationSource = clickedNode.entity;
-                }
-            }
-        }
-
-        if (this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
-            this.canvas.style.cursor = 'crosshair';
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        }
-    });
+    this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.isAnimatingPan = false; const zoomIntensity = 0.1; const wheel = e.deltaY < 0 ? 1 : -1; const zoom = Math.exp(wheel * zoomIntensity); const rect = this.canvas.getBoundingClientRect(); const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top; const newScale = Math.max(0.05, Math.min(50, this.scale * zoom)); const actualZoom = newScale / this.scale; this.offset.x = mouseX - (mouseX - this.offset.x) * actualZoom; this.offset.y = mouseY - (mouseY - this.offset.y) * actualZoom; this.scale = newScale; });
 
     // --- Mobile Touch Controls (Player Mode Only) ---
     const handleTouchStart = (e) => {
@@ -950,75 +806,46 @@ this.canvas.addEventListener('mousedown', (e) => {
         this.dragged = false;
         const touches = e.touches;
         if (touches.length === 1) {
-            this.dragStart.x = touches[0].clientX - this.offset.x;
-            this.dragStart.y = touches[0].clientY - this.offset.y;
-            this.touchState = { type: 'pan' };
+            this.touchState = { type: 'pan', startX: touches[0].clientX, startY: touches[0].clientY, initialOffset: { ...this.offset } };
         } else if (touches.length >= 2) {
-            const t1 = touches[0];
-            const t2 = touches[1];
-            this.touchState = {
-                type: 'zoom',
-                dist: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY),
-                midpoint: { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }
-            };
+            const t1 = touches[0], t2 = touches[1];
+            this.touchState = { type: 'zoom', initialDist: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY), initialMidpoint: { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }, initialScale: this.scale, initialOffset: { ...this.offset } };
         }
     };
     const handleTouchMove = (e) => {
-        if (getIsEditorMode()) return;
+        if (getIsEditorMode() || !e.touches.length) return;
         e.preventDefault();
         this.dragged = true;
-        const touches = e.touches;
-        if (touches.length === 1 && this.touchState.type === 'pan') {
-            this.offset.x = touches[0].clientX - this.dragStart.x;
-            this.offset.y = touches[0].clientY - this.dragStart.y;
-        } else if (touches.length >= 2 && this.touchState.type === 'zoom') {
-            const t1 = touches[0];
-            const t2 = touches[1];
-            const newDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-            const zoom = newDist / this.touchState.dist;
-            const newScale = Math.max(0.05, Math.min(50, this.scale * zoom));
-            const actualZoom = newScale / this.scale;
-            // Center zoom on the midpoint of the fingers
-            const newMidpoint = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
-            this.offset.x = newMidpoint.x - (this.touchState.midpoint.x - this.offset.x) * actualZoom;
-            this.offset.y = newMidpoint.y - (this.touchState.midpoint.y - this.offset.y) * actualZoom;
+        if (this.touchState.type === 'pan' && e.touches.length === 1) {
+            const dx = e.touches[0].clientX - this.touchState.startX;
+            const dy = e.touches[0].clientY - this.touchState.startY;
+            this.offset.x = this.touchState.initialOffset.x + dx;
+            this.offset.y = this.touchState.initialOffset.y + dy;
+        } else if (this.touchState.type === 'zoom' && e.touches.length >= 2) {
+            const t1 = e.touches[0], t2 = e.touches[1];
+            const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+            const zoomFactor = currentDist / this.touchState.initialDist;
+            const newScale = Math.max(0.05, Math.min(50, this.touchState.initialScale * zoomFactor));
+            const currentMidpoint = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+            const scaleRatio = newScale / this.touchState.initialScale;
             this.scale = newScale;
-            // Update state for next move event
-            this.touchState.dist = newDist;
-            this.touchState.midpoint = newMidpoint;
+            this.offset.x = currentMidpoint.x - (this.touchState.initialMidpoint.x - this.touchState.initialOffset.x) * scaleRatio;
+            this.offset.y = currentMidpoint.y - (this.touchState.initialMidpoint.y - this.touchState.initialOffset.y) * scaleRatio;
         }
     };
     const handleTouchEnd = (e) => {
         if (getIsEditorMode()) return;
-        // If it wasn't a drag/pan, and it's the last finger lifted, it's a tap.
-        if (!this.dragged && e.changedTouches.length === 1 && e.touches.length === 0) {
-            onClick(e.changedTouches[0]);
-        }
-        if (e.touches.length < 2) {
-            this.touchState = {}; // Reset state if zoom is over or pan is over
+        if (!this.dragged) onClick(e.changedTouches[0]);
+        if (e.touches.length === 1) { // Transition from zoom to pan
+            handleTouchStart(e); 
+        } else if (e.touches.length === 0) {
+            this.touchState = {};
         }
         setTimeout(() => { this.dragged = false; }, 0);
     };
     this.canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     this.canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     this.canvas.addEventListener('touchend', handleTouchEnd);
-    // --- End Mobile Touch Controls ---
-
-    this.canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        this.isAnimatingPan = false;
-        const zoomIntensity = 0.1;
-        const wheel = e.deltaY < 0 ? 1 : -1;
-        const zoom = Math.exp(wheel * zoomIntensity);
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        const newScale = Math.max(0.05, Math.min(50, this.scale * zoom));
-        const actualZoom = newScale / this.scale;
-
-        this.offset.x = mouseX - (mouseX - this.offset.x) * actualZoom;
-        this.offset.y = mouseY - (mouseY - this.offset.y) * actualZoom;
-        this.scale = newScale;
-    });
 
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
