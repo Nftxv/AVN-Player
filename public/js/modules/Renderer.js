@@ -26,6 +26,10 @@ export default class Renderer {
     this.dragging = false;
     this.draggingEntity = null;
     this.isDraggingSelection = false;
+
+    // Mobile & Touch properties
+    this.longPressTimer = null;
+    this.activeInteractionOverlay = null;
     
     this.draggingControlPoint = null;
     this.isCreatingEdge = false;
@@ -475,12 +479,14 @@ _drawNodeHeader(node) {
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
-    // REVISED: Changed selection order. Nodes are now "on top" of decorations.
+    // Nodes are on top
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
         const rect = this._getNodeVisualRect(node);
         if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
-            return { type: 'node', entity: node };
+            const headerRect = { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
+            const isHeaderClick = (x > headerRect.x && x < headerRect.x + headerRect.width && y > headerRect.y && y < headerRect.y + headerRect.height);
+            return { type: 'node', entity: node, part: isHeaderClick ? 'header' : 'body' };
         }
     }
       
@@ -492,7 +498,7 @@ _drawNodeHeader(node) {
             const tolerance = 7 / this.scale;
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                  const deco = this.graphData.decorations[i];
-                 if (deco.backgroundColor === 'transparent') continue; // Don't click transparent in LOD
+                 if (deco.backgroundColor === 'transparent') continue;
                  const decoCenterX = deco.x + deco.width/2;
                  const decoCenterY = deco.y + deco.height/2;
                  if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
@@ -504,7 +510,7 @@ _drawNodeHeader(node) {
                 const deco = this.graphData.decorations[i];
                 const bounds = this._getDecorationBounds(deco);
                 if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                    if (deco.backgroundColor === 'transparent' && !deco.selected) continue; // Only allow clicking transparent containers if they're already selected
+                    if (deco.backgroundColor === 'transparent' && !deco.selected) continue;
                     return { type: 'decoration', entity: deco };
                 }
             }
@@ -737,7 +743,29 @@ _getIntersectionWithNodeRect(node, externalPoint) {
     };
     requestAnimationFrame(animate);
   }
-  
+disableLocalInteraction() {
+    if (this.activeInteractionOverlay) {
+        this.activeInteractionOverlay.classList.remove('interaction-enabled');
+        this.activeInteractionOverlay = null;
+    }
+  }
+
+  findOverlayAtScreenPoint(clientX, clientY) {
+    const overlays = [
+        ...Array.from(this.markdownOverlays.values()),
+        ...Array.from(this.iframeContainer.children)
+    ];
+
+    for (const overlay of overlays.reverse()) { // Check top-most elements first
+        if (overlay.style.display === 'none') continue;
+        const rect = overlay.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+            return overlay;
+        }
+    }
+    return null;
+  }
+
   setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
     window.addEventListener('resize', () => this.resizeCanvas());
@@ -756,45 +784,23 @@ _getIntersectionWithNodeRect(node, externalPoint) {
             const dx = this.mousePos.x - oldMousePos.x;
             const dy = this.mousePos.y - oldMousePos.y;
             if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
-
             const selection = this.isDraggingSelection ? getSelection() : [this.draggingEntity];
             const movedItems = new Set();
-            
-            // REVISED: Comprehensive move logic for groups and attachments
             const move = (entity) => {
                 if (!entity || movedItems.has(entity.id) || (getIsDecorationsLocked() && entity.type)) return;
-                
                 movedItems.add(entity.id);
                 entity.x += dx;
                 entity.y += dy;
-
-                if (entity.type === 'rectangle' || entity.sourceType) { // is a container or node
-                    // Move children of a group
-                    this.graphData.decorations.forEach(child => {
-                        if (child.parentId === entity.id) move(child);
-                    });
-                    // Move attached groups to a node
-                    if (entity.sourceType) {
-                        this.graphData.decorations.forEach(container => {
-                           if(container.attachedToNodeId === entity.id && !container.parentId) {
-                               move(container);
-                           }
-                        });
-                    }
+                if (entity.type === 'rectangle' || entity.sourceType) {
+                    this.graphData.decorations.forEach(child => { if (child.parentId === entity.id) move(child); });
+                    if (entity.sourceType) { this.graphData.decorations.forEach(c => { if(c.attachedToNodeId === entity.id && !c.parentId) move(c); }); }
                 }
-                
-                // Update attachment offset if the container is moved independently
                 if(entity.type === 'rectangle' && entity.attachedToNodeId) {
                     const node = this.graphData.getNodeById(entity.attachedToNodeId);
-                    if(node) {
-                        entity.attachOffsetX = entity.x - node.x;
-                        entity.attachOffsetY = entity.y - node.y;
-                    }
+                    if(node) { entity.attachOffsetX = entity.x - node.x; entity.attachOffsetY = entity.y - node.y; }
                 }
             };
-            
             selection.forEach(move);
-
         } else if (this.draggingControlPoint) {
             this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].x = this.mousePos.x;
             this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].y = this.mousePos.y;
@@ -803,103 +809,114 @@ _getIntersectionWithNodeRect(node, externalPoint) {
             this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y;
         }
     };
-
     const handleMouseUp = (e) => {
         if (this.isMarqueeSelecting) {
-            const normalizedRect = this.normalizeRect(this.marqueeRect);
-            if (normalizedRect.w > 5 || normalizedRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
+            const nRect = this.normalizeRect(this.marqueeRect);
+            if (nRect.w > 5 || nRect.h > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey);
         }
         if (this.isCreatingEdge && e.button === 2) {
-            const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-            if (targetClick && targetClick.type === 'node' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) {
-                onEdgeCreated(this.edgeCreationSource, targetClick.entity);
+            const tClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+            if (tClick?.type === 'node' && this.edgeCreationSource && tClick.entity.id !== this.edgeCreationSource.id) {
+                onEdgeCreated(this.edgeCreationSource, tClick.entity);
             }
         }
-        
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
         this.canvas.style.cursor = 'grab';
-        
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
-
         setTimeout(() => { this.dragged = false; }, 0);
     };
-    
     this.canvas.addEventListener('mousedown', (e) => {
-        this.isAnimatingPan = false; 
-        const isEditor = getIsEditorMode();
-        this.mousePos = this.getCanvasCoords(e);
-        this.dragged = false;
-        
+        this.disableLocalInteraction(); this.isAnimatingPan = false;
+        const isEditor = getIsEditorMode(); this.mousePos = this.getCanvasCoords(e); this.dragged = false;
         const handlePanStart = () => {
-            this.dragging = true;
-            this.dragStart.x = e.clientX - this.offset.x;
-            this.dragStart.y = e.clientY - this.offset.y;
+            this.dragging = true; this.dragStart.x = e.clientX - this.offset.x; this.dragStart.y = e.clientY - this.offset.y;
             this.canvas.style.cursor = 'grabbing';
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp);
         };
-
-        if (e.button === 1 || (e.button === 0 && !isEditor)) { // Middle click or Left click in player mode
-            handlePanStart();
-            return;
-        }
-
+        if (e.button === 1 || (e.button === 0 && !isEditor)) { handlePanStart(); return; }
         if (!isEditor) return;
-
-        // Editor mode interactions
-        if (e.button === 0) { // Left
+        if (e.button === 0) {
              const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
              if (cp) { this.draggingControlPoint = cp; }
              else {
                  const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
-                 if (clicked) {
-                     const entity = clicked.entity;
-                     this.draggingEntity = entity;
-                     if (entity.selected) this.isDraggingSelection = true;
-                 } else {
-                     this.isMarqueeSelecting = true;
-                     this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
-                 }
+                 if (clicked) { this.draggingEntity = clicked.entity; if (clicked.entity.selected) this.isDraggingSelection = true; } 
+                 else { this.isMarqueeSelecting = true; this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 }; }
              }
-        } else if (e.button === 2) { // Right
-            e.preventDefault();
-            const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
-            if (cp) {
-                cp.edge.controlPoints.splice(cp.pointIndex, 1);
-            } else {
-                const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
-                if (clickedNode && clickedNode.type === 'node') {
-                    this.isCreatingEdge = true;
-                    this.edgeCreationSource = clickedNode.entity;
-                }
-            }
+        } else if (e.button === 2) {
+            e.preventDefault(); const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
+            if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); } 
+            else { const cNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true }); if (cNode?.type === 'node') { this.isCreatingEdge = true; this.edgeCreationSource = cNode.entity; } }
         }
-
         if (this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
             this.canvas.style.cursor = 'crosshair';
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp);
         }
     });
 
     this.canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        this.isAnimatingPan = false;
-        const zoomIntensity = 0.1;
-        const wheel = e.deltaY < 0 ? 1 : -1;
-        const zoom = Math.exp(wheel * zoomIntensity);
+        e.preventDefault(); this.disableLocalInteraction(); this.isAnimatingPan = false;
+        const zoom = Math.exp((e.deltaY < 0 ? 1 : -1) * 0.1);
         const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        const newScale = Math.max(0.05, Math.min(50, this.scale * zoom));
-        const actualZoom = newScale / this.scale;
-
-        this.offset.x = mouseX - (mouseX - this.offset.x) * actualZoom;
-        this.offset.y = mouseY - (mouseY - this.offset.y) * actualZoom;
-        this.scale = newScale;
+        const mX = e.clientX - rect.left, mY = e.clientY - rect.top;
+        const nS = Math.max(0.05, Math.min(50, this.scale * zoom));
+        const aZ = nS / this.scale;
+        this.offset.x = mX - (mX - this.offset.x) * aZ;
+        this.offset.y = mY - (mY - this.offset.y) * aZ;
+        this.scale = nS;
     });
 
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
-  }
+
+    // --- Mobile Touch Handlers ---
+    let touchStartPos = { x: 0, y: 0 };
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (getIsEditorMode()) return;
+      e.preventDefault();
+      this.disableLocalInteraction(); this.isAnimatingPan = false;
+      if (e.touches.length > 1) return; // Pinch zoom is handled by wheel event
+      
+      const touch = e.touches[0];
+      touchStartPos = { x: touch.clientX, y: touch.clientY };
+      this.dragged = false;
+      this.dragStart = { x: touch.clientX - this.offset.x, y: touch.clientY - this.offset.y };
+      
+      this.longPressTimer = setTimeout(() => {
+          this.longPressTimer = null;
+          if (this.dragged) return;
+          const targetOverlay = this.findOverlayAtScreenPoint(touch.clientX, touch.clientY);
+          if (targetOverlay) {
+              this.activeInteractionOverlay = targetOverlay;
+              targetOverlay.classList.add('interaction-enabled');
+          }
+      }, 500);
+    }, { passive: false });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+        if (getIsEditorMode() || e.touches.length > 1 || this.activeInteractionOverlay) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStartPos.x;
+        const dy = touch.clientY - touchStartPos.y;
+
+        if (!this.dragged && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+            this.dragged = true;
+            if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
+        }
+        if (this.dragged) {
+            this.offset.x = touch.clientX - this.dragStart.x;
+            this.offset.y = touch.clientY - this.dragStart.y;
+        }
+    });
+
+    this.canvas.addEventListener('touchend', (e) => {
+      if (getIsEditorMode()) return;
+      if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
+      if (!this.dragged && !this.activeInteractionOverlay) {
+          onClick({ clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY, ctrlKey: false, shiftKey: false });
+      }
+      setTimeout(() => { this.dragged = false; }, 0);
+    });
+  }  
 }

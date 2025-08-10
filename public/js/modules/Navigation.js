@@ -17,9 +17,10 @@ export default class Navigation {
     this.graphData.edges.forEach(e => e.highlighted = false);
   }
 
-  startFromNode(nodeId) {
+startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
-    
+    this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
+
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
     
@@ -57,8 +58,9 @@ export default class Navigation {
     this.transitionToEdge(nextEdge);
   }
   
-  goBack() {
+goBack() {
     if (!this.currentNode) return;
+    this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
 
     const oldNodeId = this.currentNode.id;
     let prevNodeId = null;
@@ -95,6 +97,7 @@ export default class Navigation {
   }
 
   transitionToEdge(edge) {
+    this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
     const prevNodeId = this.currentNode.id;
     const nextNode = this.graphData.getNodeById(edge.target);
     if (!nextNode) return;
@@ -109,7 +112,7 @@ export default class Navigation {
         this.renderer.centerOnNode(nextNode.id, this.app.followScale, this.app.followScreenOffset);
     }
   }
-
+  
   promptForChoice(options) {
     //... No changes here
     return new Promise((resolve) => {

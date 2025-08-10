@@ -161,7 +161,7 @@ class GraphApp {
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
-  handleCanvasClick(event) {
+handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
@@ -175,9 +175,15 @@ class GraphApp {
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
     } else { // Player mode
-      if (clicked && clicked.type === 'node') {
-        this.navigation.startFromNode(clicked.entity.id);
+      // Only header clicks are active in player mode
+      if (clicked && clicked.type === 'node' && clicked.part === 'header') {
+        if (this.navigation.currentNode?.id === clicked.entity.id) {
+          this.player.togglePlay();
+        } else {
+          this.navigation.startFromNode(clicked.entity.id);
+        }
       }
+      // Tapping anywhere else does nothing.
     }
   }
   
