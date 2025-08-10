@@ -161,29 +161,48 @@ class GraphApp {
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
   }
 
-  handleCanvasClick(event) {
+handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
+    
     const coords = this.renderer.getCanvasCoords(event);
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
 
     if (this.isEditorMode) {
+      this.renderer.disableAllPointerEvents(); // Should not be needed but good for safety
       const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
       if (event.ctrlKey) mode = 'add';
       else if (event.shiftKey) mode = 'remove';
-      
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
 
     } else { // Player mode
-      if (clicked && clicked.type === 'node') {
-        this.navigation.startFromNode(clicked.entity.id);
-      } else if (!clicked) {
-        // On mobile, a tap on empty space toggles play/pause.
-        this.player.togglePlay();
+      // Before any action, reset all overlays to be non-interactive.
+      this.renderer.disableAllPointerEvents();
+
+      if (clicked) {
+        switch (clicked.type) {
+          case 'node-header':
+            // If it's the current node, toggle play/pause. Otherwise, start new playback.
+            if (this.navigation.currentNode?.id === clicked.entity.id) {
+              this.player.togglePlay();
+            } else {
+              this.navigation.startFromNode(clicked.entity.id);
+            }
+            break;
+          
+          case 'node-content':
+          case 'decoration':
+            // A "tap-to-activate" action. Enable pointer events on the specific overlay.
+            // The user's next click/tap will now interact with the overlay content (e.g., a link or YT play button).
+            const isIframe = clicked.type === 'node-content';
+            this.renderer.temporarilyEnablePointerEvents(clicked.entity.id, isIframe);
+            break;
+        }
       }
+      // If !clicked (click on empty space), do nothing.
     }
   }
-  
+    
   handleCanvasDblClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);

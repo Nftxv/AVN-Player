@@ -475,43 +475,70 @@ _drawNodeHeader(node) {
       return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
   }
 
-  getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
-    // REVISED: Changed selection order. Nodes are now "on top" of decorations.
+getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
+    // Nodes are always on top and checked first.
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
-        const rect = this._getNodeVisualRect(node);
-        if (x > rect.x && x < rect.x + rect.width && y > rect.y && y < rect.y + rect.height) {
-            return { type: 'node', entity: node };
+        const visualRect = this._getNodeVisualRect(node);
+        if (x > visualRect.x && x < visualRect.x + visualRect.width && y > visualRect.y && y < visualRect.y + visualRect.height) {
+            // Distinguish between header and content area
+            if (y > node.y && y < node.y + NODE_HEADER_HEIGHT) {
+                return { type: 'node-header', entity: node };
+            }
+            if (!node.isCollapsed) {
+                return { type: 'node-content', entity: node };
+            }
+            return { type: 'node-header', entity: node }; // Collapsed node is all header
         }
     }
-      
+    
+    // Check edges next.
     const edge = this.getEdgeAt(x, y);
     if (edge) return { type: 'edge', entity: edge };
 
+    // Finally, check decorations if they are not locked.
     if (!isDecorationsLocked) {
+        // LOD decorations (dots)
         if (this.scale < DECORATION_LOD_THRESHOLD) {
             const tolerance = 7 / this.scale;
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                  const deco = this.graphData.decorations[i];
-                 if (deco.backgroundColor === 'transparent') continue; // Don't click transparent in LOD
-                 const decoCenterX = deco.x + deco.width/2;
-                 const decoCenterY = deco.y + deco.height/2;
-                 if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
+                 if (deco.backgroundColor === 'transparent') continue;
+                 const decoCenterX = deco.x + deco.width / 2;
+                 const decoCenterY = deco.y + deco.height / 2;
+                 if (Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
                      return { type: 'decoration', entity: deco };
                  }
             }
-        } else {
+        } else { // Full-size decorations
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                 const deco = this.graphData.decorations[i];
                 const bounds = this._getDecorationBounds(deco);
                 if (x > bounds.x && x < bounds.x + bounds.width && y > bounds.y && y < bounds.y + bounds.height) {
-                    if (deco.backgroundColor === 'transparent' && !deco.selected) continue; // Only allow clicking transparent containers if they're already selected
+                    if (deco.backgroundColor === 'transparent' && !deco.selected) continue;
                     return { type: 'decoration', entity: deco };
                 }
             }
         }
     }
     return null;
+  }
+
+  // New method to enable interaction on a specific overlay
+  temporarilyEnablePointerEvents(entityId, isIframe) {
+    this.disableAllPointerEvents(); // Ensure only one is active at a time.
+    const selector = isIframe ? `iframe-wrapper-${entityId}` : `md-overlay-${entityId}`;
+    const element = document.getElementById(selector);
+    if (element) {
+        element.classList.add('interaction-enabled');
+        // The class will be removed by the next canvas click via disableAllPointerEvents.
+    }
+  }
+
+  // New method to reset all overlays to be non-interactive
+  disableAllPointerEvents() {
+    const overlays = document.querySelectorAll('.interaction-enabled');
+    overlays.forEach(el => el.classList.remove('interaction-enabled'));
   }
   
   getNodesInRect(rect) {
