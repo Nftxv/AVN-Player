@@ -36,6 +36,7 @@ export default class Renderer {
     this.isMarqueeSelecting = false;
     
     this.isAnimatingPan = false;
+    this.touchState = {}; // For mobile touch controls
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
@@ -882,6 +883,126 @@ _getIntersectionWithNodeRect(node, externalPoint) {
             window.addEventListener('mouseup', handleMouseUp);
         }
     });
+
+this.canvas.addEventListener('mousedown', (e) => {
+        this.isAnimatingPan = false; 
+        const isEditor = getIsEditorMode();
+        this.mousePos = this.getCanvasCoords(e);
+        this.dragged = false;
+        
+        const handlePanStart = () => {
+            this.dragging = true;
+            this.dragStart.x = e.clientX - this.offset.x;
+            this.dragStart.y = e.clientY - this.offset.y;
+            this.canvas.style.cursor = 'grabbing';
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        };
+
+        if (e.button === 1 || (e.button === 0 && !isEditor)) { // Middle click or Left click in player mode
+            handlePanStart();
+            return;
+        }
+
+        if (!isEditor) return;
+
+        // Editor mode interactions
+        if (e.button === 0) { // Left
+             const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
+             if (cp) { this.draggingControlPoint = cp; }
+             else {
+                 const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() });
+                 if (clicked) {
+                     const entity = clicked.entity;
+                     this.draggingEntity = entity;
+                     if (entity.selected) this.isDraggingSelection = true;
+                 } else {
+                     this.isMarqueeSelecting = true;
+                     this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 };
+                 }
+             }
+        } else if (e.button === 2) { // Right
+            e.preventDefault();
+            const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y);
+            if (cp) {
+                cp.edge.controlPoints.splice(cp.pointIndex, 1);
+            } else {
+                const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true });
+                if (clickedNode && clickedNode.type === 'node') {
+                    this.isCreatingEdge = true;
+                    this.edgeCreationSource = clickedNode.entity;
+                }
+            }
+        }
+
+        if (this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) {
+            this.canvas.style.cursor = 'crosshair';
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+    });
+
+    // --- Mobile Touch Controls (Player Mode Only) ---
+    const handleTouchStart = (e) => {
+        if (getIsEditorMode()) return;
+        e.preventDefault();
+        this.isAnimatingPan = false;
+        this.dragged = false;
+        const touches = e.touches;
+        if (touches.length === 1) {
+            this.dragStart.x = touches[0].clientX - this.offset.x;
+            this.dragStart.y = touches[0].clientY - this.offset.y;
+            this.touchState = { type: 'pan' };
+        } else if (touches.length >= 2) {
+            const t1 = touches[0];
+            const t2 = touches[1];
+            this.touchState = {
+                type: 'zoom',
+                dist: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY),
+                midpoint: { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }
+            };
+        }
+    };
+    const handleTouchMove = (e) => {
+        if (getIsEditorMode()) return;
+        e.preventDefault();
+        this.dragged = true;
+        const touches = e.touches;
+        if (touches.length === 1 && this.touchState.type === 'pan') {
+            this.offset.x = touches[0].clientX - this.dragStart.x;
+            this.offset.y = touches[0].clientY - this.dragStart.y;
+        } else if (touches.length >= 2 && this.touchState.type === 'zoom') {
+            const t1 = touches[0];
+            const t2 = touches[1];
+            const newDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+            const zoom = newDist / this.touchState.dist;
+            const newScale = Math.max(0.05, Math.min(50, this.scale * zoom));
+            const actualZoom = newScale / this.scale;
+            // Center zoom on the midpoint of the fingers
+            const newMidpoint = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+            this.offset.x = newMidpoint.x - (this.touchState.midpoint.x - this.offset.x) * actualZoom;
+            this.offset.y = newMidpoint.y - (this.touchState.midpoint.y - this.offset.y) * actualZoom;
+            this.scale = newScale;
+            // Update state for next move event
+            this.touchState.dist = newDist;
+            this.touchState.midpoint = newMidpoint;
+        }
+    };
+    const handleTouchEnd = (e) => {
+        if (getIsEditorMode()) return;
+        // If it wasn't a drag/pan, and it's the last finger lifted, it's a tap.
+        if (!this.dragged && e.changedTouches.length === 1 && e.touches.length === 0) {
+            onClick(e.changedTouches[0]);
+        }
+        if (e.touches.length < 2) {
+            this.touchState = {}; // Reset state if zoom is over or pan is over
+        }
+        setTimeout(() => { this.dragged = false; }, 0);
+    };
+    this.canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    this.canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    this.canvas.addEventListener('touchend', handleTouchEnd);
+    // --- End Mobile Touch Controls ---
 
     this.canvas.addEventListener('wheel', (e) => {
         e.preventDefault();

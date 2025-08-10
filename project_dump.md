@@ -1,4 +1,3 @@
-
 ## ./public/index.html
 
 <!DOCTYPE html>
@@ -152,7 +151,20 @@ canvas:active {
   position: absolute;
   box-sizing: border-box;
   background-color: #000;
-  border: 1px solid #444;
+  transition: padding 0.2s, background-color 0.2s;
+  padding: 0;
+}
+
+.iframe-wrapper.selected { /* Outline for EDITOR */
+    background-color: #7febfb;
+    padding: 3px; 
+}
+
+.iframe-wrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  pointer-events: auto;
 }
 
 .iframe-wrapper iframe {
@@ -173,17 +185,16 @@ canvas:active {
   border: 1px solid var(--dark-border);
   border-radius: 6px;
   line-height: 1.5;
-  pointer-events: auto;
+  pointer-events: auto; /* Active for player mode */
 }
 
-/* REVISED: In editor mode, overlays are non-interactive for easy selection through them. */
+/* REVISED: In editor mode, all overlays are transparent to clicks, fixing selection. */
 body.editor-mode .markdown-overlay, body.editor-mode .iframe-wrapper {
     pointer-events: none;
 }
 
 .markdown-overlay.selected {
   border: 2px solid #e74c3c !important; /* Use important to override base style */
-  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
 }
 
 .markdown-overlay a {
@@ -403,35 +414,6 @@ input:checked + .slider:before { transform: translateX(20px); }
     color: white;
 }
 
-/* NEW: Styles for the Markdown inspector toolbar */
-.markdown-toolbar {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  border: 1px solid #555;
-  padding: 5px;
-  border-radius: 6px;
-  background-color: #3c3c3c;
-}
-.markdown-toolbar button {
-  background-color: #4f4f4f;
-  color: var(--dark-text);
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: bold;
-  flex-grow: 1;
-}
-.markdown-toolbar button:hover {
-  background-color: #6a6a6a;
-  transform: none;
-}
-.markdown-toolbar button.active {
-    background-color: var(--primary-color);
-}
-.markdown-toolbar .italic {
-  font-style: italic;
-}
-
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
@@ -462,33 +444,17 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
   "@context": "https://schema.org/",
   "@graph": [
     {
-      "@id": "node-1",
-      "@type": "MusicRecording",
-      "name": "Chasing the Moon",
-      "position": {
-        "x": 92,
-        "y": 230
-      },
-      "isCollapsed": true,
-      "sourceType": "iframe",
-      "audioUrl": null,
-      "coverUrl": null,
-      "lyricsUrl": null,
-      "iframeUrl": "4eJpTAxdxiU"
-    },
-    {
       "@id": "node-2",
       "@type": "MusicRecording",
       "name": "Ballad of Everything (2 version)",
       "position": {
-        "x": -72,
-        "y": 495.0138468887229
+        "x": 378.0058298445465,
+        "y": 390.3893227462136
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "YGJvDBRbYdM"
     },
     {
@@ -496,14 +462,13 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "@type": "MusicRecording",
       "name": "Ballad of Everything (1 version)",
       "position": {
-        "x": 273.18977016560103,
-        "y": 498.26384688872304
+        "x": 10.258250990296276,
+        "y": 860.7204059819859
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "_IK2VLriSxs"
     },
     {
@@ -511,14 +476,13 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "@type": "MusicRecording",
       "name": "Love Transcends",
       "position": {
-        "x": 92,
-        "y": 678.9786584887257
+        "x": 9.010717967064679,
+        "y": 1070.6083907422394
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "4UUnPzG2bC4"
     },
     {
@@ -526,140 +490,498 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "@type": "MusicRecording",
       "name": "Garbage for Ears",
       "position": {
-        "x": 92,
-        "y": 866.9360592337733
+        "x": 380.9334111623574,
+        "y": 860.2404756081706
       },
-      "isCollapsed": true,
+      "isCollapsed": false,
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "lyricsUrl": null,
       "iframeUrl": "DcRXJrtysG0"
     },
     {
-      "@type": "Path",
-      "source": "node-1",
-      "target": "node-2",
-      "color": "#808080",
-      "label": "second version",
-      "lineWidth": 2,
-      "controlPoints": []
+      "@id": "node-1754728254075",
+      "@type": "MusicRecording",
+      "name": "Ode",
+      "position": {
+        "x": 761.2822729960664,
+        "y": 656.2291768559684
+      },
+      "isCollapsed": false,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "iframeUrl": "iw5n8TKEh18"
+    },
+    {
+      "@id": "node-1754728644575",
+      "@type": "MusicRecording",
+      "name": "Broken Lights",
+      "position": {
+        "x": 758.7142065168892,
+        "y": 1078.6183312538906
+      },
+      "isCollapsed": false,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "iframeUrl": "rQnmgRxzILs"
+    },
+    {
+      "@id": "node-1754728755939",
+      "@type": "MusicRecording",
+      "name": "Hard to wait",
+      "position": {
+        "x": 379.94979949563066,
+        "y": 653.354297294357
+      },
+      "isCollapsed": false,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "iframeUrl": "mM5Jtcd34z0"
+    },
+    {
+      "@id": "node-1754729280653",
+      "@type": "MusicRecording",
+      "name": "Ode to the Hero",
+      "position": {
+        "x": 760.9435243713363,
+        "y": 869.4764528815044
+      },
+      "isCollapsed": false,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "iframeUrl": "h7fiwzMv7Os"
+    },
+    {
+      "@id": "node-1754732165702",
+      "@type": "MusicRecording",
+      "name": "Chasing the Moon",
+      "position": {
+        "x": 11.875718414828924,
+        "y": 659.9462234061001
+      },
+      "isCollapsed": false,
+      "sourceType": "iframe",
+      "audioUrl": null,
+      "coverUrl": null,
+      "iframeUrl": "4eJpTAxdxiU"
     },
     {
       "@type": "Path",
-      "source": "node-1",
-      "target": "node-3a",
-      "color": "#808080",
-      "label": "first version",
-      "lineWidth": 2,
+      "source": "node-1754728755939",
+      "target": "node-1754588700272",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
       "@type": "Path",
       "source": "node-2",
-      "target": "node-3b",
-      "color": "#2ced66",
+      "target": "node-1754728755939",
+      "color": "#888887",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-2",
+      "target": "node-1754728254075",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
       "@type": "Path",
       "source": "node-3a",
       "target": "node-3b",
-      "color": "#e12d2d",
+      "color": "#888888",
       "label": "",
-      "lineWidth": 2,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
       "@type": "Path",
-      "source": "node-3b",
-      "target": "node-1754588700272",
-      "color": "#58299e",
+      "source": "node-1754728254075",
+      "target": "node-1754729280653",
+      "color": "#888888",
       "label": "",
-      "lineWidth": 6,
+      "lineWidth": 7,
       "controlPoints": []
     },
     {
       "@type": "Path",
-      "source": "node-1754588700272",
-      "target": "node-1",
-      "color": "#24b3c6",
-      "label": "playlist replay",
+      "source": "node-1754729280653",
+      "target": "node-1754728644575",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 7,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754728644575",
+      "target": "node-1754728755939",
+      "color": "#8880ff",
+      "label": "<< -- Hard to wait",
       "lineWidth": 2,
       "controlPoints": [
         {
-          "x": -188.45755966224445,
-          "y": 889.4360592337733
+          "x": 736.1051733655702,
+          "y": 1102.2533055612462
         },
         {
-          "x": -188.45755966224445,
-          "y": 252.5
+          "x": 732.4407580355871,
+          "y": 673.1790824708759
         }
       ]
     },
     {
-      "@id": "deco-rect-1",
-      "position": {
-        "x": -283,
-        "y": -6.569811882272688
-      },
-      "@type": "RectangleAnnotation",
-      "size": {
-        "width": 950,
-        "height": 1300
-      },
-      "backgroundColor": "#2e2e2e"
+      "@type": "Path",
+      "source": "node-3b",
+      "target": "node-1754728755939",
+      "color": "#179bd3",
+      "label": "Hard to wait -->>",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 356.982433876294,
+          "y": 1093.2962450032737
+        },
+        {
+          "x": 357.0737088206952,
+          "y": 673.5706058157207
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-3b",
+      "target": "node-1754728254075",
+      "color": "#ae1e1e",
+      "label": "Ode -->>",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 108.5401867406903,
+          "y": 1202.596512361893
+        },
+        {
+          "x": 1115.6531728232844,
+          "y": 1205.0729288471837
+        },
+        {
+          "x": 1110.2560161799204,
+          "y": 680.5674332329856
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754588700272",
+      "target": "node-1754728254075",
+      "color": "#827b30",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754732165702",
+      "target": "node-3a",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 7,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754728644575",
+      "target": "node-1754732165702",
+      "color": "#396f3d",
+      "label": "<<-- Chasing the Moon",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 859.0136266863468,
+          "y": 1229.665294973312
+        },
+        {
+          "x": -38.84985276240153,
+          "y": 1228.4584892213647
+        },
+        {
+          "x": -40.056658514348776,
+          "y": 684.1890950931585
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754588700272",
+      "target": "node-1754732165702",
+      "color": "#da540b",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-2",
+      "target": "node-1754732165702",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 7,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754728254075",
+      "target": "node-2",
+      "color": "#000000",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 858.7246036846047,
+          "y": 416.77239598625897
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1754732165702",
+      "target": "node-2",
+      "color": "#000000",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 112.93568569248006,
+          "y": 412.3565405507793
+        }
+      ]
     },
     {
       "@id": "deco-text-1",
       "position": {
-        "x": 443.6062789306635,
-        "y": 52.37341150684294
+        "x": 304.96864331677847,
+        "y": 170.99178445894216
       },
-      "@type": "TextAnnotation",
-      "textContent": "Sample starter playlist",
-      "fontSize": 24,
-      "color": "#fdff9e",
-      "textAlign": "right",
-      "width": 400,
-      "lineHeight": 1.2
-    },
-    {
-      "@id": "deco-rect-1754589215738",
-      "position": {
-        "x": 692.7849770255077,
-        "y": 607.3930629464985
-      },
-      "@type": "RectangleAnnotation",
+      "@type": "MarkdownAnnotation",
       "size": {
-        "width": 300,
-        "height": 700
+        "width": 150,
+        "height": 40
       },
-      "backgroundColor": "#40263c"
+      "textContent": "**Sample starter playlist**",
+      "fontSize": 16,
+      "backgroundColor": "rgba(45, 45, 45, 0)"
     },
     {
       "@id": "deco-text-1754589455494",
       "position": {
-        "x": 849.2385344657106,
-        "y": 959.1301881177274
+        "x": 762.2097228315881,
+        "y": 354.51078528849814
       },
-      "@type": "TextAnnotation",
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 40,
+        "height": 48
+      },
       "textContent": "🛡️ License and Usage\n\nThis project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).\n\n---\n\nImportant Clarification for Artists and Creators:\n\nThe CC BY-NC-SA license applies only to the player's source code (the HTML, CSS, and JavaScript files that make it run).\n\nIt does not apply to the content you create, such as your music, cover art, lyrics, or the `.jsonld` graph file that structures your narrative. You retain full ownership of your art and are free to license or sell it however you wish.\n\nYou can freely use this player as a non-commercial tool to display and distribute your commercial or non-commercial artwork.\n\nA Note on Attribution (How to give credit)\n\nTo comply with the license, you must provide a visible credit. We've made this as painless as possible.\n\n1. Required Attribution Text:\nYou must include the following text somewhere visible (e.g., in the footer of your page or on an \"About\" page):\n\n> AVN Player by Nftxv\n\n2. Required License Notice:\nYou must also include a reference to the license, so others know the terms under which the player is shared.\n\nThe Easiest Way to Do Both:\nYou can fulfill both requirements with a single, simple line. Here is a perfect example:\n\npowered by AVN Player by Nftxv, used under CC BY-NC-SA 4.0",
-      "fontSize": 11,
-      "color": "#a18159",
-      "textAlign": "left",
-      "width": 250,
-      "lineHeight": 1.2
+      "fontSize": 4,
+      "backgroundColor": "rgba(45, 45, 45, 0.85)"
+    },
+    {
+      "@id": "deco-rect-1754720945592",
+      "position": {
+        "x": 302.74123870714993,
+        "y": 218.723020267453
+      },
+      "@type": "RectangleAnnotation",
+      "size": {
+        "width": 600,
+        "height": 2
+      },
+      "backgroundColor": "#8b079d"
+    },
+    {
+      "@id": "deco-text-1754721399707",
+      "position": {
+        "x": 761.7167867768118,
+        "y": 279.2046030897085
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 100,
+        "height": 70
+      },
+      "textContent": "### Global settings 🛠 \n./public/js/modules/Renderer.js\n\n**setupCanvasInteraction**\n\nconst newScale = Math.max(0.05, Math.min(25, this.scale * zoom));\n\n**LOD**\n\nconst DECORATION_LOD_THRESHOLD = 0.1;\n\n./public/js/modules/EditorTools.js\n\n**openInspector**\n\ninput type=\"number\" id=\"fontSize\" value=\"${entity.fontSize || 14}\" min=\"1\">",
+      "fontSize": 10,
+      "backgroundColor": "rgba(45, 45, 45, 0)"
+    },
+    {
+      "@id": "deco-text-1754724649323",
+      "position": {
+        "x": 821.9449795403725,
+        "y": 355.6125309540575
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 40,
+        "height": 48
+      },
+      "textContent": "### Fan art \n![FrozenPlanetLord](https://pbs.twimg.com/media/GYzEVFxWUAgFjG0?format=jpg&name=900x900)\n[link img](https://pbs.twimg.com/media/GYzEVFxWUAgFjG0?format=jpg&name=900x900)",
+      "fontSize": 3,
+      "backgroundColor": "rgba(45, 45, 45, 0.85)"
+    },
+    {
+      "@id": "deco-text-1754729522336",
+      "position": {
+        "x": 971.5382298899613,
+        "y": 747.1642693969133
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 160
+      },
+      "textContent": "### Ode to the Hero\n\nYet when they chase him, full of pride,\nHe grins and lets his laughter ride.\nNo fear, no doubt within his soul—\nHe fights until he meets his goal.\n\nBounty hunters shake with dread,\nTheir leaders gone, the bosses dead.\nThe clever beasts, they try and flee,\nBut none escape his destiny.\n\nHis legend’s written in the stars,\nA tale that reaches distant bars.\nThe bravest whisper of his fame,\nFor all the void now knows his name.",
+      "fontSize": 8,
+      "backgroundColor": "rgba(20,20,20, 1)"
+    },
+    {
+      "@id": "deco-text-1754729652278",
+      "position": {
+        "x": 971.6956769207269,
+        "y": 544.4808034706764
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 100,
+        "height": 120
+      },
+      "textContent": "### Ode\n\n... Their echo, distorted, across worlds flows,\nLeaving inkblots on thought, where it never goes.\nSometimes this echo will brush the mind,\nAnd forms take shape in a desperate bind...",
+      "fontSize": 8,
+      "backgroundColor": "rgba(45, 45, 45, 0.0)"
+    },
+    {
+      "@id": "deco-text-1754729757634",
+      "position": {
+        "x": 595.6792456865479,
+        "y": 540.1011356531369
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 160
+      },
+      "textContent": "### Hard to wait\n\nYou know, sometimes it's hard to wait,  \nNot knowing if things will turn out great.  \nYou worry and fear that plans may fall,  \nThat dreams might never come true at all.  \n\nBut then you see those who waited through,  \nThe ones who held on, who stayed true.  \nAnd when they finally get what they sought,  \nTheir joy is real, it's what they fought.  \n\nYou see them smile, their hearts so light,  \nAnd you realize their struggle was right.  \nThe best rewards come to those who stay,  \nWho keep on going, who find their way.  \n\nEven when waiting seems too tough,  \nAnd the road ahead is long and rough.  \nTrue joy comes to those who believe,  \nWho hold on tight and never leave.\n\nWaiting is hard, with doubts that persist,  \nBut remember, together we'll overcome this.  \nEpic triumphs await us as we heed the call,  \nFor Troverse is near—come, conquer it all!",
+      "fontSize": 8,
+      "backgroundColor": "rgba(45, 45, 45, 0.0)"
+    },
+    {
+      "@id": "deco-text-1754729871647",
+      "position": {
+        "x": 588.8438393414132,
+        "y": 746.7645833935029
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 160
+      },
+      "textContent": "### Garbage for Ears\n\nSometimes you meet someone who seems just fine,\nYou lend a hand, you’re glad to give your time.\nYou help them find their way, no strings attached,\nYou hope they grow and find the dream they’ve hatched.\n\nBut then, without a reason, there they stand—\nA knife in hand, though never planned.\nNo real cause, no warning sign or fight,\nJust a little stab that doesn’t feel quite right.\n\nThey seek excuses, paint themselves as just,\nBut you’re already done—you’ve lost that trust.\nNo anger now, no burning flame, just there\nA piece of shit you simply choose to spare.\n\nIt stings a bit, but nothing’s truly lost,\nJust people showing who they are, at cost.\nAnd once you see it, once it’s clear as day,\nYou know what’s real, and calmly walk away.\n\nThen write your song, and let the words just flow,\nFor in the end, it’s just another show.\nPeople will disappoint, it’s how they are,\nBut don’t let little wounds become a scar.\n\nIt’s not another mess upon your road,\nJust one more song to lighten up the load.\nA song to store among the rest you’ve spun,\nA story told, a chapter that is done.\n\nAnd if the song’s created by machine,\nThat doesn’t change the truth it may have seen.\nFor songs need sparks, wherever they may start,\nEach little note a piece of someone's heart.",
+      "fontSize": 8,
+      "backgroundColor": "rgba(25,25,85,0.3)"
+    },
+    {
+      "@id": "deco-text-1754729973346",
+      "position": {
+        "x": 596.3708095543834,
+        "y": 277.3981027629988
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 160
+      },
+      "textContent": "### Ballad of Everything\n\nYou’ve traveled far, you’ve seen it all,\nThe mountains high, the cities tall.\nNow you’ve got a song to sing,\nTo capture every sight and thing.\n\nThe day you failed but stood up strong,\nProving that you still belong.\nNow your song can tell the tale,\nOf how you rose when you could fail.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nThere’s that story from your past,\nA lesson learned that’s meant to last.\nNow you’ve got the tune to share,\nAnd let the world know you were there.\n\nA simple day, a quiet breeze,\nMoments like these put you at ease.\nNow you’ve got a tune to hum,\nAnd let the peace of life become.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nYou’ve got a joke you want to tell,\nThe one that always makes them yell.\nNow you’ve got the chance to sing,\nTurn those laughs into everything.\n\nYou’ve been holding love inside your chest,\nWaiting for the time that’s best.\nNow you’ve got the perfect way,\nTo let your heart sing what you’d say.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nWhen words alone just fall apart,\nAnd you need to speak straight from the heart.\nTurn it into something true,\nA song that shows what you’ve been through.\n\nMaybe it’s the things you never say,\nThe quiet thoughts that slip away.\nNow’s your time, don’t let them fade,\nMake a song of every day.\n\nYou’ve danced with joy, you’ve cried with pain,\nLife’s a journey, not in vain.\nNow your voice can set it free,\nA song for every memory.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.",
+      "fontSize": 8,
+      "backgroundColor": "rgba(46,46,46, 0.5)"
+    },
+    {
+      "@id": "deco-text-1754730049282",
+      "position": {
+        "x": 225.73941786255307,
+        "y": 543.8191210408929
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 160
+      },
+      "textContent": "### Chasing the Moon\n\nI was lost in the city lights,\nChasing shadows in the night,\nSaw the stars up in the sky,\nBut they couldn’t tell me why.\n\nI’ve been running far and wide,\nFrom the ocean to the mountainside,\nLooking for a spark to hold,\nSomething warm, in a world so cold.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.\n\nIn the echoes of a desert breeze,\nFound a dream beneath the trees,\nIn the silence, I heard it call,\nA whisper that could break my fall.\n\nThrough the rivers deep and wide,\nI’ll follow where my heart decides,\nNo more waiting for a sign,\nThe stars are gonna align this time.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.\n\nAnd if the road gets long, and the nights too dark,\nI’ll find my way back to where dreams spark,\nFor every night there’s a light that guides,\nIt’s the moon, it’s the moon, shining by my side.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.",
+      "fontSize": 8,
+      "backgroundColor": "rgba(114,65,25, 0.3)"
+    },
+    {
+      "@id": "deco-text-1754730094583",
+      "position": {
+        "x": 217.82985574398194,
+        "y": 747.8197355302341
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 160
+      },
+      "textContent": "### Ballad of Everything\n\nYou’ve traveled far, you’ve seen it all,\nThe mountains high, the cities tall.\nNow you’ve got a song to sing,\nTo capture every sight and thing.\n\nThe day you failed but stood up strong,\nProving that you still belong.\nNow your song can tell the tale,\nOf how you rose when you could fail.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nThere’s that story from your past,\nA lesson learned that’s meant to last.\nNow you’ve got the tune to share,\nAnd let the world know you were there.\n\nA simple day, a quiet breeze,\nMoments like these put you at ease.\nNow you’ve got a tune to hum,\nAnd let the peace of life become.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nYou’ve got a joke you want to tell,\nThe one that always makes them yell.\nNow you’ve got the chance to sing,\nTurn those laughs into everything.\n\nYou’ve been holding love inside your chest,\nWaiting for the time that’s best.\nNow you’ve got the perfect way,\nTo let your heart sing what you’d say.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nWhen words alone just fall apart,\nAnd you need to speak straight from the heart.\nTurn it into something true,\nA song that shows what you’ve been through.\n\nMaybe it’s the things you never say,\nThe quiet thoughts that slip away.\nNow’s your time, don’t let them fade,\nMake a song of every day.\n\nYou’ve danced with joy, you’ve cried with pain,\nLife’s a journey, not in vain.\nNow your voice can set it free,\nA song for every memory.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.",
+      "fontSize": 8,
+      "backgroundColor": "rgba(45, 45, 45, 0)"
+    },
+    {
+      "@id": "deco-text-1754730140421",
+      "position": {
+        "x": 218.27078279920758,
+        "y": 956.8191597071989
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 160
+      },
+      "textContent": "### Love Transcends\n\nWe met like strangers passing in the rain,\nNo spark to light, no fire, no flame.\nJust two souls in the city's hum,\nNo signs or whispers of what we’d become.\n\nBut as the days turned into nights,\nWe found a rhythm in shared sights.\nLaughter came easy, moments felt right,\nWe held on close, if only for a while.\n\nAnd the world kept spinning, day by day,\nAnd no one cared — we were okay.\n\nWe parted like the setting of the sun,\nNo tears, no fight, just said it’s done.\nBut silence now is louder than before,\nAn empty space where there was more.\n\nI see you in the little things I do,\nIn every breeze, in every shade of blue.\nI never knew what lingered in the air,\nUntil the quiet made me care.\n\nAnd the world kept spinning, day by day,\nWhile we let our chances drift away.\n\nThe nights were warm when you were near,\nIn simple talks, we’d lose the fear.\nI thought it’d last, but time slips fast,\nAnd now I see what we let pass.\n\nThe mornings bloom, but not the same,\nYour smile was more than just a name.\nI thought I’d move on, find my way,\nBut here I stand, with words to say.\n\nAnd the world kept spinning, day by day,\nBut something in us chose to stay.\n\nI thought the distance would fade the ache,\nBut every step is a heart to break.\n\nI thought I’d heal, let memories fly,\nBut you are still the reason why.\n\nSo here we are, no more disguise,\nIt’s you I see through different eyes.\nThe simple truth we tried to hide—\nWe were meant to walk side by side.\n\nWe turned away, but in the end,\nI found in you my greatest friend.\nIn you, I found what words can't send,\nAnd starts again where love transcends.",
+      "fontSize": 8,
+      "backgroundColor": "rgba(8,80,80,0.2)"
+    },
+    {
+      "@id": "deco-text-1754730196459",
+      "position": {
+        "x": 970.5534993072607,
+        "y": 965.6010753221964
+      },
+      "@type": "MarkdownAnnotation",
+      "size": {
+        "width": 120,
+        "height": 90
+      },
+      "textContent": "### Broken Lights\n\n...I’ve seen the lies, I’ve heard the pleas,\nFelt the sorrow in the breeze...",
+      "fontSize": 8,
+      "backgroundColor": "rgba(0,0,0, 0.85)"
     }
   ],
   "view": {
     "offset": {
-      "x": 570.7378794999497,
-      "y": -46.12923764210575
+      "x": -1497.2226812127114,
+      "y": -1017.3671671418492
     },
-    "scale": 1.22140275816017
+    "scale": 4.104249931194941
   }
 }
 
@@ -1209,7 +1531,7 @@ export default class EditorTools {
             <label for="textContent">Markdown Content:</label>
             <textarea id="textContent" rows="8">${entity.textContent || ''}</textarea>
             <label for="fontSize">Font Size (px):</label>
-            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="8">
+            <input type="number" id="fontSize" value="${entity.fontSize || 14}" min="1">
             <label for="rectWidth">Width:</label>
             <input type="number" id="rectWidth" value="${entity.width}" min="10">
             <label for="rectHeight">Height:</label>
@@ -1533,7 +1855,8 @@ export default class GraphData {
   
   parseYoutubeUrl(input) {
       if (!input || typeof input !== 'string') return null;
-      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      // REVISED: Added "shorts\/" to the regex to support YouTube Shorts URLs
+      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       const match = input.match(regex);
       if (match && match[1]) return match[1];
       if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim();
@@ -1949,7 +2272,7 @@ const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
 const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
 const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
-const DECORATION_LOD_THRESHOLD = 0.4;
+const DECORATION_LOD_THRESHOLD = 2.0;
 
 export default class Renderer {
   constructor(canvasId, iframeContainer, markdownContainer) {
@@ -2052,23 +2375,22 @@ export default class Renderer {
     ctx.restore();
   }
   
-  drawEdge(edge) {
+drawEdge(edge) {
       const src = this.graphData.getNodeById(edge.source);
       const trg = this.graphData.getNodeById(edge.target);
       if (!src || !trg) return;
       
       const controlPoints = edge.controlPoints || [];
-      // ALWAYS define header centers, as they are the logical connection points.
+      // Use header centers for stable angle calculation
       const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
       const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
       
-      // The line should AIM at the HEADER of the other node for a clean look.
       const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
       const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
 
-      // The intersection function will correctly find the border of the VISIBLE rectangle.
       const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
       const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);      
+      
       const pathPoints = [startPoint, ...controlPoints, endPoint];
       const ctx = this.ctx;
       ctx.save();
@@ -2081,22 +2403,25 @@ export default class Renderer {
       const lineWidth = edge.selected || edge.highlighted ? edgeLineWidth + 1 : edgeLineWidth;
       const arrowSize = 6 + edgeLineWidth * 2.5;
 
-      const pForArrow = pathPoints.at(-1); 
+      // This part is crucial and correct:
+      const pForArrow = pathPoints.at(-1); // The point ON the border
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       
+      // Pull back the line to make space for the arrow
       const offset = arrowSize; 
       const adjustedEndPoint = {
           x: pForArrow.x - offset * Math.cos(angle),
           y: pForArrow.y - offset * Math.sin(angle)
       };
 
+      // Draw the line to the adjusted point
       ctx.beginPath();
       ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
       for (let i = 1; i < pathPoints.length - 1; i++) {
           ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       }
-      if (pathPoints.length > 1 && Math.hypot(adjustedEndPoint.x - pathPoints[0].x, adjustedEndPoint.y - pathPoints[0].y) > 1) {
+      if (Math.hypot(adjustedEndPoint.x - pBeforeArrow.x, adjustedEndPoint.y - pBeforeArrow.y) > 1) {
           ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
       }
 
@@ -2104,8 +2429,10 @@ export default class Renderer {
       ctx.lineWidth = lineWidth / this.scale; 
       ctx.stroke();
       
+      // Draw the arrow at the original border point
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
       
+      // ... rest of the function ...
       if(this.scale > 0.5) {
           controlPoints.forEach(point => {
               ctx.beginPath();
@@ -2114,7 +2441,6 @@ export default class Renderer {
               ctx.fill();
           });
       }
-      
       if (edge.label && this.scale > 0.3) {
         const midIndex = Math.floor((pathPoints.length - 2) / 2);
         const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
@@ -2129,10 +2455,9 @@ export default class Renderer {
         ctx.fillText(edge.label, 0, -8 / this.scale);
         ctx.restore();
       }
-      
       ctx.restore();
   }
-  
+
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
@@ -2148,21 +2473,23 @@ export default class Renderer {
     }
   }
 
-  _drawNodeHeader(node) {
+_drawNodeHeader(node) {
     const ctx = this.ctx;
     ctx.save();
+    
+    // Draw header background
     ctx.fillStyle = '#2d2d2d';
     const cornerRadius = 8;
     ctx.beginPath();
     ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, cornerRadius, cornerRadius]);
     ctx.fill();
     
-    ctx.strokeStyle = (node.selected || node.highlighted) 
-        ? (node.selected ? '#e74c3c' : '#FFD700')
-        : '#424242';
-    ctx.lineWidth = (node.selected || node.highlighted) ? 4 : 1;
+    // Border for selection or default state
+    ctx.strokeStyle = node.selected ? '#16e049ff' : '#424242';
+    ctx.lineWidth = node.selected ? 2 : 1;
     ctx.stroke();
 
+    // Draw title text
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '14px "Segoe UI"';
     ctx.textAlign = 'center';
@@ -2171,9 +2498,66 @@ export default class Renderer {
     const titleX = node.x + NODE_WIDTH / 2;
     const titleY = node.y + NODE_HEADER_HEIGHT / 2;
     ctx.fillText(fittedTitle, titleX, titleY);
-    ctx.restore();
-  }
 
+    // Draw player mode highlight indicator with custom blink animation
+    if (node.highlighted) {
+        
+        // --- Animation Configuration (Easy to tweak) ---
+        const ON_DURATION = 2400;      // ms -- How long it stays fully bright
+        const FADE_OUT_DURATION = 300; // ms -- How long it takes to fade out
+        const OFF_DURATION = 600;      // ms -- How long it stays dim
+        const FADE_IN_DURATION = 300;  // ms -- How long it takes to fade in
+
+        const maxOpacity = 1.0;
+        const minOpacity = 0.0;
+        
+        // --- Animation Logic ---
+        const TOTAL_CYCLE_DURATION = ON_DURATION + FADE_OUT_DURATION + OFF_DURATION + FADE_IN_DURATION;
+        const timeInCycle = Date.now() % TOTAL_CYCLE_DURATION;
+
+        let opacity = maxOpacity;
+
+        // Phase 1: ON
+        if (timeInCycle < ON_DURATION) {
+            opacity = maxOpacity;
+        }
+        // Phase 2: Fading Out
+        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION) {
+            const timeInFade = timeInCycle - ON_DURATION;
+            const progress = timeInFade / FADE_OUT_DURATION;
+            opacity = maxOpacity - progress * (maxOpacity - minOpacity);
+        }
+        // Phase 3: OFF
+        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION + OFF_DURATION) {
+            opacity = minOpacity;
+        }
+        // Phase 4: Fading In
+        else {
+            const timeInFade = timeInCycle - (ON_DURATION + FADE_OUT_DURATION + OFF_DURATION);
+            const progress = timeInFade / FADE_IN_DURATION;
+            opacity = minOpacity + progress * (maxOpacity - minOpacity);
+        }
+        
+        // --- Drawing Logic ---
+        const radius = 5;
+        const padding = 8;
+        const circleX = node.x + padding;
+        const circleY = node.y + NODE_HEADER_HEIGHT - padding;
+
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        
+        ctx.fillStyle = '#21da58ff'; 
+        ctx.beginPath();
+        ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+    ctx.restore();
+}
+  
   drawMarquee() {
     const ctx = this.ctx;
     ctx.save();
@@ -2192,6 +2576,10 @@ export default class Renderer {
         if (node.sourceType !== 'iframe') return;
         const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
         if (!wrapper) return;
+
+        wrapper.classList.toggle('selected', !!node.selected);      // For Editor Mode
+        wrapper.classList.toggle('highlighted', !!node.highlighted); // For Player Mode
+
         const isInView = this._isNodeInView(node);
         const shouldBeVisible = !node.isCollapsed && isInView;
         if (wrapper.style.display !== (shouldBeVisible ? 'block' : 'none')) {
@@ -2469,20 +2857,68 @@ export default class Renderer {
       this.ctx.lineTo(-size, size * 0.4); this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill(); this.ctx.restore();
   }
   
-  _getIntersectionWithNodeRect(node, externalPoint) {
+_getIntersectionWithNodeRect(node, externalPoint) {
     const rect = this._getNodeVisualRect(node);
-    const cx = rect.x + rect.width / 2;
-    const cy = rect.y + rect.height / 2;
-    const dx = externalPoint.x - cx;
-    const dy = externalPoint.y - cy;
-    
-    if (dx === 0 && dy === 0) return {x: cx, y: cy};
+    const rayOrigin = { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEADER_HEIGHT / 2 };
+    const dir = { x: externalPoint.x - rayOrigin.x, y: externalPoint.y - rayOrigin.y };
 
-    const t = 0.5 / Math.max(Math.abs(dx) / rect.width, Math.abs(dy) / rect.height);
-    
-    return { x: cx + t * dx, y: cy + t * dy };
+    if (Math.abs(dir.x) < 1e-6 && Math.abs(dir.y) < 1e-6) {
+      return rayOrigin; // Points are identical.
+    }
+
+    let t = Infinity;
+
+    // --- Vertical Sides (Left and Right) ---
+    if (dir.x !== 0) {
+      const tLeft = (rect.x - rayOrigin.x) / dir.x;
+      if (tLeft >= 0) {
+        const y = rayOrigin.y + tLeft * dir.y;
+        if (y >= rect.y && y <= rect.y + rect.height) {
+          t = Math.min(t, tLeft);
+        }
+      }
+      
+      const tRight = (rect.x + rect.width - rayOrigin.x) / dir.x;
+      if (tRight >= 0) {
+        const y = rayOrigin.y + tRight * dir.y;
+        if (y >= rect.y && y <= rect.y + rect.height) {
+          t = Math.min(t, tRight);
+        }
+      }
+    }
+
+    // --- Horizontal Sides (Top and Bottom) ---
+    if (dir.y !== 0) {
+      const tTop = (rect.y - rayOrigin.y) / dir.y;
+      if (tTop >= 0) {
+        // CORRECTED: Was dir.y, should be dir.x
+        const x = rayOrigin.x + tTop * dir.x;
+        if (x >= rect.x && x <= rect.x + rect.width) {
+          t = Math.min(t, tTop);
+        }
+      }
+      
+      const tBottom = (rect.y + rect.height - rayOrigin.y) / dir.y;
+      if (tBottom >= 0) {
+        // CORRECTED: Was dir.y, should be dir.x
+        const x = rayOrigin.x + tBottom * dir.x;
+        if (x >= rect.x && x <= rect.x + rect.width) {
+          t = Math.min(t, tBottom);
+        }
+      }
+    }
+
+    // Clamp 't' to not go past the external point (e.g. control points)
+    t = Math.min(t, 1.0);
+
+    if (Number.isFinite(t)) {
+      return { x: rayOrigin.x + t * dir.x, y: rayOrigin.y + t * dir.y };
+    }
+
+    // Fallback if target is inside the node
+    return externalPoint;
   }
-  
+
   drawTemporaryEdge() {
     const ctx = this.ctx;
     const startX = this.edgeCreationSource.x + NODE_WIDTH / 2;
@@ -2720,7 +3156,7 @@ export default class Renderer {
         const zoom = Math.exp(wheel * zoomIntensity);
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        const newScale = Math.max(0.1, Math.min(5, this.scale * zoom));
+        const newScale = Math.max(0.05, Math.min(50, this.scale * zoom));
         const actualZoom = newScale / this.scale;
 
         this.offset.x = mouseX - (mouseX - this.offset.x) * actualZoom;

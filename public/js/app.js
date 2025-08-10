@@ -177,6 +177,9 @@ class GraphApp {
     } else { // Player mode
       if (clicked && clicked.type === 'node') {
         this.navigation.startFromNode(clicked.entity.id);
+      } else if (!clicked) {
+        // On mobile, a tap on empty space toggles play/pause.
+        this.player.togglePlay();
       }
     }
   }
