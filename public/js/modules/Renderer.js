@@ -379,18 +379,6 @@ _drawNodeHeader(node) {
       overlay.id = `md-overlay-${deco.id}`;
       overlay.className = 'markdown-overlay';
       overlay.style.backgroundColor = deco.backgroundColor;
-      
-      // REVISED: Forward wheel and middle-click events to the canvas
-      overlay.addEventListener('wheel', e => {
-          e.preventDefault();
-          this.canvas.dispatchEvent(new WheelEvent(e.type, e));
-      });
-      overlay.addEventListener('mousedown', e => {
-          if (e.button === 1) { // Middle mouse button
-              e.preventDefault();
-              this.canvas.dispatchEvent(new MouseEvent(e.type, e));
-          }
-      });
 
       this.updateMarkdownOverlayContent(overlay, deco);
 
@@ -830,7 +818,22 @@ disableLocalInteraction() {
         } else if (e.button === 2) { e.preventDefault(); const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y); if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); } else { const cNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true }); if (cNode?.type === 'node') { this.isCreatingEdge = true; this.edgeCreationSource = cNode.entity; } } }
         if (this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) { this.canvas.style.cursor = 'crosshair'; window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp); }
     });
-    this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.disableLocalInteraction(); this.isAnimatingPan = false; const zoom = Math.exp((e.deltaY < 0 ? 1 : -1) * 0.1); const rect = this.canvas.getBoundingClientRect(); const mX = e.clientX - rect.left, mY = e.clientY - rect.top; const nS = Math.max(0.05, Math.min(50, this.scale * zoom)); const aZ = nS / this.scale; this.offset.x = mX - (mX - this.offset.x) * aZ; this.offset.y = mY - (mY - this.offset.y) * aZ; this.scale = nS; });
+    this.canvas.addEventListener('wheel', (e) => {
+        // ** THE FIX IS HERE **
+        if (e.target.closest('.interaction-enabled')) {
+            return; // Allow default scroll behavior on active overlays
+        }
+        e.preventDefault(); 
+        this.disableLocalInteraction(); this.isAnimatingPan = false; 
+        const zoom = Math.exp((e.deltaY < 0 ? 1 : -1) * 0.1); 
+        const rect = this.canvas.getBoundingClientRect(); 
+        const mX = e.clientX - rect.left, mY = e.clientY - rect.top; 
+        const nS = Math.max(0.05, Math.min(50, this.scale * zoom)); 
+        const aZ = nS / this.scale; 
+        this.offset.x = mX - (mX - this.offset.x) * aZ; 
+        this.offset.y = mY - (mY - this.offset.y) * aZ; 
+        this.scale = nS; 
+    }, { passive: false });
     this.canvas.addEventListener('click', onClick); this.canvas.addEventListener('dblclick', onDblClick);
 
     // --- Mobile Touch Handlers ---
