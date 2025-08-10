@@ -10,7 +10,8 @@ const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
 const DECORATION_LOD_THRESHOLD = 2.0;
 
 export default class Renderer {
-  constructor(canvasId, iframeContainer, markdownContainer) {
+  constructor(canvasId, iframeContainer, markdownContainer, app) {
+    this.app = app; // The only change is here
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
     this.iframeContainer = iframeContainer;
@@ -242,62 +243,52 @@ _drawNodeHeader(node) {
     ctx.fillText(fittedTitle, titleX, titleY);
 
     // Draw player mode highlight indicator with custom blink animation
+// Draw player mode highlight indicator (Play/Pause)
     if (node.highlighted) {
-        
-        // --- Animation Configuration (Easy to tweak) ---
-        const ON_DURATION = 2400;      // ms -- How long it stays fully bright
-        const FADE_OUT_DURATION = 300; // ms -- How long it takes to fade out
-        const OFF_DURATION = 600;      // ms -- How long it stays dim
-        const FADE_IN_DURATION = 300;  // ms -- How long it takes to fade in
-
-        const maxOpacity = 1.0;
-        const minOpacity = 0.0;
-        
-        // --- Animation Logic ---
-        const TOTAL_CYCLE_DURATION = ON_DURATION + FADE_OUT_DURATION + OFF_DURATION + FADE_IN_DURATION;
-        const timeInCycle = Date.now() % TOTAL_CYCLE_DURATION;
-
-        let opacity = maxOpacity;
-
-        // Phase 1: ON
-        if (timeInCycle < ON_DURATION) {
-            opacity = maxOpacity;
-        }
-        // Phase 2: Fading Out
-        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION) {
-            const timeInFade = timeInCycle - ON_DURATION;
-            const progress = timeInFade / FADE_OUT_DURATION;
-            opacity = maxOpacity - progress * (maxOpacity - minOpacity);
-        }
-        // Phase 3: OFF
-        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION + OFF_DURATION) {
-            opacity = minOpacity;
-        }
-        // Phase 4: Fading In
-        else {
-            const timeInFade = timeInCycle - (ON_DURATION + FADE_OUT_DURATION + OFF_DURATION);
-            const progress = timeInFade / FADE_IN_DURATION;
-            opacity = minOpacity + progress * (maxOpacity - minOpacity);
-        }
-        
-        // --- Drawing Logic ---
-        const radius = 5;
         const padding = 8;
-        const circleX = node.x + padding;
-        const circleY = node.y + NODE_HEADER_HEIGHT - padding;
-
-        ctx.save();
-        ctx.globalAlpha = opacity;
+        const indicatorX = node.x + padding;
+        const indicatorY = node.y + NODE_HEADER_HEIGHT - padding;
         
-        ctx.fillStyle = '#21da58ff'; 
-        ctx.beginPath();
-        ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.save();
+        ctx.fillStyle = '#21da58ff';
+
+        // Ask the player directly if it's paused
+        const isPaused = this.app.player.isCurrentlyPaused();
+
+        if (!isPaused) {
+            // --- Blinking Circle for PLAYING state ---
+            const ON_DURATION = 2400, FADE_OUT_DURATION = 300, OFF_DURATION = 600, FADE_IN_DURATION = 300;
+            const TOTAL_CYCLE = ON_DURATION + FADE_OUT_DURATION + OFF_DURATION + FADE_IN_DURATION;
+            const time = Date.now() % TOTAL_CYCLE;
+            let opacity = 1.0;
+            if (time < ON_DURATION) { opacity = 1.0; } 
+            else if (time < ON_DURATION + FADE_OUT_DURATION) { opacity = 1.0 - (time - ON_DURATION) / FADE_OUT_DURATION; } 
+            else if (time < ON_DURATION + FADE_OUT_DURATION + OFF_DURATION) { opacity = 0.0; }
+            else { opacity = (time - (ON_DURATION + FADE_OUT_DURATION + OFF_DURATION)) / FADE_IN_DURATION; }
+            
+            ctx.globalAlpha = opacity;
+            const radius = 5;
+            ctx.beginPath();
+            ctx.arc(indicatorX, indicatorY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+        } else {
+            // --- Static Pause Icon for PAUSED state ---
+            const barWidth = 3;
+            const barHeight = 10;
+            const gap = 3;
+            const bar1X = indicatorX - (barWidth + gap / 2);
+            const barY = indicatorY - barHeight / 2;
+            
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            ctx.roundRect(bar1X, barY, barWidth, barHeight, 1);
+            ctx.roundRect(bar1X + barWidth + gap, barY, barWidth, barHeight, 1);
+            ctx.fill();
+        }
         
         ctx.restore();
     }
-
-    ctx.restore();
 }
   
   drawMarquee() {

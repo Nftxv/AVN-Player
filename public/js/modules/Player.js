@@ -188,6 +188,19 @@ export default class Player {
         }
     });
   }
+
+  // Helper function for the renderer to check the state
+  isCurrentlyPaused() {
+    if (!this.currentNode) return true; // If nothing is playing, it's "paused"
+    if (this.currentNode.sourceType === 'audio') {
+      return this.audio.paused;
+    }
+    if (this.currentNode.sourceType === 'iframe' && this.currentYtPlayer) {
+      const state = this.currentYtPlayer.getPlayerState();
+      return state !== YT.PlayerState.PLAYING;
+    }
+    return true;
+  }
   
   updateProgress() {
     const progress = document.getElementById('progress');
