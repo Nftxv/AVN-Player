@@ -83,18 +83,9 @@ canvas:active {
   pointer-events: auto; /* Active for player mode */
 }
 
-/* In player mode, overlays are non-interactive by default to allow canvas pan/zoom. */
-/* In editor mode, they are also non-interactive to allow selection through them. */
-body:not(.editor-mode) .iframe-wrapper,
-body:not(.editor-mode) .markdown-overlay,
-body.editor-mode .iframe-wrapper,
-body.editor-mode .markdown-overlay {
+/* REVISED: In editor mode, all overlays are transparent to clicks, fixing selection. */
+body.editor-mode .markdown-overlay, body.editor-mode .iframe-wrapper {
     pointer-events: none;
-}
-
-/* A class added via JS on long-press to enable local interaction. */
-.interaction-active {
-    pointer-events: auto !important; /* Use !important to override the default. */
 }
 
 .markdown-overlay.selected {

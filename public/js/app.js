@@ -167,28 +167,20 @@ class GraphApp {
     const clicked = this.renderer.getClickableEntityAt(coords.x, coords.y, { isDecorationsLocked: this.editorTools.decorationsLocked });
 
     if (this.isEditorMode) {
-        const clickedEntity = clicked ? clicked.entity : null;
-        let mode = 'set';
-        if (event.ctrlKey) mode = 'add';
-        else if (event.shiftKey) mode = 'remove';
-        this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
+      const clickedEntity = clicked ? clicked.entity : null;
+      let mode = 'set';
+      if (event.ctrlKey) mode = 'add';
+      else if (event.shiftKey) mode = 'remove';
+      
+      this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
+
     } else { // Player mode
-        if (clicked?.type === 'node-header') {
-            if (this.navigation.currentNode?.id === clicked.entity.id) {
-                this.player.togglePlay();
-            } else {
-                this.navigation.startFromNode(clicked.entity.id);
-            }
-        } else if (clicked?.type === 'node-content') {
-            // A tap on the iframe content area should also toggle play/pause.
-            if (this.navigation.currentNode?.id === clicked.entity.id) {
-                this.player.togglePlay();
-            }
-        }
-        // Clicks on decorations or empty space do nothing in player mode.
+      if (clicked && clicked.type === 'node') {
+        this.navigation.startFromNode(clicked.entity.id);
+      }
     }
   }
-
+  
   handleCanvasDblClick(event) {
     if (this.renderer.wasDragged()) return;
     const coords = this.renderer.getCanvasCoords(event);
