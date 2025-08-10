@@ -10,12 +10,12 @@ const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
 const DECORATION_LOD_THRESHOLD = 2.0;
 
 export default class Renderer {
-  constructor(canvasId, iframeContainer, markdownContainer, app) {
-    this.app = app; // The only change is here
+    constructor(canvasId, iframeContainer, markdownContainer, app) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
     this.iframeContainer = iframeContainer;
     this.markdownContainer = markdownContainer;
+    this.app = app; // Link to the main application
     
     this.graphData = null; 
     this.markdownOverlays = new Map();
@@ -46,7 +46,7 @@ export default class Renderer {
     this.renderLoop = this.renderLoop.bind(this);
     requestAnimationFrame(this.renderLoop);
   }
-
+  
   setData(graphData) { this.graphData = graphData; }
   
   render() {
