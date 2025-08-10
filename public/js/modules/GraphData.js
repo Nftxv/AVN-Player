@@ -41,8 +41,10 @@ export default class GraphData {
             iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
           });
           break;
-        case 'Path':
+
+          case 'Path':
           this.edges.push({
+            id: `edge-${item.source}-${item.target}-${Math.floor(Math.random() * 1e9)}`, // The fix is here
             source: item.source,
             target: item.target,
             color: item.color || '#888888',
@@ -51,7 +53,8 @@ export default class GraphData {
             controlPoints: item.controlPoints || [],
           });
           break;
-        case 'RectangleAnnotation':
+
+          case 'RectangleAnnotation':
           this.decorations.push({
             id: item['@id'],
             type: 'rectangle',
