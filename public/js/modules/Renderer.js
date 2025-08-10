@@ -37,6 +37,8 @@ export default class Renderer {
     
     this.isAnimatingPan = false;
     this.touchState = {}; // For mobile touch controls
+    this.pressTimer = null;
+    this.activeInteractionOverlayId = null;
 
     this.resizeCanvas();
     this.renderLoop = this.renderLoop.bind(this);
@@ -674,7 +676,9 @@ _getIntersectionWithNodeRect(node, externalPoint) {
   }
   
   highlight(currentId, prevId = null, edge = null) {
+      this.deactivateAllLocalInteractions(); // Deactivate on track change.
       this.graphData.nodes.forEach(n => n.highlighted = false);
+
       this.graphData.edges.forEach(e => e.highlighted = false);
       if (currentId) {
           const node = this.graphData.getNodeById(currentId);
@@ -749,20 +753,50 @@ _getIntersectionWithNodeRect(node, externalPoint) {
     requestAnimationFrame(animate);
   }
   
+  activateLocalInteraction(entity) {
+    this.deactivateAllLocalInteractions(); // Ensure only one is active
+    if (!entity) return;
+
+    const isIframe = !!entity.sourceType;
+    const selectorId = isIframe ? `iframe-wrapper-${entity.id}` : `md-overlay-${entity.id}`;
+    const element = document.getElementById(selectorId);
+
+    if (element) {
+        console.log(`Activating local interaction for ${selectorId}`);
+        element.classList.add('interaction-active');
+        this.activeInteractionOverlayId = selectorId;
+    }
+  }
+
+  deactivateAllLocalInteractions() {
+    if (!this.activeInteractionOverlayId) return;
+    
+    const element = document.getElementById(this.activeInteractionOverlayId);
+    if (element) {
+        element.classList.remove('interaction-active');
+    }
+    this.activeInteractionOverlayId = null;
+  }
+
   setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
+    const PRESS_DURATION = 400; // ms for long-press
+
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // --- MOUSE LOGIC (largely unchanged) ---
+    const cancelPressTimer = () => clearTimeout(this.pressTimer);
+
+    // --- MOUSE LOGIC ---
     const handleMouseMove = (e) => {
+        cancelPressTimer();
+        // ... (остальная логика mouse move остается без изменений)
         const oldMousePos = this.mousePos;
         this.mousePos = this.getCanvasCoords(e);
         if (e.buttons === 0) { handleMouseUp(e); return; }
         this.dragged = true;
         if (this.dragging) {
-            this.offset.x = e.clientX - this.dragStart.x;
-            this.offset.y = e.clientY - this.dragStart.y;
+            this.offset.x = e.clientX - this.dragStart.x; this.offset.y = e.clientY - this.dragStart.y;
         } else if (this.draggingEntity) {
             const dx = this.mousePos.x - oldMousePos.x; const dy = this.mousePos.y - oldMousePos.y;
             if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
@@ -785,6 +819,7 @@ _getIntersectionWithNodeRect(node, externalPoint) {
         }
     };
     const handleMouseUp = (e) => {
+        cancelPressTimer();
         if (this.isMarqueeSelecting) { if (Math.abs(this.marqueeRect.w) > 5 || Math.abs(this.marqueeRect.h) > 5) onMarqueeSelect(this.marqueeRect, e.ctrlKey, e.shiftKey); }
         if (this.isCreatingEdge && e.button === 2) { const targetClick = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true }); if (targetClick?.type === 'node-header' && this.edgeCreationSource && targetClick.entity.id !== this.edgeCreationSource.id) { onEdgeCreated(this.edgeCreationSource, targetClick.entity); } }
         this.dragging = this.draggingEntity = this.draggingControlPoint = this.isCreatingEdge = this.isMarqueeSelecting = this.isDraggingSelection = false;
@@ -793,75 +828,56 @@ _getIntersectionWithNodeRect(node, externalPoint) {
         setTimeout(() => { this.dragged = false; }, 0);
     };
     this.canvas.addEventListener('mousedown', (e) => {
+        this.deactivateAllLocalInteractions(); // Deactivate on any new interaction
         this.isAnimatingPan = false; this.dragged = false; this.mousePos = this.getCanvasCoords(e);
-        const isEditor = getIsEditorMode();
+        
+        const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, {});
+        if (!getIsEditorMode() && (clicked?.type === 'node-content' || clicked?.type === 'decoration')) {
+            this.pressTimer = setTimeout(() => this.activateLocalInteraction(clicked.entity), PRESS_DURATION);
+        }
+        
         const handlePanStart = () => { this.dragging = true; this.dragStart.x = e.clientX - this.offset.x; this.dragStart.y = e.clientY - this.offset.y; this.canvas.style.cursor = 'grabbing'; window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp); };
-        if (e.button === 1 || (e.button === 0 && !isEditor)) { handlePanStart(); return; }
-        if (!isEditor) return;
-        if (e.button === 0) { const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y); if (cp) { this.draggingControlPoint = cp; } else { const clicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() }); if (clicked) { this.draggingEntity = clicked.entity; if (clicked.entity.selected) this.isDraggingSelection = true; } else { this.isMarqueeSelecting = true; this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 }; } } }
+        if (e.button === 1 || (e.button === 0 && !getIsEditorMode())) { handlePanStart(); return; }
+        if (!getIsEditorMode()) return;
+        // Editor logic follows
+        if (e.button === 0) { const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y); if (cp) { this.draggingControlPoint = cp; } else { const editClicked = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: getIsDecorationsLocked() }); if (editClicked) { this.draggingEntity = editClicked.entity; if (editClicked.entity.selected) this.isDraggingSelection = true; } else { this.isMarqueeSelecting = true; this.marqueeRect = { x: this.mousePos.x, y: this.mousePos.y, w: 0, h: 0 }; } } }
         else if (e.button === 2) { e.preventDefault(); const cp = this.getControlPointAt(this.mousePos.x, this.mousePos.y); if (cp) { cp.edge.controlPoints.splice(cp.pointIndex, 1); } else { const clickedNode = this.getClickableEntityAt(this.mousePos.x, this.mousePos.y, { isDecorationsLocked: true }); if (clickedNode?.type === 'node-header') { this.isCreatingEdge = true; this.edgeCreationSource = clickedNode.entity; } } }
         if (this.draggingEntity || this.draggingControlPoint || this.isCreatingEdge || this.isMarqueeSelecting) { this.canvas.style.cursor = 'crosshair'; window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp); }
     });
-    this.canvas.addEventListener('wheel', (e) => {
-        const target = e.target;
-        // Allow native scrolling on Markdown overlays, but prevent canvas zooming.
-        if (target.classList.contains('markdown-overlay') && target.scrollHeight > target.clientHeight) {
-            return;
-        }
-        e.preventDefault();
-        this.isAnimatingPan = false;
-        const zoomIntensity = 0.1; const wheel = e.deltaY < 0 ? 1 : -1; const zoom = Math.exp(wheel * zoomIntensity);
-        const rect = this.canvas.getBoundingClientRect(); const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        const newScale = Math.max(0.05, Math.min(50, this.scale * zoom));
-        const actualZoom = newScale / this.scale;
-        this.offset.x = mouseX - (mouseX - this.offset.x) * actualZoom; this.offset.y = mouseY - (mouseY - this.offset.y) * actualZoom;
-        this.scale = newScale;
-    });
 
-    // --- REVISED TOUCH LOGIC ---
-    let activeTouchTarget = null;
+    this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.deactivateAllLocalInteractions(); this.isAnimatingPan = false; const zoomIntensity = 0.1; const wheel = e.deltaY < 0 ? 1 : -1; const zoom = Math.exp(wheel * zoomIntensity); const rect = this.canvas.getBoundingClientRect(); const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top; const newScale = Math.max(0.05, Math.min(50, this.scale * zoom)); const actualZoom = newScale / this.scale; this.offset.x = mouseX - (mouseX - this.offset.x) * actualZoom; this.offset.y = mouseY - (mouseY - this.offset.y) * actualZoom; this.scale = newScale; });
+
+    // --- TOUCH LOGIC ---
     const handleTouchStart = (e) => {
+        this.deactivateAllLocalInteractions();
         if (getIsEditorMode()) return;
         this.isAnimatingPan = false; this.dragged = false;
-        activeTouchTarget = e.target;
         const touches = e.touches;
-
-        // If touch starts on a scrollable markdown overlay, prepare for scrolling.
-        if (activeTouchTarget.classList.contains('markdown-overlay') && activeTouchTarget.scrollHeight > activeTouchTarget.clientHeight) {
-            this.touchState = { type: 'scroll', startY: touches[0].clientY, initialScrollTop: activeTouchTarget.scrollTop, startX: touches[0].clientX, initialOffsetX: this.offset.x };
-            return; // Don't prevent default, allow scrolling.
+        
+        // Long-press detection for single touch
+        if (touches.length === 1) {
+            const coords = this.getCanvasCoords(touches[0]);
+            const clicked = this.getClickableEntityAt(coords.x, coords.y, {});
+            if (clicked?.type === 'node-content' || clicked?.type === 'decoration') {
+               this.pressTimer = setTimeout(() => this.activateLocalInteraction(clicked.entity), PRESS_DURATION);
+            }
         }
         
-        // Prevent default for all other cases to handle canvas pan/zoom.
-        e.preventDefault();
+        // Pan/Zoom logic
         if (touches.length === 1) {
             this.touchState = { type: 'pan', startX: touches[0].clientX, startY: touches[0].clientY, initialOffset: { ...this.offset } };
         } else if (touches.length >= 2) {
+            cancelPressTimer(); // Zooming cancels long-press
             const t1 = touches[0], t2 = touches[1];
             this.touchState = { type: 'zoom', initialDist: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY), initialMidpoint: { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }, initialScale: this.scale, initialOffset: { ...this.offset } };
         }
     };
     const handleTouchMove = (e) => {
         if (getIsEditorMode() || !e.touches.length) return;
+        cancelPressTimer(); // Moving cancels long-press
         this.dragged = true;
-
-        // Smart scrolling for Markdown overlays
-        if (this.touchState.type === 'scroll') {
-            const dy = e.touches[0].clientY - this.touchState.startY;
-            activeTouchTarget.scrollTop = this.touchState.initialScrollTop - dy;
-            const dx = e.touches[0].clientX - this.touchState.startX;
-            this.offset.x = this.touchState.initialOffsetX + dx;
-            return;
-        }
-        
-        e.preventDefault(); // Prevent browser gestures only for pan/zoom.
-        if (this.touchState.type === 'pan' && e.touches.length === 1) {
-            const dx = e.touches[0].clientX - this.touchState.startX;
-            const dy = e.touches[0].clientY - this.touchState.startY;
-            this.offset.x = this.touchState.initialOffset.x + dx;
-            this.offset.y = this.touchState.initialOffset.y + dy;
-        } else if (this.touchState.type === 'zoom' && e.touches.length >= 2) {
-            // CRITICAL FIX: Prevent division by zero if fingers are at the same spot.
+        if (this.touchState.type === 'pan' && e.touches.length === 1) { const dx = e.touches[0].clientX - this.touchState.startX; const dy = e.touches[0].clientY - this.touchState.startY; this.offset.x = this.touchState.initialOffset.x + dx; this.offset.y = this.touchState.initialOffset.y + dy; } 
+        else if (this.touchState.type === 'zoom' && e.touches.length >= 2) {
             if (this.touchState.initialDist < 1) return;
             const t1 = e.touches[0], t2 = e.touches[1];
             const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -875,18 +891,17 @@ _getIntersectionWithNodeRect(node, externalPoint) {
         }
     };
     const handleTouchEnd = (e) => {
+        cancelPressTimer();
         if (getIsEditorMode()) return;
-        if (!this.dragged) onClick(e.changedTouches[0]);
-        // Gracefully transition from zoom to pan if one finger remains.
-        if (e.touches.length === 1) { handleTouchStart(e); } 
-        else if (e.touches.length === 0) { this.touchState = {}; activeTouchTarget = null; }
+        if (!this.dragged) { onClick(e.changedTouches[0]); }
+        if (e.touches.length === 1) { handleTouchStart({ touches: e.touches }); } 
+        else if (e.touches.length === 0) { this.touchState = {}; }
         setTimeout(() => { this.dragged = false; }, 0);
     };
 
-    // Use a single event listener on the body to capture events over all elements.
-    document.body.addEventListener('touchstart', handleTouchStart, { passive: false });
-    document.body.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.body.addEventListener('touchend', handleTouchEnd);
+    this.canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    this.canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    this.canvas.addEventListener('touchend', handleTouchEnd);
 
     this.canvas.addEventListener('click', onClick);
     this.canvas.addEventListener('dblclick', onDblClick);
