@@ -8,6 +8,10 @@ import Player from './modules/Player.js';
 import EditorTools from './modules/EditorTools.js';
 import Navigation from './modules/Navigation.js';
 
+// Constants exposed for other modules that need them
+const NODE_WIDTH = 200;
+const NODE_HEADER_HEIGHT = 45;
+
 function loadYouTubeAPI() {
   return new Promise((resolve) => {
     if (window.YT && window.YT.Player) {
@@ -43,15 +47,65 @@ class GraphApp {
     try {
       await this.graphData.load('data/default.jsonld');
       this.renderer.setData(this.graphData);
-      
-      if (this.graphData.view) {
-        this.renderer.setViewport(this.graphData.view);
+
+      // --- Smart Mobile Viewport Adjustment ---
+      const IS_MOBILE = window.innerWidth < 768;
+      const MOBILE_ZOOM_THRESHOLD = 2.5; // If saved scale is higher, it's a close-up
+      const MOBILE_TARGET_SCALE = 1.2;   // A comfortable scale to fit one node
+
+      if (IS_MOBILE && this.graphData.view && this.graphData.view.scale > MOBILE_ZOOM_THRESHOLD) {
+        console.log('Mobile device with high initial zoom detected. Adjusting viewport.');
+
+        // Calculate the center of the saved desktop viewport
+        const savedView = this.graphData.view;
+        const assumedDesktopWidth = 1920; // Assume a common desktop width for center calculation
+        const assumedDesktopHeight = 1080;
+        const savedCenterX = (assumedDesktopWidth / 2 - savedView.offset.x) / savedView.scale;
+        const savedCenterY = (assumedDesktopHeight / 2 - savedView.offset.y) / savedView.scale;
+
+        // Find the node closest to that saved center
+        let closestNode = null;
+        let minDistance = Infinity;
+        
+        if (this.graphData.nodes.length > 0) {
+            this.graphData.nodes.forEach(node => {
+                const nodeCenterX = node.x + NODE_WIDTH / 2;
+                const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
+                const dist = Math.hypot(savedCenterX - nodeCenterX, savedCenterY - nodeCenterY);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestNode = node;
+                }
+            });
+        }
+
+        if (closestNode) {
+            // Calculate the new viewport to center this node without animation
+            const nodeCenterX = closestNode.x + NODE_WIDTH / 2;
+            const nodeCenterY = closestNode.y + NODE_HEADER_HEIGHT / 2;
+            const newOffsetX = (this.renderer.canvas.width / 2) - (nodeCenterX * MOBILE_TARGET_SCALE);
+            const newOffsetY = (this.renderer.canvas.height / 2) - (nodeCenterY * MOBILE_TARGET_SCALE);
+
+            this.renderer.setViewport({
+                offset: { x: newOffsetX, y: newOffsetY },
+                scale: MOBILE_TARGET_SCALE
+            });
+        } else {
+            // Fallback: if no nodes, just use the saved view anyway
+            this.renderer.setViewport(this.graphData.view);
+        }
+      } else {
+        // Standard behavior for desktop or non-zoomed views
+        if (this.graphData.view) {
+          this.renderer.setViewport(this.graphData.view);
+        }
       }
       
-      this.renderer.render();
+      this.renderer.render(); // Render initial state
       this.setupEventListeners();
       this.toggleEditorMode(false);
       console.log('Application initialized successfully.');
+
     } catch (error) {
       console.error('Initialization failed:', error);
       alert('Could not load the application.');
@@ -203,9 +257,6 @@ handleCanvasClick(event) {
   }
 }
 
-// Constants exposed for other modules that need them
-const NODE_WIDTH = 200;
-const NODE_HEADER_HEIGHT = 45;
 
 (async () => {
   try {
