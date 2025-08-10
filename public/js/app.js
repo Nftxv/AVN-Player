@@ -159,7 +159,10 @@ class GraphApp {
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
     
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
-  }
+
+    document.getElementById('topToolbar').addEventListener('mousedown', () => this.renderer.disableLocalInteraction());
+    document.getElementById('player').addEventListener('mousedown', () => this.renderer.disableLocalInteraction());
+    }
 
 handleCanvasClick(event) {
     if (this.renderer.wasDragged()) return;
