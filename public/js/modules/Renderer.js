@@ -154,7 +154,10 @@ drawEdge(edge) {
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       
-      const offset = arrowSizeInWorld;
+      // THE FIX: The pullback offset should not be larger than the last line segment.
+      const lastSegmentLength = Math.hypot(pForArrow.x - pBeforeArrow.x, pForArrow.y - pBeforeArrow.y);
+      const offset = Math.min(arrowSize, lastSegmentLength - 1); // Subtract 1px to prevent overlap
+
       const adjustedEndPoint = {
           x: pForArrow.x - offset * Math.cos(angle),
           y: pForArrow.y - offset * Math.sin(angle)
