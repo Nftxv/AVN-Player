@@ -151,7 +151,7 @@ drawEdge(edge) {
       // while also preventing the line "pullback" from becoming too large when zoomed out.
 
       // 1. Calculate a desired size in screen pixels, proportional to the line's thickness.
-      const desiredScreenSize = Math.max(9, Math.min(16, 7 + screenLineWidth * 2));
+      const desiredScreenSize = Math.max(18, Math.min(16, 7 + screenLineWidth * 2));
 
       // 2. Calculate the world size needed to draw an arrow of that screen size.
       const arrowDrawSizeInWorld = desiredScreenSize / this.scale;
@@ -184,7 +184,7 @@ drawEdge(edge) {
       
       // Use the unclamped visual size for drawing the actual arrow shape.
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowDrawSizeInWorld);
-      
+
       // ... rest of the function ...
       if(this.scale > 0.5) {
           controlPoints.forEach(point => {
