@@ -187,7 +187,9 @@ button#lockDecorationsBtn.active:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  /* width is no longer 100% */
+  justify-content: center; /* This centers the items inside the flex container */
+  width: 100%; /* We need to give it a width to center within */
+  max-width: 500px; /* And constrain it like the progress bar */
 }
 
 /* NEW: Style for the progress container */
