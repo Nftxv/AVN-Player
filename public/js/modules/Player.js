@@ -40,6 +40,7 @@ export default class Player {
     
     this.currentNode = node;
     this.updateMediaSession(this.currentNode); // Update metadata for the new node
+    this.updateMediaSessionActions(this.currentNode);
 
     document.getElementById('songTitle').textContent = node.title;
     const playBtn = document.getElementById('playBtn');
@@ -253,6 +254,26 @@ export default class Player {
           { src: coverUrl, sizes: '512x512', type: imageType },
         ]
       });
+    }
+  }
+
+updateMediaSessionActions(node) {
+    if (!('mediaSession' in navigator)) return;
+
+    // Check for next track availability
+    const nextEdges = this.graphData.getEdgesFromNode(node.id);
+    if (nextEdges.length > 0) {
+      navigator.mediaSession.setActionHandler('nexttrack', () => this.navigation.advance());
+    } else {
+      navigator.mediaSession.setActionHandler('nexttrack', null); // Disable button
+    }
+
+    // Check for previous track availability
+    const canGoBack = this.history.length > 1 || this.graphData.edges.some(e => e.target === node.id);
+    if (canGoBack) {
+      navigator.mediaSession.setActionHandler('previoustrack', () => this.navigation.goBack());
+    } else {
+      navigator.mediaSession.setActionHandler('previoustrack', null); // Disable button
     }
   }
 
