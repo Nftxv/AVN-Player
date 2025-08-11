@@ -147,23 +147,17 @@ drawEdge(edge) {
       ctx.lineWidth = screenLineWidth / this.scale;
 
 // --- Arrow Size & Pullback Logic ---
-      // Goal: Keep apparent arrow size on screen within a pleasant range [min, max],
-      // while also preventing the line "pullback" from becoming too large when zoomed out.
 
-      // 1. Calculate a desired size in screen pixels, proportional to the line's thickness.
-      const desiredScreenSize = Math.max(18, Math.min(16, 7 + screenLineWidth * 2));
+      const TARGET_ARROW_SIZE_ON_SCREEN = 15; // Поставь здесь 20, 25 или сколько нужно.
 
-      // 2. Calculate the world size needed to draw an arrow of that screen size.
-      const arrowDrawSizeInWorld = desiredScreenSize / this.scale;
+      const arrowDrawSizeInWorld = TARGET_ARROW_SIZE_ON_SCREEN / this.scale;
 
-      // 3. The pullback distance, however, must be clamped to prevent it from overtaking the line.
-      const pullbackDistanceInWorld = Math.min(arrowDrawSizeInWorld, 30); // Max pullback of 30 world units.
+      const pullbackDistanceInWorld = Math.min(arrowDrawSizeInWorld, 30); 
 
-      const pForArrow = pathPoints.at(-1); // The point ON the border
+      const pForArrow = pathPoints.at(-1); 
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
-      
-      // Use the clamped value for the line's endpoint calculation.
+
       const adjustedEndPoint = {
           x: pForArrow.x - pullbackDistanceInWorld * Math.cos(angle),
           y: pForArrow.y - pullbackDistanceInWorld * Math.sin(angle)
@@ -174,7 +168,6 @@ drawEdge(edge) {
       for (let i = 1; i < pathPoints.length - 1; i++) {
           ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       }
-      // Only draw the last segment if it's longer than a pixel.
       if (Math.hypot(adjustedEndPoint.x - pBeforeArrow.x, adjustedEndPoint.y - pBeforeArrow.y) > 1) {
           ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
       }
@@ -182,7 +175,6 @@ drawEdge(edge) {
       ctx.strokeStyle = color; 
       ctx.stroke();
       
-      // Use the unclamped visual size for drawing the actual arrow shape.
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowDrawSizeInWorld);
 
       // ... rest of the function ...
