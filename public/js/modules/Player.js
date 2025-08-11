@@ -227,7 +227,7 @@ export default class Player {
       navigator.mediaSession.setActionHandler('pause', () => this.togglePlay());
       
       // We can use the same navigation functions for lock screen controls
-      navigator.mediaSession.setAction.setActionHandler('nexttrack', () => this.navigation.advance());
+      navigator.mediaSession.setActionHandler('nexttrack', () => this.navigation.advance());
       navigator.mediaSession.setActionHandler('previoustrack', () => this.navigation.goBack());
 
       // Explicitly disable seeking to prioritize track navigation
