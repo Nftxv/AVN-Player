@@ -135,7 +135,7 @@ drawEdge(edge) {
       ctx.save();
       
       let color = edge.color || '#888888';
-      if (edge.selected) color = '#e74c3c';
+      if (edge.selected) color = '#28d1e7ff';
       if (edge.highlighted) color = '#FFD700';
       
       const baseWidth = edge.lineWidth || 2;
