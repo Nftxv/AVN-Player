@@ -148,11 +148,11 @@ drawEdge(edge) {
 
       // Calculate arrow size with a balance between screen and world constraints.
       // This gives a good base size on screen, proportional to the line's screen width.
-      const arrowSizeOnScreen = Math.min(16, 6 + screenLineWidth * 2);
+      const arrowSizeOnScreen = Math.min(16, 6 + screenLineWidth * 3);
       
       // Convert to world size, but clamp it to prevent it from becoming huge when zoomed out.
       let arrowSizeInWorld = arrowSizeOnScreen / this.scale;
-      arrowSizeInWorld = Math.min(25, arrowSizeInWorld); // Max world size of 25 units.
+      arrowSizeInWorld = Math.min(15, arrowSizeInWorld); // Max world size of 25 units.
 
       const pForArrow = pathPoints.at(-1); // The point ON the border
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
