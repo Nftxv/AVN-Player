@@ -146,22 +146,27 @@ drawEdge(edge) {
       const screenLineWidth = Math.max(0.75, lineWidth * Math.min(1.0, Math.pow(this.scale, 0.6)));
       ctx.lineWidth = screenLineWidth / this.scale;
 
-      // Calculate arrow size with a balance between screen and world constraints.
-      // This gives a good base size on screen, proportional to the line's screen width.
-      const arrowSizeOnScreen = Math.min(16, 6 + screenLineWidth * 2);
-      
-      // Convert to world size, but clamp it to prevent it from becoming huge when zoomed out.
-      let arrowSizeInWorld = arrowSizeOnScreen / this.scale;
-      arrowSizeInWorld = Math.min(25, arrowSizeInWorld); // Max world size of 25 units.
+// --- Arrow Size & Pullback Logic ---
+      // Goal: Keep apparent arrow size on screen within a pleasant range [min, max],
+      // while also preventing the line "pullback" from becoming too large when zoomed out.
+
+      // 1. Calculate a desired size in screen pixels, proportional to the line's thickness.
+      const desiredScreenSize = Math.max(9, Math.min(16, 7 + screenLineWidth * 2));
+
+      // 2. Calculate the world size needed to draw an arrow of that screen size.
+      const arrowDrawSizeInWorld = desiredScreenSize / this.scale;
+
+      // 3. The pullback distance, however, must be clamped to prevent it from overtaking the line.
+      const pullbackDistanceInWorld = Math.min(arrowDrawSizeInWorld, 30); // Max pullback of 30 world units.
 
       const pForArrow = pathPoints.at(-1); // The point ON the border
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
       
-      const offset = arrowSizeInWorld;
+      // Use the clamped value for the line's endpoint calculation.
       const adjustedEndPoint = {
-          x: pForArrow.x - offset * Math.cos(angle),
-          y: pForArrow.y - offset * Math.sin(angle)
+          x: pForArrow.x - pullbackDistanceInWorld * Math.cos(angle),
+          y: pForArrow.y - pullbackDistanceInWorld * Math.sin(angle)
       };
 
       ctx.beginPath();
@@ -169,6 +174,7 @@ drawEdge(edge) {
       for (let i = 1; i < pathPoints.length - 1; i++) {
           ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
       }
+      // Only draw the last segment if it's longer than a pixel.
       if (Math.hypot(adjustedEndPoint.x - pBeforeArrow.x, adjustedEndPoint.y - pBeforeArrow.y) > 1) {
           ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
       }
@@ -176,8 +182,9 @@ drawEdge(edge) {
       ctx.strokeStyle = color; 
       ctx.stroke();
       
-      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSizeInWorld);
-
+      // Use the unclamped visual size for drawing the actual arrow shape.
+      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowDrawSizeInWorld);
+      
       // ... rest of the function ...
       if(this.scale > 0.5) {
           controlPoints.forEach(point => {
