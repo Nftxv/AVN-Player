@@ -1,6 +1,11 @@
 /**
  * Manages audio playback and player UI updates.
  */
+
+// Media Session constants for lock screen metadata
+const MEDIA_SESSION_ALBUM = 'Abyss Void: the Archive';
+const MEDIA_SESSION_ARTIST = 'Nftxv';
+
 export default class Player {
   constructor(graphData, iframeContainer) {
     this.graphData = graphData;
@@ -15,6 +20,7 @@ export default class Player {
     this.currentYtPlayer = null;
 
     this.setupEventListeners();
+    this.setupMediaSession();
   }
 
   setNavigation(navigation) { this.navigation = navigation; }
@@ -23,16 +29,18 @@ export default class Player {
     if (!node) return;
     
     const wasPlayingNode = this.currentNode;
-    this.currentNode = node;
     
-    if (wasPlayingNode?.id !== node.id) {
+    // Stop previous playback if it's a different node
+    if (wasPlayingNode && wasPlayingNode.id !== node.id) {
         this.audio.pause();
         if (this.currentYtPlayer) {
           this.currentYtPlayer.pauseVideo();
         }
-        this.currentYtPlayer = null;
     }
     
+    this.currentNode = node;
+    this.updateMediaSession(this.currentNode); // Update metadata for the new node
+
     document.getElementById('songTitle').textContent = node.title;
     const playBtn = document.getElementById('playBtn');
     const progress = document.getElementById('progress');
@@ -47,7 +55,10 @@ export default class Player {
         playBtn.textContent = '⏸';
         playBtn.disabled = false;
         progress.disabled = false;
-        this.audio.src = node.audioUrl;
+        // If the src is the same, just play. Otherwise, set new src.
+        if (this.audio.src !== node.audioUrl) {
+            this.audio.src = node.audioUrl;
+        }
         this.audio.play().catch(e => console.error("Playback error:", e));
 
     } else if (node.sourceType === 'iframe') {
@@ -55,7 +66,8 @@ export default class Player {
         playBtn.textContent = '⏸';
         progress.value = 0;
         progress.disabled = true;
-
+        
+        // This logic handles creating/reusing the YT player
         if (this.ytPlayers.has(node.id)) {
             this.currentYtPlayer = this.ytPlayers.get(node.id);
             if (this.currentYtPlayer.getPlayerState() === YT.PlayerState.ENDED) {
@@ -202,4 +214,46 @@ export default class Player {
       currentTimeElem.textContent = '0:00';
     }
   }
+
+  setupMediaSession() {
+    if ('mediaSession' in navigator) {
+      console.log('Media Session API is available.');
+      
+      navigator.mediaSession.setActionHandler('play', () => this.togglePlay());
+      navigator.mediaSession.setActionHandler('pause', () => this.togglePlay());
+      
+      // We can use the same navigation functions for lock screen controls
+      navigator.mediaSession.setActionHandler('nexttrack', () => this.navigation.advance());
+      navigator.mediaSession.setActionHandler('previoustrack', () => this.navigation.goBack());
+    } else {
+      console.warn('Media Session API is not available.');
+    }
+  }
+
+  updateMediaSession(node) {
+    if ('mediaSession' in navigator) {
+      const coverUrl = node.coverUrl || 'icons/default-cover.png'; // Fallback to a default icon
+      
+      let imageType = 'image/png'; // Default
+      if (coverUrl.endsWith('.jpg') || coverUrl.endsWith('.jpeg')) {
+        imageType = 'image/jpeg';
+      }
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: node.title,
+        artist: MEDIA_SESSION_ARTIST,
+        album: MEDIA_SESSION_ALBUM,
+        artwork: [
+          // Provide different sizes for different devices/contexts
+          { src: coverUrl, sizes: '96x96',   type: imageType },
+          { src: coverUrl, sizes: '128x128', type: imageType },
+          { src: coverUrl, sizes: '192x192', type: imageType },
+          { src: coverUrl, sizes: '256x256', type: imageType },
+          { src: coverUrl, sizes: '384x384', type: imageType },
+          { src: coverUrl, sizes: '512x512', type: imageType },
+        ]
+      });
+    }
+  }
+
 }
