@@ -148,7 +148,7 @@ drawEdge(edge) {
 
       // Make arrow size and pullback gap proportional to the calculated line width.
       // It's larger when zoomed in and doesn't shrink to nothing when zoomed out.
-      const arrowSizeOnScreen = Math.max(7, Math.min(20, screenLineWidth * 3.0));
+      const arrowSizeOnScreen = Math.max(15, Math.min(20, screenLineWidth * 3.0));
       // Adjust world size to counteract scale, keeping perceived size more constant.
       const arrowSizeInWorld = arrowSizeOnScreen / Math.sqrt(this.scale);
 
