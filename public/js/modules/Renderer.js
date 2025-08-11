@@ -147,7 +147,7 @@ drawEdge(edge) {
       ctx.lineWidth = screenLineWidth / this.scale;
 
       // Make arrow size and pullback gap proportional to the calculated line width.
-      const arrowSizeOnScreen = Math.max(5, Math.min(16, screenLineWidth * 2.5));
+      const arrowSizeOnScreen = Math.max(15, Math.min(16, screenLineWidth * 2.5));
       const arrowSizeInWorld = arrowSizeOnScreen / this.scale;
 
       const pForArrow = pathPoints.at(-1); // The point ON the border
