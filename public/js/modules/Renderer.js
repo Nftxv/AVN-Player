@@ -218,91 +218,92 @@ drawEdge(edge) {
     }
   }
 
-_drawNodeHeader(node) {
-    const ctx = this.ctx;
-    ctx.save();
-    
-    // Draw header background
-    ctx.fillStyle = '#2d2d2d';
-    const cornerRadius = 8;
-    ctx.beginPath();
-    ctx.roundRect(node.x, node.y, NODE_WIDTH, NODE_HEADER_HEIGHT, [0, 0, cornerRadius, cornerRadius]);
-    ctx.fill();
-    
-    // Border for selection or default state
-    ctx.strokeStyle = node.selected ? '#16e049ff' : '#424242';
-    ctx.lineWidth = node.selected ? 2 : 1;
-    ctx.stroke();
+drawEdge(edge) {
+      const src = this.graphData.getNodeById(edge.source);
+      const trg = this.graphData.getNodeById(edge.target);
+      if (!src || !trg) return;
+      
+      const controlPoints = edge.controlPoints || [];
+      // Use header centers for stable angle calculation
+      const srcHeaderCenter = { x: src.x + NODE_WIDTH / 2, y: src.y + NODE_HEADER_HEIGHT / 2 };
+      const trgHeaderCenter = { x: trg.x + NODE_WIDTH / 2, y: trg.y + NODE_HEADER_HEIGHT / 2 };
+      
+      const targetPointForAngle = controlPoints.length > 0 ? controlPoints[0] : trgHeaderCenter;
+      const sourcePointForAngle = controlPoints.length > 0 ? controlPoints.at(-1) : srcHeaderCenter;
 
-    // Draw title text
-    ctx.fillStyle = '#e0e0e0';
-    ctx.font = '14px "Segoe UI"';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const fittedTitle = this._fitText(node.title, NODE_WIDTH - 20); 
-    const titleX = node.x + NODE_WIDTH / 2;
-    const titleY = node.y + NODE_HEADER_HEIGHT / 2;
-    ctx.fillText(fittedTitle, titleX, titleY);
+      const startPoint = this._getIntersectionWithNodeRect(src, targetPointForAngle);
+      const endPoint = this._getIntersectionWithNodeRect(trg, sourcePointForAngle);      
+      
+      const pathPoints = [startPoint, ...controlPoints, endPoint];
+      const ctx = this.ctx;
+      ctx.save();
+      
+      let color = edge.color || '#888888';
+      if (edge.selected) color = '#e74c3c';
+      if (edge.highlighted) color = '#FFD700';
+      
+      const baseWidth = edge.lineWidth || 2;
+      const lineWidth = (edge.selected || edge.highlighted) ? baseWidth + 1 : baseWidth;
 
-    // Draw player mode highlight indicator with custom blink animation
-    if (node.highlighted) {
-        
-        // --- Animation Configuration (Easy to tweak) ---
-        const ON_DURATION = 2400;      // ms -- How long it stays fully bright
-        const FADE_OUT_DURATION = 300; // ms -- How long it takes to fade out
-        const OFF_DURATION = 600;      // ms -- How long it stays dim
-        const FADE_IN_DURATION = 300;  // ms -- How long it takes to fade in
+      // Make line width scale down slightly when zooming out to feel more proportional.
+      const screenLineWidth = Math.max(0.75, lineWidth * Math.min(1.0, Math.pow(this.scale, 0.5)));
+      ctx.lineWidth = screenLineWidth / this.scale;
 
-        const maxOpacity = 1.0;
-        const minOpacity = 0.0;
-        
-        // --- Animation Logic ---
-        const TOTAL_CYCLE_DURATION = ON_DURATION + FADE_OUT_DURATION + OFF_DURATION + FADE_IN_DURATION;
-        const timeInCycle = Date.now() % TOTAL_CYCLE_DURATION;
+      const arrowSize = 6 + baseWidth * 2.5;
 
-        let opacity = maxOpacity;
+      const pForArrow = pathPoints.at(-1);
+      const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
+      const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
+      
+      // THE FIX: The pullback offset should not be larger than the last line segment and NEVER be negative.
+      const lastSegmentLength = Math.hypot(pForArrow.x - pBeforeArrow.x, pForArrow.y - pBeforeArrow.y);
+      const offset = Math.max(0, Math.min(arrowSize, lastSegmentLength - 1));
 
-        // Phase 1: ON
-        if (timeInCycle < ON_DURATION) {
-            opacity = maxOpacity;
-        }
-        // Phase 2: Fading Out
-        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION) {
-            const timeInFade = timeInCycle - ON_DURATION;
-            const progress = timeInFade / FADE_OUT_DURATION;
-            opacity = maxOpacity - progress * (maxOpacity - minOpacity);
-        }
-        // Phase 3: OFF
-        else if (timeInCycle < ON_DURATION + FADE_OUT_DURATION + OFF_DURATION) {
-            opacity = minOpacity;
-        }
-        // Phase 4: Fading In
-        else {
-            const timeInFade = timeInCycle - (ON_DURATION + FADE_OUT_DURATION + OFF_DURATION);
-            const progress = timeInFade / FADE_IN_DURATION;
-            opacity = minOpacity + progress * (maxOpacity - minOpacity);
-        }
-        
-        // --- Drawing Logic ---
-        const radius = 5;
-        const padding = 8;
-        const circleX = node.x + padding;
-        const circleY = node.y + NODE_HEADER_HEIGHT - padding;
+      const adjustedEndPoint = {
+          x: pForArrow.x - offset * Math.cos(angle),
+          y: pForArrow.y - offset * Math.sin(angle)
+      };
 
+      // Draw the line to the adjusted point
+      ctx.beginPath();
+      ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+      for (let i = 1; i < pathPoints.length - 1; i++) {
+          ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+      }
+      if (Math.hypot(adjustedEndPoint.x - pBeforeArrow.x, adjustedEndPoint.y - pBeforeArrow.y) > 1) {
+          ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
+      }
+
+      ctx.strokeStyle = color; 
+      ctx.stroke();
+      
+      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSize);
+      
+      if(this.scale > 0.5) {
+          controlPoints.forEach(point => {
+              ctx.beginPath();
+              ctx.arc(point.x, point.y, 5 / this.scale, 0, 2 * Math.PI);
+              ctx.fillStyle = edge.selected ? '#e74c3c' : color;
+              ctx.fill();
+          });
+      }
+      if (edge.label && this.scale > 0.3) {
+        const midIndex = Math.floor((pathPoints.length - 2) / 2);
+        const p1 = pathPoints[midIndex], p2 = pathPoints[midIndex + 1];
+        ctx.font = `${12}px "Segoe UI"`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
         ctx.save();
-        ctx.globalAlpha = opacity;
-        
-        ctx.fillStyle = '#21da58ff'; 
-        ctx.beginPath();
-        ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
-        ctx.fill();
-        
+        ctx.translate((p1.x + p2.x)/2, (p1.y + p2.y)/2);
+        const rotationAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        if (rotationAngle > Math.PI / 2 || rotationAngle < -Math.PI / 2) ctx.rotate(rotationAngle + Math.PI); else ctx.rotate(rotationAngle);
+        ctx.fillText(edge.label, 0, -8 / this.scale);
         ctx.restore();
-    }
-
-    ctx.restore();
-}
-  
+      }
+      ctx.restore();
+  }
+    
   drawMarquee() {
     const ctx = this.ctx;
     ctx.save();
