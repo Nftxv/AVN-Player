@@ -182,8 +182,7 @@ class GraphApp {
 
     document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
     
-    document.getElementById('collapseAllBtn').addEventListener('click', () => this.editorTools.collapseAllNodes());
-    document.getElementById('expandAllBtn').addEventListener('click', () => this.editorTools.expandAllNodes());
+    document.getElementById('toggleAllNodesBtn').addEventListener('click', () => this.editorTools.toggleAllNodes());
 
     document.getElementById('exportBtn').addEventListener('click', () => this.editorTools.exportGraph());
     document.getElementById('resetBtn').addEventListener('click', () => this.editorTools.resetGraph());

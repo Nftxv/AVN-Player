@@ -36,6 +36,24 @@ export default class EditorTools {
     this.graphData.nodes.forEach(node => node.isCollapsed = false);
   }
 
+  toggleAllNodes() {
+    // Check if at least one node is currently expanded
+    const isAnyNodeExpanded = this.graphData.nodes.some(node => !node.isCollapsed);
+    const btn = document.getElementById('toggleAllNodesBtn');
+
+    if (isAnyNodeExpanded) {
+      // If any node is expanded, the action is to collapse all
+      this.collapseAllNodes();
+      btn.textContent = '+';
+      btn.title = 'Expand All Nodes';
+    } else {
+      // Otherwise, all are collapsed, so the action is to expand all
+      this.expandAllNodes();
+      btn.textContent = '-';
+      btn.title = 'Collapse All Nodes';
+    }
+  }
+
   toggleDecorationsLock() {
     this.decorationsLocked = !this.decorationsLocked;
     this.initLockState();
