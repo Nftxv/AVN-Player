@@ -187,12 +187,21 @@ button#lockDecorationsBtn.active:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
-  max-width: 500px;
-  justify-content: center;
+  /* width is no longer 100% */
 }
 
-#progress { flex-grow: 1; }
+/* NEW: Style for the progress container */
+#progressContainer {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 500px; /* Same as old player controls */
+  gap: 12px;
+}
+
+#progress {
+  flex-grow: 1;
+}
 
 .hidden { display: none !important; }
 

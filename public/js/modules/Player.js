@@ -27,7 +27,7 @@ export default class Player {
 
   async play(node) {
     if (!node) return;
-    
+    const progressContainer = document.getElementById('progressContainer');
     const wasPlayingNode = this.currentNode;
     
     // Stop previous playback if it's a different node
@@ -47,6 +47,7 @@ export default class Player {
     const progress = document.getElementById('progress');
 
     if (node.sourceType === 'audio') {
+        progressContainer.style.visibility = 'visible'; 
         if (!node.audioUrl) {
           console.warn(`Audio URL is missing for "${node.title}".`);
           this.stop();
@@ -63,6 +64,7 @@ export default class Player {
         this.audio.play().catch(e => console.error("Playback error:", e));
 
     } else if (node.sourceType === 'iframe') {
+        progressContainer.style.visibility = 'hidden';
         playBtn.disabled = false;
         playBtn.textContent = '⏸';
         progress.value = 0;
@@ -120,6 +122,7 @@ export default class Player {
     document.getElementById('songTitle').textContent = 'Select a node to begin...';
     document.getElementById('progress').value = 0;
     document.getElementById('currentTime').textContent = '0:00';
+    document.getElementById('progressContainer').style.visibility = 'visible';
   }
 
   createAndPlayYtPlayer(node) {
