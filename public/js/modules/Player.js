@@ -258,7 +258,7 @@ export default class Player {
   }
 
 updateMediaSessionActions(node) {
-    if (!('mediaSession' in navigator)) return;
+    if (!('mediaSession' in navigator) || !this.navigation) return;
 
     // Check for next track availability
     const nextEdges = this.graphData.getEdgesFromNode(node.id);
@@ -269,7 +269,8 @@ updateMediaSessionActions(node) {
     }
 
     // Check for previous track availability
-    const canGoBack = this.history.length > 1 || this.graphData.edges.some(e => e.target === node.id);
+    // THE FIX IS HERE: Use this.navigation.history instead of this.history
+    const canGoBack = this.navigation.history.length > 1 || this.graphData.edges.some(e => e.target === node.id);
     if (canGoBack) {
       navigator.mediaSession.setActionHandler('previoustrack', () => this.navigation.goBack());
     } else {
