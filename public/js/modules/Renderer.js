@@ -146,21 +146,18 @@ drawEdge(edge) {
       const screenLineWidth = Math.max(0.75, lineWidth * Math.min(1.0, Math.pow(this.scale, 0.6)));
       ctx.lineWidth = screenLineWidth / this.scale;
 
-// --- Arrow Size & Pullback Logic ---
+      // Make arrow size and pullback gap proportional to the calculated line width.
+      const arrowSizeOnScreen = Math.max(5, Math.min(16, screenLineWidth * 2.5));
+      const arrowSizeInWorld = arrowSizeOnScreen / this.scale;
 
-      const TARGET_ARROW_SIZE_ON_SCREEN = 15; // Поставь здесь 20, 25 или сколько нужно.
-
-      const arrowDrawSizeInWorld = TARGET_ARROW_SIZE_ON_SCREEN / this.scale;
-
-      const pullbackDistanceInWorld = Math.min(arrowDrawSizeInWorld, 30); 
-
-      const pForArrow = pathPoints.at(-1); 
+      const pForArrow = pathPoints.at(-1); // The point ON the border
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
       const angle = Math.atan2(pForArrow.y - pBeforeArrow.y, pForArrow.x - pBeforeArrow.x);
-
+      
+      const offset = arrowSizeInWorld;
       const adjustedEndPoint = {
-          x: pForArrow.x - pullbackDistanceInWorld * Math.cos(angle),
-          y: pForArrow.y - pullbackDistanceInWorld * Math.sin(angle)
+          x: pForArrow.x - offset * Math.cos(angle),
+          y: pForArrow.y - offset * Math.sin(angle)
       };
 
       ctx.beginPath();
@@ -175,7 +172,7 @@ drawEdge(edge) {
       ctx.strokeStyle = color; 
       ctx.stroke();
       
-      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowDrawSizeInWorld);
+      this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSizeInWorld);
 
       // ... rest of the function ...
       if(this.scale > 0.5) {
