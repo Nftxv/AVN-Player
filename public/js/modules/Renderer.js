@@ -18,6 +18,7 @@ export default class Renderer {
     
     this.graphData = null; 
     this.markdownOverlays = new Map();
+    this.imageCache = new Map();
 
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
@@ -202,18 +203,51 @@ drawEdge(edge) {
       ctx.restore();
   }
 
-  _drawNodeContent(node) {
+_drawNodeContent(node) {
     if (node.isCollapsed) return;
     const ctx = this.ctx;
     const containerX = node.x;
     const containerY = node.y - NODE_CONTENT_HEIGHT;
     const containerW = NODE_WIDTH;
     const containerH = NODE_CONTENT_HEIGHT;
-    ctx.fillStyle = '#1e1e1e';
-    ctx.fillRect(containerX, containerY, containerW, containerH);
+
+    // For YouTube, it's just a black box behind the iframe
     if (node.sourceType === 'iframe') {
         ctx.fillStyle = '#000000';
         ctx.fillRect(containerX, containerY, containerW, containerH);
+        return;
+    }
+    
+    // For Audio with a cover
+    if (node.sourceType === 'audio' && node.coverUrl) {
+        const cachedImage = this.imageCache.get(node.coverUrl);
+
+        if (cachedImage instanceof Image) {
+            // Image is loaded and cached, draw it.
+            ctx.drawImage(cachedImage, containerX, containerY, containerW, containerH);
+        } else {
+            // Draw placeholder and start loading if not already initiated.
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(containerX, containerY, containerW, containerH);
+            
+            if (!cachedImage) { // 'undefined' means we haven't tried loading it yet
+                this.imageCache.set(node.coverUrl, 'loading'); // Mark as loading
+                const img = new Image();
+                img.crossOrigin = "Anonymous"; // Essential for cross-domain images
+                img.onload = () => {
+                    this.imageCache.set(node.coverUrl, img); // Replace 'loading' with the image object
+                };
+                img.onerror = () => {
+                    console.error(`Failed to load cover image: ${node.coverUrl}`);
+                    this.imageCache.set(node.coverUrl, 'failed'); // Mark as failed to prevent retries
+                };
+                img.src = node.coverUrl;
+            }
+        }
+    } else {
+      // Fallback for audio nodes without a cover
+      ctx.fillStyle = '#1e1e1e';
+      ctx.fillRect(containerX, containerY, containerW, containerH);
     }
   }
 
