@@ -65,7 +65,7 @@ class GraphApp {
       const MOBILE_ZOOM_THRESHOLD = 2.5;
       const MOBILE_TARGET_SCALE = 1.2;
 
-      if (IS_MOBILE && this.graphData.view && this.graphData.view.scale > MOBILE_ZOOM_THRESHOLD) {
+      if (IS_MOBILE && this.graphData.view) {
         // ... (this entire block is the same as before, no need to copy it here)
         // For brevity, I'm omitting the identical viewport adjustment logic. 
         // Just imagine the original code block is here.
