@@ -11,7 +11,7 @@ import Navigation from './modules/Navigation.js';
 // Constants exposed for other modules that need them
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
-const NODE_CONTENT_HEIGHT_DEFAULT = NODE_WIDTH * (9/16); // For iframes
+const NODE_CONTENT_HEIGHT_DEFAULT = NODE_WIDTH * (9 / 16); // For iframes
 const NODE_CONTENT_HEIGHT_SQUARE = NODE_WIDTH;          // For audio with covers
 
 function loadYouTubeAPI() {
@@ -75,18 +75,20 @@ class GraphApp {
         const assumedDesktopWidth = 1920, assumedDesktopHeight = 1080;
         const savedCenterX = (assumedDesktopWidth / 2 - savedView.offset.x) / savedView.scale;
         const savedCenterY = (assumedDesktopHeight / 2 - savedView.offset.y) / savedView.scale;
-
-        // Find the node whose visual center is closest to the saved desktop center
+        // Find the node whose VISUAL center is closest to the saved desktop center
         let closestNode = this.graphData.nodes.reduce((closest, node) => {
+            // Determine content height based on node type to find the true visual center
             const contentHeight = node.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
-            const visualCenterY = node.y + (NODE_HEADER_HEIGHT / 2) - (contentHeight / 2); // Calculate true visual center
-            const dist = Math.hypot(savedCenterX - (node.x + NODE_WIDTH / 2), savedCenterY - visualCenterY);
+            const visualNodeCenterY = node.y + (NODE_HEADER_HEIGHT / 2) - (contentHeight / 2);
+            
+            const dist = Math.hypot(savedCenterX - (node.x + NODE_WIDTH / 2), savedCenterY - visualNodeCenterY);
             return (dist < closest.minDistance) ? { node, minDistance: dist } : closest;
         }, { node: null, minDistance: Infinity }).node;
         
         if (closestNode) {
             const nodeCenterX = closestNode.x + NODE_WIDTH / 2;
-            // Recalculate the visual center for the chosen node to set the viewport
+            
+            // Recalculate visual center for the chosen node to set the viewport correctly
             const contentHeight = closestNode.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
             const nodeCenterY = closestNode.y + (NODE_HEADER_HEIGHT / 2) - (contentHeight / 2);
 
@@ -94,8 +96,10 @@ class GraphApp {
             const newOffsetY = (this.renderer.canvas.height / 2) - (nodeCenterY * MOBILE_TARGET_SCALE);
             this.renderer.setViewport({ offset: { x: newOffsetX, y: newOffsetY }, scale: MOBILE_TARGET_SCALE });
         } else { 
-          this.renderer.setViewport(this.graphData.view); 
+            // Fallback to the default view if no nodes are found
+            this.renderer.setViewport(this.graphData.view); 
         }
+        
       } else {
         if (this.graphData.view) this.renderer.setViewport(this.graphData.view);
       }
