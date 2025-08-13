@@ -104,6 +104,7 @@ class GraphApp {
       this.renderer.render(); // Render initial state
       this.setupEventListeners();
       this.toggleEditorMode(false);
+      this.toggleFollowMode(true); // Enable follow mode by default
       console.log('Application initialized successfully.');
 
     } catch (error) {
