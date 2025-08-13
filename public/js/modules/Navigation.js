@@ -29,11 +29,14 @@ startFromNode(nodeId) {
     this.history = [nodeId];
     
     this.renderer.highlight(nodeId, prevNodeId);
-    this.player.play(node);
 
+    // FIX: Center the view IMMEDIATELY, before waiting for the player to load.
     if (this.app.isFollowing) {
       this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
+    
+    // Now, start playback. This can take time for new YT nodes, but the UI is already moving.
+    this.player.play(node);
   }
 
   async advance() {
