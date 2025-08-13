@@ -770,7 +770,7 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     // Delegate the animation to our generic animator utility.
     this.animateToView({ offset: { x: targetOffsetX, y: targetOffsetY }, scale: finalScale });
   }
-    
+
     // NEW: Generic method to animate the viewport to a target state
   animateToView(targetView) {
       if (!targetView || !targetView.offset || !targetView.scale) return;
@@ -967,6 +967,41 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
             } catch (err) { console.error("Failed to parse internal link:", err); }
         }
     });
+
+        // NEW: Intercept clicks on internal markdown links for smooth navigation
+    this.markdownContainer.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Check if the click was on a link and if it's an internal hash-link
+        if (link && link.getAttribute('href').startsWith('#')) {
+            // Prevent the browser from jumping to the anchor
+            e.preventDefault();
+            try {
+                // Parse the view parameters from the link's hash
+                const params = new URLSearchParams(link.hash.substring(1));
+                const x = parseFloat(params.get('x'));
+                const y = parseFloat(params.get('y'));
+                const s = parseFloat(params.get('s'));
+
+                if (!isNaN(x) && !isNaN(y) && !isNaN(s)) {
+                    // Convert the view-center coordinates to the renderer's offset format
+                    const targetOffset = {
+                        x: (this.canvas.width / 2) - (x * s),
+                        y: (this.canvas.height / 2) - (y * s)
+                    };
+                    const targetView = { offset: targetOffset, scale: s };
+
+                    // Update the URL and add to browser history so the "back" button works
+                    history.pushState({ view: targetView }, '', link.href);
+                    
+                    // Trigger our smooth camera animation
+                    this.animateToView(targetView);
+                }
+            } catch (err) { 
+                console.error("Failed to parse internal link:", err); 
+            }
+        }
+    });
+           
   }
 }
     
