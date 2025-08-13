@@ -228,6 +228,7 @@ drawEdge(edge) {
 
     // Draw content for audio, using default cover as a fallback
     if (node.sourceType === 'audio') {
+      const isDefaultCover = !node.coverUrl;
       const imageUrl = node.coverUrl || 'icons/default-cover.jpg';
       const cachedImage = this.imageCache.get(imageUrl);
 
@@ -239,10 +240,13 @@ drawEdge(edge) {
         if (!cachedImage) {
           this.imageCache.set(imageUrl, 'loading');
           const img = new Image();
-          img.crossOrigin = "Anonymous";
+          // Only set crossOrigin for remote images, not for the local fallback.
+          if (!isDefaultCover) {
+            img.crossOrigin = "Anonymous";
+          }
           img.onload = () => this.imageCache.set(imageUrl, img);
           img.onerror = () => {
-            console.error(`Failed to load cover: ${imageUrl}`);
+            console.error(`Renderer: Failed to load cover image at ${imageUrl}`);
             this.imageCache.set(imageUrl, 'failed');
           };
           img.src = imageUrl;
