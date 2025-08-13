@@ -243,7 +243,7 @@ class GraphApp {
                 const scale = this.renderer.getViewport().scale;
                 const hash = `#x=${center.x.toFixed(2)}&y=${center.y.toFixed(2)}&s=${scale.toFixed(2)}`;
                 // Use replaceState so it doesn't pollute browser history
-                history.replaceState(null, '', hash);
+                history.replaceState(null, '', window.location.pathname + hash);
             }, 500);
         }
     });

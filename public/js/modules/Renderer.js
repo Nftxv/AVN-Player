@@ -753,16 +753,24 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
 
-    // REFACTOR: Use the new generic animateToView method
+    // The scale to animate to.
     const finalScale = targetScale !== null ? targetScale : this.scale;
+    
+    // The user's desired offset of the node from the screen center.
     const finalScreenOffset = screenOffset || { x: 0, y: 0 };
-    const { x: nodeCenterX, y: nodeCenterY } = this.getNodeVisualCenter(node); // Use new helper
+    
+    // Get the node's true visual center based on its type.
+    const { x: nodeCenterX, y: nodeCenterY } = this.getNodeVisualCenter(node);
+    
+    // THIS IS THE RESTORED LOGIC: Calculate the final canvas offset.
+    // It's the screen center, minus the node's scaled position, adjusted by the user's desired screen offset.
     const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) - finalScreenOffset.x;
     const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) - finalScreenOffset.y;
     
-    this.animateToView({ offset: {x: targetOffsetX, y: targetOffsetY}, scale: finalScale });
+    // Delegate the animation to our generic animator utility.
+    this.animateToView({ offset: { x: targetOffsetX, y: targetOffsetY }, scale: finalScale });
   }
-  
+    
     // NEW: Generic method to animate the viewport to a target state
   animateToView(targetView) {
       if (!targetView || !targetView.offset || !targetView.scale) return;
