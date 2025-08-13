@@ -840,6 +840,18 @@ disableLocalInteraction() {
                 if(entity.type === 'rectangle' && entity.attachedToNodeId) { const node = this.graphData.getNodeById(entity.attachedToNodeId); if(node) { entity.attachOffsetX = entity.x - node.x; entity.attachOffsetY = entity.y - node.y; } }
             };
             selection.forEach(move);
+
+            // FIX: Explicitly move control points of selected edges
+            const selectedEdges = selection.filter(e => e.source && e.target);
+            selectedEdges.forEach(edge => {
+                if (edge.controlPoints && edge.controlPoints.length > 0) {
+                    edge.controlPoints.forEach(point => {
+                        point.x += dx;
+                        point.y += dy;
+                    });
+                }
+            });
+
         } else if (this.draggingControlPoint) { this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].x = this.mousePos.x; this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].y = this.mousePos.y;
         } else if (this.isMarqueeSelecting) { this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x; this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y; }
     };
