@@ -584,6 +584,48 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "iframeUrl": "4eJpTAxdxiU"
     },
     {
+      "@id": "node-1755066807418",
+      "@type": "MusicRecording",
+      "name": "1",
+      "position": {
+        "x": 1951.1558058773876,
+        "y": 651.8425036690867
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/AcousticRockBallads/08.%20When%20I%20See%20You%20Smile.mp3",
+      "coverUrl": "https://archive.org/download/AcousticRockBallads/six-part-invention.jpg",
+      "iframeUrl": null
+    },
+    {
+      "@id": "node-1755066925615",
+      "@type": "MusicRecording",
+      "name": "2",
+      "position": {
+        "x": 2390.1174293042727,
+        "y": 724.2096084181657
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/12-make-me-wanna-die-acoustic/12%20-%20Make%20Me%20Wanna%20Die%20%28Acoustic%29.mp3",
+      "coverUrl": "https://github.com/Nftxv/AVN-Player/blob/main/public/icons/default-cover%20-%20Copy.jpg",
+      "iframeUrl": null
+    },
+    {
+      "@id": "node-1755068125852",
+      "@type": "MusicRecording",
+      "name": "3",
+      "position": {
+        "x": 2181.259276279302,
+        "y": 950.8632046591489
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/07RunOfTheMill/02%20-%20Before%20The%20Dawn.mp3",
+      "coverUrl": null,
+      "iframeUrl": null
+    },
+    {
       "@type": "Path",
       "source": "node-1754728755939",
       "target": "node-1754588700272",
@@ -780,6 +822,52 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
           "y": 412.3565405507793
         }
       ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066807418",
+      "target": "node-1755066925615",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 2279.024217054637,
+          "y": 548.7754444343499
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066807418",
+      "target": "node-1755068125852",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 1993.8306599873777,
+          "y": 904.5968730010246
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755068125852",
+      "target": "node-1755066807418",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066925615",
+      "target": "node-1755066807418",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
     },
     {
       "@id": "deco-text-1",
@@ -992,10 +1080,10 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
   ],
   "view": {
     "offset": {
-      "x": -1497.2226812127114,
-      "y": -1017.3671671418492
+      "x": -657.2243190803288,
+      "y": 7.445133885938276
     },
-    "scale": 4.104249931194941
+    "scale": 0.6138669951534215
   }
 }
 
@@ -2379,6 +2467,11 @@ export default class Player {
       // We can use the same navigation functions for lock screen controls
       navigator.mediaSession.setActionHandler('nexttrack', () => this.navigation.advance());
       navigator.mediaSession.setActionHandler('previoustrack', () => this.navigation.goBack());
+
+      // Explicitly disable seeking to prioritize track navigation
+      navigator.mediaSession.setActionHandler('seekbackward', null);
+      navigator.mediaSession.setActionHandler('seekforward', null);
+
     } else {
       console.warn('Media Session API is not available.');
     }
@@ -2443,8 +2536,8 @@ updateMediaSessionActions(node) {
  */
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
-const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
-const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+const NODE_CONTENT_HEIGHT_DEFAULT = NODE_WIDTH * (9/16); // For iframes and audio without covers
+const NODE_CONTENT_HEIGHT_SQUARE = NODE_WIDTH;          // For audio with covers (1:1 aspect ratio)
 const DECORATION_LOD_THRESHOLD = 2.0;
 
 export default class Renderer {
@@ -2456,6 +2549,7 @@ export default class Renderer {
     
     this.graphData = null; 
     this.markdownOverlays = new Map();
+    this.imageCache = new Map();
 
     this.offset = { x: 0, y: 0 };
     this.scale = 1.0;
@@ -2573,7 +2667,7 @@ drawEdge(edge) {
       ctx.save();
       
       let color = edge.color || '#888888';
-      if (edge.selected) color = '#e74c3c';
+      if (edge.selected) color = '#28d1e7ff';
       if (edge.highlighted) color = '#FFD700';
       
       const baseWidth = edge.lineWidth || 2;
@@ -2585,8 +2679,10 @@ drawEdge(edge) {
       ctx.lineWidth = screenLineWidth / this.scale;
 
       // Make arrow size and pullback gap proportional to the calculated line width.
-      const arrowSizeOnScreen = Math.max(5, Math.min(16, screenLineWidth * 2.5));
-      const arrowSizeInWorld = arrowSizeOnScreen / this.scale;
+      // It's larger when zoomed in and doesn't shrink to nothing when zoomed out.
+      const arrowSizeOnScreen = Math.max(15, Math.min(20, screenLineWidth * 3.0));
+      // Adjust world size to counteract scale, keeping perceived size more constant.
+      const arrowSizeInWorld = arrowSizeOnScreen / Math.sqrt(this.scale);
 
       const pForArrow = pathPoints.at(-1); // The point ON the border
       const pBeforeArrow = pathPoints.length > 1 ? pathPoints.at(-2) : startPoint;
@@ -2640,16 +2736,50 @@ drawEdge(edge) {
 
   _drawNodeContent(node) {
     if (node.isCollapsed) return;
+
     const ctx = this.ctx;
     const containerX = node.x;
-    const containerY = node.y - NODE_CONTENT_HEIGHT;
     const containerW = NODE_WIDTH;
-    const containerH = NODE_CONTENT_HEIGHT;
-    ctx.fillStyle = '#1e1e1e';
-    ctx.fillRect(containerX, containerY, containerW, containerH);
+    let containerH, containerY;
+
+    // Set height and position based on type
+    if (node.sourceType === 'audio' && node.coverUrl) {
+      containerH = NODE_CONTENT_HEIGHT_SQUARE;
+    } else {
+      containerH = NODE_CONTENT_HEIGHT_DEFAULT;
+    }
+    containerY = node.y - containerH;
+
+    // Draw content
     if (node.sourceType === 'iframe') {
-        ctx.fillStyle = '#000000';
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(containerX, containerY, containerW, containerH);
+      return;
+    }
+
+    if (node.sourceType === 'audio' && node.coverUrl) {
+      const cachedImage = this.imageCache.get(node.coverUrl);
+      if (cachedImage instanceof Image) {
+        ctx.drawImage(cachedImage, containerX, containerY, containerW, containerH);
+      } else {
+        ctx.fillStyle = '#1e1e1e'; // Placeholder color
         ctx.fillRect(containerX, containerY, containerW, containerH);
+        if (!cachedImage) {
+          this.imageCache.set(node.coverUrl, 'loading');
+          const img = new Image();
+          img.crossOrigin = "Anonymous";
+          img.onload = () => this.imageCache.set(node.coverUrl, img);
+          img.onerror = () => {
+            console.error(`Failed to load cover: ${node.coverUrl}`);
+            this.imageCache.set(node.coverUrl, 'failed');
+          };
+          img.src = node.coverUrl;
+        }
+      }
+    } else {
+      // Fallback for audio nodes without a cover
+      ctx.fillStyle = '#1e1e1e';
+      ctx.fillRect(containerX, containerY, containerW, containerH);
     }
   }
 
@@ -2898,11 +3028,22 @@ _drawNodeHeader(node) {
   }
 
   _getNodeVisualRect(node) {
-      const contentHeight = node.isCollapsed ? 0 : NODE_CONTENT_HEIGHT;
-      const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
-      return { x: node.x, y: node.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
+    if (node.isCollapsed) {
+      return { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
+    }
+
+    let contentHeight;
+    // Use square height for audio nodes with covers
+    if (node.sourceType === 'audio' && node.coverUrl) {
+      contentHeight = NODE_CONTENT_HEIGHT_SQUARE;
+    } else {
+      contentHeight = NODE_CONTENT_HEIGHT_DEFAULT;
+    }
+    
+    const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
+    return { x: node.x, y: node.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
   }
-  
+
   _getDecorationBounds(deco) {
       return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
   }

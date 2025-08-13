@@ -211,42 +211,45 @@ drawEdge(edge) {
     const containerW = NODE_WIDTH;
     let containerH, containerY;
 
-    // Set height and position based on type
-    if (node.sourceType === 'audio' && node.coverUrl) {
+    // All audio nodes get a square content area for the cover
+    if (node.sourceType === 'audio') {
       containerH = NODE_CONTENT_HEIGHT_SQUARE;
     } else {
       containerH = NODE_CONTENT_HEIGHT_DEFAULT;
     }
     containerY = node.y - containerH;
 
-    // Draw content
+    // Draw content for iframe
     if (node.sourceType === 'iframe') {
       ctx.fillStyle = '#000000';
       ctx.fillRect(containerX, containerY, containerW, containerH);
       return;
     }
 
-    if (node.sourceType === 'audio' && node.coverUrl) {
-      const cachedImage = this.imageCache.get(node.coverUrl);
+    // Draw content for audio, using default cover as a fallback
+    if (node.sourceType === 'audio') {
+      const imageUrl = node.coverUrl || 'icons/default-cover.jpg';
+      const cachedImage = this.imageCache.get(imageUrl);
+
       if (cachedImage instanceof Image) {
         ctx.drawImage(cachedImage, containerX, containerY, containerW, containerH);
       } else {
         ctx.fillStyle = '#1e1e1e'; // Placeholder color
         ctx.fillRect(containerX, containerY, containerW, containerH);
         if (!cachedImage) {
-          this.imageCache.set(node.coverUrl, 'loading');
+          this.imageCache.set(imageUrl, 'loading');
           const img = new Image();
           img.crossOrigin = "Anonymous";
-          img.onload = () => this.imageCache.set(node.coverUrl, img);
+          img.onload = () => this.imageCache.set(imageUrl, img);
           img.onerror = () => {
-            console.error(`Failed to load cover: ${node.coverUrl}`);
-            this.imageCache.set(node.coverUrl, 'failed');
+            console.error(`Failed to load cover: ${imageUrl}`);
+            this.imageCache.set(imageUrl, 'failed');
           };
-          img.src = node.coverUrl;
+          img.src = imageUrl;
         }
       }
     } else {
-      // Fallback for audio nodes without a cover
+      // Fallback for other potential node types
       ctx.fillStyle = '#1e1e1e';
       ctx.fillRect(containerX, containerY, containerW, containerH);
     }
@@ -502,8 +505,8 @@ _drawNodeHeader(node) {
     }
 
     let contentHeight;
-    // Use square height for audio nodes with covers
-    if (node.sourceType === 'audio' && node.coverUrl) {
+    // Use square height for all audio nodes (with or without covers)
+    if (node.sourceType === 'audio') {
       contentHeight = NODE_CONTENT_HEIGHT_SQUARE;
     } else {
       contentHeight = NODE_CONTENT_HEIGHT_DEFAULT;
