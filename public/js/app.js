@@ -45,72 +45,77 @@ class GraphApp {
 
   async init() {
     try {
-      await this.graphData.load('data/default.jsonld');
+      // Step 1: Fetch the manifest file first
+      const manifestResponse = await fetch('data/manifest.json');
+      if (!manifestResponse.ok) throw new Error('Could not load manifest.json');
+      const manifest = await manifestResponse.json();
+
+      // Step 2: Determine which graph file to load
+      const urlParams = new URLSearchParams(window.location.search);
+      const requestedFile = urlParams.get('graph');
+      const isValidFile = manifest.some(item => item.file === requestedFile);
+      const graphFileToLoad = (requestedFile && isValidFile) ? requestedFile : manifest[0].file;
+
+      // Step 3: Load the determined graph data
+      await this.graphData.load(`data/${graphFileToLoad}`);
       this.renderer.setData(this.graphData);
 
-      // --- Smart Mobile Viewport Adjustment ---
+      // --- Smart Mobile Viewport Adjustment (logic is unchanged) ---
       const IS_MOBILE = window.innerWidth < 768;
-      const MOBILE_ZOOM_THRESHOLD = 2.5; // If saved scale is higher, it's a close-up
-      const MOBILE_TARGET_SCALE = 1.2;   // A comfortable scale to fit one node
+      const MOBILE_ZOOM_THRESHOLD = 2.5;
+      const MOBILE_TARGET_SCALE = 1.2;
 
       if (IS_MOBILE && this.graphData.view && this.graphData.view.scale > MOBILE_ZOOM_THRESHOLD) {
-        console.log('Mobile device with high initial zoom detected. Adjusting viewport.');
-
-        // Calculate the center of the saved desktop viewport
+        // ... (this entire block is the same as before, no need to copy it here)
+        // For brevity, I'm omitting the identical viewport adjustment logic. 
+        // Just imagine the original code block is here.
         const savedView = this.graphData.view;
-        const assumedDesktopWidth = 1920; // Assume a common desktop width for center calculation
-        const assumedDesktopHeight = 1080;
+        const assumedDesktopWidth = 1920, assumedDesktopHeight = 1080;
         const savedCenterX = (assumedDesktopWidth / 2 - savedView.offset.x) / savedView.scale;
         const savedCenterY = (assumedDesktopHeight / 2 - savedView.offset.y) / savedView.scale;
-
-        // Find the node closest to that saved center
-        let closestNode = null;
-        let minDistance = Infinity;
-        
-        if (this.graphData.nodes.length > 0) {
-            this.graphData.nodes.forEach(node => {
-                const nodeCenterX = node.x + NODE_WIDTH / 2;
-                const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-                const dist = Math.hypot(savedCenterX - nodeCenterX, savedCenterY - nodeCenterY);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    closestNode = node;
-                }
-            });
-        }
-
-        if (closestNode) {
-            // Calculate the new viewport to center this node without animation
+        let closestNode = this.graphData.nodes.reduce((closest, node) => {
+            const dist = Math.hypot(savedCenterX - (node.x + NODE_WIDTH / 2), savedCenterY - (node.y + NODE_HEADER_HEIGHT / 2));
+            return (dist < closest.minDistance) ? { node, minDistance: dist } : closest;
+        }, { node: null, minDistance: Infinity }).node;
+        if(closestNode) {
             const nodeCenterX = closestNode.x + NODE_WIDTH / 2;
             const nodeCenterY = closestNode.y + NODE_HEADER_HEIGHT / 2;
             const newOffsetX = (this.renderer.canvas.width / 2) - (nodeCenterX * MOBILE_TARGET_SCALE);
             const newOffsetY = (this.renderer.canvas.height / 2) - (nodeCenterY * MOBILE_TARGET_SCALE);
-
-            this.renderer.setViewport({
-                offset: { x: newOffsetX, y: newOffsetY },
-                scale: MOBILE_TARGET_SCALE
-            });
-        } else {
-            // Fallback: if no nodes, just use the saved view anyway
-            this.renderer.setViewport(this.graphData.view);
-        }
+            this.renderer.setViewport({ offset: { x: newOffsetX, y: newOffsetY }, scale: MOBILE_TARGET_SCALE });
+        } else { this.renderer.setViewport(this.graphData.view); }
       } else {
-        // Standard behavior for desktop or non-zoomed views
-        if (this.graphData.view) {
-          this.renderer.setViewport(this.graphData.view);
-        }
+        if (this.graphData.view) this.renderer.setViewport(this.graphData.view);
       }
       
       this.renderer.render(); // Render initial state
-      this.setupEventListeners();
+      this.setupEventListeners(manifest); // Pass manifest to setup listeners
       this.toggleEditorMode(false);
       this.toggleFollowMode(true); // Enable follow mode by default
-      console.log('Application initialized successfully.');
+      console.log(`Application initialized with graph: ${graphFileToLoad}`);
 
     } catch (error) {
       console.error('Initialization failed:', error);
       alert('Could not load the application.');
     }
+  }
+
+  // NEW METHOD: To populate the selector modal
+  populateGraphSelector(manifest) {
+    const container = document.getElementById('graphSelectionOptions');
+    container.innerHTML = ''; // Clear previous options
+
+    manifest.forEach(item => {
+      const optionEl = document.createElement('div');
+      optionEl.className = 'graph-option';
+      optionEl.dataset.file = item.file; // Store filename in dataset for easy access
+      
+      optionEl.innerHTML = `
+        <h5>${item.title}</h5>
+        <p>${item.description}</p>
+      `;
+      container.appendChild(optionEl);
+    });
   }
 
   // REVISED: Smart Follow Mode logic with immediate centering
@@ -160,7 +165,30 @@ class GraphApp {
     this.renderer.destroyAllMarkdownOverlays();
   }
 
-  setupEventListeners() {
+  setupEventListeners(manifest = []) { // Now accepts manifest
+    // NEW: Logic for the graph selector
+    const selectGraphBtn = document.getElementById('selectGraphBtn');
+    if (manifest.length > 1) {
+      selectGraphBtn.disabled = false;
+      this.populateGraphSelector(manifest);
+
+      const graphModal = document.getElementById('graphSelectionModal');
+      const closeGraphModalBtn = document.getElementById('closeGraphModalBtn');
+      const graphOptionsContainer = document.getElementById('graphSelectionOptions');
+
+      selectGraphBtn.addEventListener('click', () => graphModal.classList.remove('hidden'));
+      closeGraphModalBtn.addEventListener('click', () => graphModal.classList.add('hidden'));
+      
+      graphOptionsContainer.addEventListener('click', (e) => {
+        const option = e.target.closest('.graph-option');
+        if (option && option.dataset.file) {
+          const file = option.dataset.file;
+          // Reload the page with the new graph file as a URL parameter
+          window.location.href = window.location.pathname + '?graph=' + file;
+        }
+      });
+    }  
+
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,

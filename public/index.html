@@ -23,6 +23,7 @@
     <!-- Always Visible Buttons -->
     <button id="toggleAllNodesBtn" title="Collapse All Nodes">➖</button>
     <button id="followModeBtn" title="Toggle Follow Mode">📌</button> 
+    <button id="selectGraphBtn" title="Select Story" disabled>📂</button>
     <div class="divider"></div>
 
     <!-- Player Mode Controls (now empty) -->
@@ -89,6 +90,15 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
 
   <script src="js/app.js" type="module"></script>
+
+  <!-- Graph Selection Modal -->
+  <div id="graphSelectionModal" class="hidden">
+    <div class="modal-content">
+      <h3>Select a Story</h3>
+      <div id="graphSelectionOptions"></div>
+      <button id="closeGraphModalBtn">Cancel</button>
+    </div>
+  </div>
 
   <footer id="copyright">
     AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank" rel="noopener nofollow">AbyssVoid.com</a>

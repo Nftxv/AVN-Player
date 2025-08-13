@@ -1,0 +1,12 @@
+[
+  {
+    "title": "Ballad of Everything",
+    "file": "default.jsonld",
+    "description": "The default starter project with a variety of nodes and connections."
+  },
+  {
+    "title": "A New Story (Example)",
+    "file": "new_story.jsonld",
+    "description": "A placeholder for a completely different narrative experience."
+  }
+]

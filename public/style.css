@@ -355,3 +355,47 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     color: white;
     box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
 }
+
+/* Graph Selection Modal */
+#graphSelectionModal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
+  justify-content: center; align-items: center; padding: 15px;
+}
+
+#graphSelectionOptions {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.graph-option {
+  padding: 15px;
+  border: 1px solid var(--dark-border);
+  border-radius: 6px;
+  background-color: #3c3c3c;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.graph-option:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  background-color: #4a4a4a;
+}
+
+.graph-option h5 {
+  margin: 0 0 5px 0;
+  font-size: 1.1em;
+  color: var(--dark-text);
+}
+
+.graph-option p {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--dark-subtle-text);
+  line-height: 1.4;
+}
