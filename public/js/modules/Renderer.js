@@ -369,9 +369,9 @@ _drawNodeHeader(node) {
         }
         if (shouldBeVisible) {
             const screenX = (node.x) * this.scale + this.offset.x;
-            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+            const screenY = (node.y - NODE_CONTENT_HEIGHT_DEFAULT) * this.scale + this.offset.y;
             const screenWidth = NODE_WIDTH * this.scale;
-            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+            const screenHeight = NODE_CONTENT_HEIGHT_DEFAULT * this.scale;
             wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
             wrapper.style.width = `${screenWidth}px`;
             wrapper.style.height = `${screenHeight}px`;
