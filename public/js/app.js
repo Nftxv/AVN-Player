@@ -88,7 +88,7 @@ class GraphApp {
       // --- Smart Mobile Viewport Adjustment (logic is unchanged) ---
       const IS_MOBILE = window.innerWidth < 768;
       const MOBILE_ZOOM_THRESHOLD = 2.5;
-      const MOBILE_TARGET_SCALE = 1.3;
+      const MOBILE_TARGET_SCALE = 1.2;
 
       const viewFromUrl = this.parseViewFromHash();
       if (viewFromUrl) {

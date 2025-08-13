@@ -37,13 +37,16 @@ export default class Navigation {
         // This "captures" the user's intended viewport for the entire follow session.
         if (!prevNodeId) {
             const { offset, scale } = this.renderer.getViewport();
-            // Constants are not defined here, so we use their raw values.
-            const NODE_WIDTH = 200;
-            const NODE_HEADER_HEIGHT = 45;
-
-            const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
-            const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
             
+            // Get the TRUE visual center from the Renderer, which is the single source of truth.
+            const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
+
+            // Calculate where that true center currently is on the screen.
+            const nodeScreenX = nodeWorldX * scale + offset.x;
+            const nodeScreenY = nodeWorldY * scale + offset.y;
+            
+            // Calculate the difference between the screen center and the node's current position.
+            // This becomes the offset we maintain for all subsequent "follow" movements.
             this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
             this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
             
