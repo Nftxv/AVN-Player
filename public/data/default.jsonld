@@ -128,6 +128,48 @@
       "iframeUrl": "4eJpTAxdxiU"
     },
     {
+      "@id": "node-1755066807418",
+      "@type": "MusicRecording",
+      "name": "1",
+      "position": {
+        "x": 1951.1558058773876,
+        "y": 651.8425036690867
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/AcousticRockBallads/08.%20When%20I%20See%20You%20Smile.mp3",
+      "coverUrl": "https://archive.org/download/AcousticRockBallads/six-part-invention.jpg",
+      "iframeUrl": null
+    },
+    {
+      "@id": "node-1755066925615",
+      "@type": "MusicRecording",
+      "name": "2",
+      "position": {
+        "x": 2390.1174293042727,
+        "y": 724.2096084181657
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/12-make-me-wanna-die-acoustic/12%20-%20Make%20Me%20Wanna%20Die%20%28Acoustic%29.mp3",
+      "coverUrl": "https://github.com/Nftxv/AVN-Player/blob/main/public/icons/default-cover%20-%20Copy.jpg",
+      "iframeUrl": null
+    },
+    {
+      "@id": "node-1755068125852",
+      "@type": "MusicRecording",
+      "name": "3",
+      "position": {
+        "x": 2181.259276279302,
+        "y": 950.8632046591489
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/07RunOfTheMill/02%20-%20Before%20The%20Dawn.mp3",
+      "coverUrl": null,
+      "iframeUrl": null
+    },
+    {
       "@type": "Path",
       "source": "node-1754728755939",
       "target": "node-1754588700272",
@@ -324,6 +366,52 @@
           "y": 412.3565405507793
         }
       ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066807418",
+      "target": "node-1755066925615",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 2279.024217054637,
+          "y": 548.7754444343499
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066807418",
+      "target": "node-1755068125852",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 1993.8306599873777,
+          "y": 904.5968730010246
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755068125852",
+      "target": "node-1755066807418",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066925615",
+      "target": "node-1755066807418",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
     },
     {
       "@id": "deco-text-1",
@@ -536,9 +624,9 @@
   ],
   "view": {
     "offset": {
-      "x": -1497.2226812127114,
-      "y": -1017.3671671418492
+      "x": -657.2243190803288,
+      "y": 7.445133885938276
     },
-    "scale": 4.104249931194941
+    "scale": 0.6138669951534215
   }
 }
