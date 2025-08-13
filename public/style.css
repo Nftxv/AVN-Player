@@ -341,7 +341,7 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     background: #3c3c3c;
     color: var(--dark-subtle-text);
     padding: 6px 10px;
-    font-size: 18px;
+    font-size: 16px; /* Adjusted for emoji */
     line-height: 1;
 }
 
