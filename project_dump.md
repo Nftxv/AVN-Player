@@ -608,7 +608,7 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "isCollapsed": false,
       "sourceType": "audio",
       "audioUrl": "https://archive.org/download/12-make-me-wanna-die-acoustic/12%20-%20Make%20Me%20Wanna%20Die%20%28Acoustic%29.mp3",
-      "coverUrl": "https://github.com/Nftxv/AVN-Player/blob/main/public/icons/default-cover%20-%20Copy.jpg",
+      "coverUrl": null,
       "iframeUrl": null
     },
     {
@@ -945,13 +945,13 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     {
       "@id": "deco-text-1754729522336",
       "position": {
-        "x": 971.5382298899613,
-        "y": 747.1642693969133
+        "x": 972.0797306999273,
+        "y": 756.9112839763021
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 160
+        "width": 100,
+        "height": 93
       },
       "textContent": "### Ode to the Hero\n\nYet when they chase him, full of pride,\nHe grins and lets his laughter ride.\nNo fear, no doubt within his soul—\nHe fights until he meets his goal.\n\nBounty hunters shake with dread,\nTheir leaders gone, the bosses dead.\nThe clever beasts, they try and flee,\nBut none escape his destiny.\n\nHis legend’s written in the stars,\nA tale that reaches distant bars.\nThe bravest whisper of his fame,\nFor all the void now knows his name.",
       "fontSize": 8,
@@ -966,7 +966,7 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "@type": "MarkdownAnnotation",
       "size": {
         "width": 100,
-        "height": 120
+        "height": 93
       },
       "textContent": "### Ode\n\n... Their echo, distorted, across worlds flows,\nLeaving inkblots on thought, where it never goes.\nSometimes this echo will brush the mind,\nAnd forms take shape in a desperate bind...",
       "fontSize": 8,
@@ -980,8 +980,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 160
+        "width": 100,
+        "height": 108
       },
       "textContent": "### Hard to wait\n\nYou know, sometimes it's hard to wait,  \nNot knowing if things will turn out great.  \nYou worry and fear that plans may fall,  \nThat dreams might never come true at all.  \n\nBut then you see those who waited through,  \nThe ones who held on, who stayed true.  \nAnd when they finally get what they sought,  \nTheir joy is real, it's what they fought.  \n\nYou see them smile, their hearts so light,  \nAnd you realize their struggle was right.  \nThe best rewards come to those who stay,  \nWho keep on going, who find their way.  \n\nEven when waiting seems too tough,  \nAnd the road ahead is long and rough.  \nTrue joy comes to those who believe,  \nWho hold on tight and never leave.\n\nWaiting is hard, with doubts that persist,  \nBut remember, together we'll overcome this.  \nEpic triumphs await us as we heed the call,  \nFor Troverse is near—come, conquer it all!",
       "fontSize": 8,
@@ -990,13 +990,13 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     {
       "@id": "deco-text-1754729871647",
       "position": {
-        "x": 588.8438393414132,
-        "y": 746.7645833935029
+        "x": 597.4780885985141,
+        "y": 748.5139555307164
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 160
+        "width": 110,
+        "height": 115
       },
       "textContent": "### Garbage for Ears\n\nSometimes you meet someone who seems just fine,\nYou lend a hand, you’re glad to give your time.\nYou help them find their way, no strings attached,\nYou hope they grow and find the dream they’ve hatched.\n\nBut then, without a reason, there they stand—\nA knife in hand, though never planned.\nNo real cause, no warning sign or fight,\nJust a little stab that doesn’t feel quite right.\n\nThey seek excuses, paint themselves as just,\nBut you’re already done—you’ve lost that trust.\nNo anger now, no burning flame, just there\nA piece of shit you simply choose to spare.\n\nIt stings a bit, but nothing’s truly lost,\nJust people showing who they are, at cost.\nAnd once you see it, once it’s clear as day,\nYou know what’s real, and calmly walk away.\n\nThen write your song, and let the words just flow,\nFor in the end, it’s just another show.\nPeople will disappoint, it’s how they are,\nBut don’t let little wounds become a scar.\n\nIt’s not another mess upon your road,\nJust one more song to lighten up the load.\nA song to store among the rest you’ve spun,\nA story told, a chapter that is done.\n\nAnd if the song’s created by machine,\nThat doesn’t change the truth it may have seen.\nFor songs need sparks, wherever they may start,\nEach little note a piece of someone's heart.",
       "fontSize": 8,
@@ -1010,8 +1010,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 160
+        "width": 100,
+        "height": 105
       },
       "textContent": "### Ballad of Everything\n\nYou’ve traveled far, you’ve seen it all,\nThe mountains high, the cities tall.\nNow you’ve got a song to sing,\nTo capture every sight and thing.\n\nThe day you failed but stood up strong,\nProving that you still belong.\nNow your song can tell the tale,\nOf how you rose when you could fail.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nThere’s that story from your past,\nA lesson learned that’s meant to last.\nNow you’ve got the tune to share,\nAnd let the world know you were there.\n\nA simple day, a quiet breeze,\nMoments like these put you at ease.\nNow you’ve got a tune to hum,\nAnd let the peace of life become.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nYou’ve got a joke you want to tell,\nThe one that always makes them yell.\nNow you’ve got the chance to sing,\nTurn those laughs into everything.\n\nYou’ve been holding love inside your chest,\nWaiting for the time that’s best.\nNow you’ve got the perfect way,\nTo let your heart sing what you’d say.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nWhen words alone just fall apart,\nAnd you need to speak straight from the heart.\nTurn it into something true,\nA song that shows what you’ve been through.\n\nMaybe it’s the things you never say,\nThe quiet thoughts that slip away.\nNow’s your time, don’t let them fade,\nMake a song of every day.\n\nYou’ve danced with joy, you’ve cried with pain,\nLife’s a journey, not in vain.\nNow your voice can set it free,\nA song for every memory.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.",
       "fontSize": 8,
@@ -1020,13 +1020,13 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     {
       "@id": "deco-text-1754730049282",
       "position": {
-        "x": 225.73941786255307,
-        "y": 543.8191210408929
+        "x": 233.82614273646362,
+        "y": 549.1802373197147
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 160
+        "width": 105,
+        "height": 108
       },
       "textContent": "### Chasing the Moon\n\nI was lost in the city lights,\nChasing shadows in the night,\nSaw the stars up in the sky,\nBut they couldn’t tell me why.\n\nI’ve been running far and wide,\nFrom the ocean to the mountainside,\nLooking for a spark to hold,\nSomething warm, in a world so cold.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.\n\nIn the echoes of a desert breeze,\nFound a dream beneath the trees,\nIn the silence, I heard it call,\nA whisper that could break my fall.\n\nThrough the rivers deep and wide,\nI’ll follow where my heart decides,\nNo more waiting for a sign,\nThe stars are gonna align this time.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.\n\nAnd if the road gets long, and the nights too dark,\nI’ll find my way back to where dreams spark,\nFor every night there’s a light that guides,\nIt’s the moon, it’s the moon, shining by my side.\n\nI’m chasing the moon, where the wild winds play,\nRiding the night, till the break of day,\nWith a heart that’s free, and a restless tune,\nI’ll keep chasing, chasing the moon.",
       "fontSize": 8,
@@ -1040,8 +1040,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 160
+        "width": 100,
+        "height": 93
       },
       "textContent": "### Ballad of Everything\n\nYou’ve traveled far, you’ve seen it all,\nThe mountains high, the cities tall.\nNow you’ve got a song to sing,\nTo capture every sight and thing.\n\nThe day you failed but stood up strong,\nProving that you still belong.\nNow your song can tell the tale,\nOf how you rose when you could fail.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nThere’s that story from your past,\nA lesson learned that’s meant to last.\nNow you’ve got the tune to share,\nAnd let the world know you were there.\n\nA simple day, a quiet breeze,\nMoments like these put you at ease.\nNow you’ve got a tune to hum,\nAnd let the peace of life become.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nYou’ve got a joke you want to tell,\nThe one that always makes them yell.\nNow you’ve got the chance to sing,\nTurn those laughs into everything.\n\nYou’ve been holding love inside your chest,\nWaiting for the time that’s best.\nNow you’ve got the perfect way,\nTo let your heart sing what you’d say.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.\n\nWhen words alone just fall apart,\nAnd you need to speak straight from the heart.\nTurn it into something true,\nA song that shows what you’ve been through.\n\nMaybe it’s the things you never say,\nThe quiet thoughts that slip away.\nNow’s your time, don’t let them fade,\nMake a song of every day.\n\nYou’ve danced with joy, you’ve cried with pain,\nLife’s a journey, not in vain.\nNow your voice can set it free,\nA song for every memory.\n\nCan’t sing, no band, no way to play,\nBut deep inside, soul has its say.\nSunoForce reshaped the view,\nSing your tale, we’ll hear you.",
       "fontSize": 8,
@@ -1055,8 +1055,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 160
+        "width": 100,
+        "height": 93
       },
       "textContent": "### Love Transcends\n\nWe met like strangers passing in the rain,\nNo spark to light, no fire, no flame.\nJust two souls in the city's hum,\nNo signs or whispers of what we’d become.\n\nBut as the days turned into nights,\nWe found a rhythm in shared sights.\nLaughter came easy, moments felt right,\nWe held on close, if only for a while.\n\nAnd the world kept spinning, day by day,\nAnd no one cared — we were okay.\n\nWe parted like the setting of the sun,\nNo tears, no fight, just said it’s done.\nBut silence now is louder than before,\nAn empty space where there was more.\n\nI see you in the little things I do,\nIn every breeze, in every shade of blue.\nI never knew what lingered in the air,\nUntil the quiet made me care.\n\nAnd the world kept spinning, day by day,\nWhile we let our chances drift away.\n\nThe nights were warm when you were near,\nIn simple talks, we’d lose the fear.\nI thought it’d last, but time slips fast,\nAnd now I see what we let pass.\n\nThe mornings bloom, but not the same,\nYour smile was more than just a name.\nI thought I’d move on, find my way,\nBut here I stand, with words to say.\n\nAnd the world kept spinning, day by day,\nBut something in us chose to stay.\n\nI thought the distance would fade the ache,\nBut every step is a heart to break.\n\nI thought I’d heal, let memories fly,\nBut you are still the reason why.\n\nSo here we are, no more disguise,\nIt’s you I see through different eyes.\nThe simple truth we tried to hide—\nWe were meant to walk side by side.\n\nWe turned away, but in the end,\nI found in you my greatest friend.\nIn you, I found what words can't send,\nAnd starts again where love transcends.",
       "fontSize": 8,
@@ -1070,8 +1070,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       },
       "@type": "MarkdownAnnotation",
       "size": {
-        "width": 120,
-        "height": 90
+        "width": 100,
+        "height": 50
       },
       "textContent": "### Broken Lights\n\n...I’ve seen the lies, I’ve heard the pleas,\nFelt the sorrow in the breeze...",
       "fontSize": 8,
@@ -1080,10 +1080,10 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
   ],
   "view": {
     "offset": {
-      "x": -657.2243190803288,
-      "y": 7.445133885938276
+      "x": -1306.0903663763138,
+      "y": -874.0132486589607
     },
-    "scale": 0.6138669951534215
+    "scale": 3.7136789107166948
   }
 }
 
@@ -1196,6 +1196,7 @@ class GraphApp {
       this.renderer.render(); // Render initial state
       this.setupEventListeners();
       this.toggleEditorMode(false);
+      this.toggleFollowMode(true); // Enable follow mode by default
       console.log('Application initialized successfully.');
 
     } catch (error) {
@@ -2742,42 +2743,49 @@ drawEdge(edge) {
     const containerW = NODE_WIDTH;
     let containerH, containerY;
 
-    // Set height and position based on type
-    if (node.sourceType === 'audio' && node.coverUrl) {
+    // All audio nodes get a square content area for the cover
+    if (node.sourceType === 'audio') {
       containerH = NODE_CONTENT_HEIGHT_SQUARE;
     } else {
       containerH = NODE_CONTENT_HEIGHT_DEFAULT;
     }
     containerY = node.y - containerH;
 
-    // Draw content
+    // Draw content for iframe
     if (node.sourceType === 'iframe') {
       ctx.fillStyle = '#000000';
       ctx.fillRect(containerX, containerY, containerW, containerH);
       return;
     }
 
-    if (node.sourceType === 'audio' && node.coverUrl) {
-      const cachedImage = this.imageCache.get(node.coverUrl);
+    // Draw content for audio, using default cover as a fallback
+    if (node.sourceType === 'audio') {
+      const isDefaultCover = !node.coverUrl;
+      const imageUrl = node.coverUrl || 'icons/default-cover.png';
+      const cachedImage = this.imageCache.get(imageUrl);
+
       if (cachedImage instanceof Image) {
         ctx.drawImage(cachedImage, containerX, containerY, containerW, containerH);
       } else {
         ctx.fillStyle = '#1e1e1e'; // Placeholder color
         ctx.fillRect(containerX, containerY, containerW, containerH);
         if (!cachedImage) {
-          this.imageCache.set(node.coverUrl, 'loading');
+          this.imageCache.set(imageUrl, 'loading');
           const img = new Image();
-          img.crossOrigin = "Anonymous";
-          img.onload = () => this.imageCache.set(node.coverUrl, img);
+          // Only set crossOrigin for remote images, not for the local fallback.
+          if (!isDefaultCover) {
+            img.crossOrigin = "Anonymous";
+          }
+          img.onload = () => this.imageCache.set(imageUrl, img);
           img.onerror = () => {
-            console.error(`Failed to load cover: ${node.coverUrl}`);
-            this.imageCache.set(node.coverUrl, 'failed');
+            console.error(`Renderer: Failed to load cover image at ${imageUrl}`);
+            this.imageCache.set(imageUrl, 'failed');
           };
-          img.src = node.coverUrl;
+          img.src = imageUrl;
         }
       }
     } else {
-      // Fallback for audio nodes without a cover
+      // Fallback for other potential node types
       ctx.fillStyle = '#1e1e1e';
       ctx.fillRect(containerX, containerY, containerW, containerH);
     }
@@ -2897,9 +2905,9 @@ _drawNodeHeader(node) {
         }
         if (shouldBeVisible) {
             const screenX = (node.x) * this.scale + this.offset.x;
-            const screenY = (node.y - NODE_CONTENT_HEIGHT) * this.scale + this.offset.y;
+            const screenY = (node.y - NODE_CONTENT_HEIGHT_DEFAULT) * this.scale + this.offset.y;
             const screenWidth = NODE_WIDTH * this.scale;
-            const screenHeight = NODE_CONTENT_HEIGHT * this.scale;
+            const screenHeight = NODE_CONTENT_HEIGHT_DEFAULT * this.scale;
             wrapper.style.transform = `translate(${screenX}px, ${screenY}px)`;
             wrapper.style.width = `${screenWidth}px`;
             wrapper.style.height = `${screenHeight}px`;
@@ -3033,8 +3041,8 @@ _drawNodeHeader(node) {
     }
 
     let contentHeight;
-    // Use square height for audio nodes with covers
-    if (node.sourceType === 'audio' && node.coverUrl) {
+    // Use square height for all audio nodes (with or without covers)
+    if (node.sourceType === 'audio') {
       contentHeight = NODE_CONTENT_HEIGHT_SQUARE;
     } else {
       contentHeight = NODE_CONTENT_HEIGHT_DEFAULT;

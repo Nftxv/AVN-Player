@@ -153,6 +153,7 @@ class GraphApp {
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
+    document.getElementById('toggleEditorModeBtn').classList.toggle('active', isEditor);
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
@@ -181,7 +182,7 @@ class GraphApp {
         getSelection: () => this.editorTools.getSelection(),
     });
 
-    document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
+    document.getElementById('toggleEditorModeBtn').addEventListener('click', () => this.toggleEditorMode(!this.isEditorMode));
     
     document.getElementById('toggleAllNodesBtn').addEventListener('click', () => this.editorTools.toggleAllNodes());
 
