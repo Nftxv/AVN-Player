@@ -11,8 +11,6 @@ import Navigation from './modules/Navigation.js';
 // Constants exposed for other modules that need them
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
-const NODE_CONTENT_HEIGHT_DEFAULT = NODE_WIDTH * (9/16); // For iframes
-const NODE_CONTENT_HEIGHT_SQUARE = NODE_WIDTH;          // For audio with covers
 
 function loadYouTubeAPI() {
   return new Promise((resolve) => {
@@ -76,32 +74,16 @@ class GraphApp {
         const savedCenterX = (assumedDesktopWidth / 2 - savedView.offset.x) / savedView.scale;
         const savedCenterY = (assumedDesktopHeight / 2 - savedView.offset.y) / savedView.scale;
         let closestNode = this.graphData.nodes.reduce((closest, node) => {
-            // FIX: Correctly calculate the node's true visual center
-            const contentHeight = node.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
-            const totalHeight = contentHeight + NODE_HEADER_HEIGHT;
-            const visualTopY = node.y - contentHeight;
-            const nodeCenterX = node.x + NODE_WIDTH / 2;
-            const nodeCenterY = visualTopY + totalHeight / 2; // True visual center Y
-
-            const dist = Math.hypot(savedCenterX - nodeCenterX, savedCenterY - nodeCenterY);
+            const dist = Math.hypot(savedCenterX - (node.x + NODE_WIDTH / 2), savedCenterY - (node.y + NODE_HEADER_HEIGHT / 2));
             return (dist < closest.minDistance) ? { node, minDistance: dist } : closest;
         }, { node: null, minDistance: Infinity }).node;
-
-        if (closestNode) {
-            // FIX: Use the same correct calculation to center the found node
-            const contentHeight = closestNode.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
-            const totalHeight = contentHeight + NODE_HEADER_HEIGHT;
-            const visualTopY = closestNode.y - contentHeight;
+        if(closestNode) {
             const nodeCenterX = closestNode.x + NODE_WIDTH / 2;
-            const nodeCenterY = visualTopY + totalHeight / 2;
-
+            const nodeCenterY = closestNode.y + NODE_HEADER_HEIGHT / 2;
             const newOffsetX = (this.renderer.canvas.width / 2) - (nodeCenterX * MOBILE_TARGET_SCALE);
             const newOffsetY = (this.renderer.canvas.height / 2) - (nodeCenterY * MOBILE_TARGET_SCALE);
             this.renderer.setViewport({ offset: { x: newOffsetX, y: newOffsetY }, scale: MOBILE_TARGET_SCALE });
-        } else {
-            this.renderer.setViewport(this.graphData.view);
-        }
-        
+        } else { this.renderer.setViewport(this.graphData.view); }
       } else {
         if (this.graphData.view) this.renderer.setViewport(this.graphData.view);
       }
