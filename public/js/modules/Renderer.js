@@ -503,6 +503,16 @@ _drawNodeHeader(node) {
     if (view.scale) this.scale = view.scale;
   }
 
+  // NEW METHOD
+  getNodeVisualCenter(node) {
+    const contentHeight = node.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
+    const centerX = node.x + NODE_WIDTH / 2;
+    // The visual center is halfway down the entire visual block (content + header).
+    // Simplified from: (node.y - contentHeight) + (contentHeight + NODE_HEADER_HEIGHT) / 2
+    const centerY = node.y - (contentHeight / 2) + (NODE_HEADER_HEIGHT / 2);
+    return { x: centerX, y: centerY };
+  }
+
   _getNodeVisualRect(node) {
     if (node.isCollapsed) {
       return { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
@@ -752,9 +762,8 @@ _getIntersectionWithNodeRect(node, externalPoint) {
     // REVISED: screenOffset is now the offset of the node from the screen center
     const finalScreenOffset = screenOffset || { x: 0, y: 0 };
     
-    const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-    
+    const { x: nodeCenterX, y: nodeCenterY } = this.getNodeVisualCenter(node);
+
     const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) - finalScreenOffset.x;
     const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) - finalScreenOffset.y;
 
