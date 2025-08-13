@@ -17,7 +17,7 @@ export default class Navigation {
     this.graphData.edges.forEach(e => e.highlighted = false);
   }
 
-startFromNode(nodeId) {
+  startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
     this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
 
@@ -30,12 +30,31 @@ startFromNode(nodeId) {
     
     this.renderer.highlight(nodeId, prevNodeId);
 
-    // FIX: Center the view IMMEDIATELY, before waiting for the player to load.
+    // THE FIX IS HERE.
     if (this.app.isFollowing) {
-      this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
+        // If we are starting a new navigation chain (no previous node was active),
+        // we must calculate the follow offset NOW, based on where the user clicked the node.
+        // This "captures" the user's intended viewport for the entire follow session.
+        if (!prevNodeId) {
+            const { offset, scale } = this.renderer.getViewport();
+            // Constants are not defined here, so we use their raw values.
+            const NODE_WIDTH = 200;
+            const NODE_HEADER_HEIGHT = 45;
+
+            const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
+            const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+            
+            this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
+            this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
+            
+            console.log('Follow mode: New chain started, capturing initial screen offset.', this.app.followScreenOffset);
+        }
+        
+        // Now, center on the node using the (potentially just-updated) offset.
+        this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
     
-    // Now, start playback. This can take time for new YT nodes, but the UI is already moving.
+    // Play the node after initiating the camera movement.
     this.player.play(node);
   }
 
