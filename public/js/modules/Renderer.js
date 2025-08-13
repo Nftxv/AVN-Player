@@ -229,7 +229,7 @@ drawEdge(edge) {
     // Draw content for audio, using default cover as a fallback
     if (node.sourceType === 'audio') {
       const isDefaultCover = !node.coverUrl;
-      const imageUrl = node.coverUrl || 'icons/default-cover.jpg';
+      const imageUrl = node.coverUrl || 'icons/default-cover.png';
       const cachedImage = this.imageCache.get(imageUrl);
 
       if (cachedImage instanceof Image) {
