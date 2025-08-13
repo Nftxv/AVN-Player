@@ -41,6 +41,29 @@ class GraphApp {
     this.isFollowing = false;
     this.followScale = 1.0;
     this.followScreenOffset = { x: 0, y: 0 };
+
+    this.updateUrlDebounceTimer = null; // For debouncing URL updates
+  }
+
+  // NEW: Utility to parse view state from URL hash
+  parseViewFromHash() {
+    try {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const x = parseFloat(params.get('x'));
+      const y = parseFloat(params.get('y'));
+      const scale = parseFloat(params.get('s'));
+
+      if (!isNaN(x) && !isNaN(y) && !isNaN(scale)) {
+        // The hash stores the CENTER of the view. We need to convert it to renderer's OFFSET.
+        const canvas = this.renderer.canvas;
+        const targetOffset = {
+            x: (canvas.width / 2) - (x * scale),
+            y: (canvas.height / 2) - (y * scale)
+        };
+        return { offset: targetOffset, scale: scale };
+      }
+    } catch (e) { /* Ignore parsing errors */ }
+    return null;
   }
 
   async init() {
@@ -63,23 +86,27 @@ class GraphApp {
       // --- Smart Mobile Viewport Adjustment (logic is unchanged) ---
       const IS_MOBILE = window.innerWidth < 768;
       const MOBILE_ZOOM_THRESHOLD = 2.5;
-      const MOBILE_TARGET_SCALE = 1.2;
+      const MOBILE_TARGET_SCALE = 1.3;
 
-      if (IS_MOBILE && this.graphData.view) {
-        // ... (this entire block is the same as before, no need to copy it here)
-        // For brevity, I'm omitting the identical viewport adjustment logic. 
-        // Just imagine the original code block is here.
+      const viewFromUrl = this.parseViewFromHash();
+      if (viewFromUrl) {
+        this.renderer.setViewport(viewFromUrl);
+      } else if (IS_MOBILE && this.graphData.view) {
+        // Your existing mobile adjustment logic
         const savedView = this.graphData.view;
         const assumedDesktopWidth = 1920, assumedDesktopHeight = 1080;
         const savedCenterX = (assumedDesktopWidth / 2 - savedView.offset.x) / savedView.scale;
         const savedCenterY = (assumedDesktopHeight / 2 - savedView.offset.y) / savedView.scale;
         let closestNode = this.graphData.nodes.reduce((closest, node) => {
-            const dist = Math.hypot(savedCenterX - (node.x + NODE_WIDTH / 2), savedCenterY - (node.y + NODE_HEADER_HEIGHT / 2));
+            const contentHeight = node.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
+            const visualNodeCenterY = node.y + (NODE_HEADER_HEIGHT / 2) - (contentHeight / 2);
+            const dist = Math.hypot(savedCenterX - (node.x + NODE_WIDTH / 2), savedCenterY - visualNodeCenterY);
             return (dist < closest.minDistance) ? { node, minDistance: dist } : closest;
         }, { node: null, minDistance: Infinity }).node;
-        if(closestNode) {
+        if (closestNode) {
             const nodeCenterX = closestNode.x + NODE_WIDTH / 2;
-            const nodeCenterY = closestNode.y + NODE_HEADER_HEIGHT / 2;
+            const contentHeight = closestNode.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
+            const nodeCenterY = closestNode.y + (NODE_HEADER_HEIGHT / 2) - (contentHeight / 2);
             const newOffsetX = (this.renderer.canvas.width / 2) - (nodeCenterX * MOBILE_TARGET_SCALE);
             const newOffsetY = (this.renderer.canvas.height / 2) - (nodeCenterY * MOBILE_TARGET_SCALE);
             this.renderer.setViewport({ offset: { x: newOffsetX, y: newOffsetY }, scale: MOBILE_TARGET_SCALE });
@@ -87,7 +114,7 @@ class GraphApp {
       } else {
         if (this.graphData.view) this.renderer.setViewport(this.graphData.view);
       }
-      
+
       this.renderer.render(); // Render initial state
       this.setupEventListeners(manifest); // Pass manifest to setup listeners
       this.toggleEditorMode(false);
@@ -206,6 +233,26 @@ class GraphApp {
             this.editorTools.updateSelection([...nodes, ...edges, ...decorations], mode);
         },
         getSelection: () => this.editorTools.getSelection(),
+        // NEW: Callback for when the view changes
+        onViewChanged: () => {
+            clearTimeout(this.updateUrlDebounceTimer);
+            this.updateUrlDebounceTimer = setTimeout(() => {
+                const center = this.renderer.getViewportCenter();
+                const scale = this.renderer.getViewport().scale;
+                const hash = `#x=${center.x.toFixed(2)}&y=${center.y.toFixed(2)}&s=${scale.toFixed(2)}`;
+                // Use replaceState so it doesn't pollute browser history
+                history.replaceState(null, '', hash);
+            }, 500);
+        }
+    });
+
+    // NEW: Handle browser back/forward buttons for hash navigation
+    window.addEventListener('popstate', (e) => {
+        const view = this.parseViewFromHash();
+        if (view) {
+            // Animate to the view from history
+            this.renderer.animateToView(view);
+        }
     });
 
     document.getElementById('toggleEditorModeBtn').addEventListener('click', () => this.toggleEditorMode(!this.isEditorMode));

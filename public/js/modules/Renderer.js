@@ -520,6 +520,13 @@ _drawNodeHeader(node) {
     return { x: node.x, y: node.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
   }
 
+    getNodeVisualCenter(node) {
+    const contentHeight = node.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
+    const centerX = node.x + NODE_WIDTH / 2;
+    const centerY = node.y - (contentHeight / 2) + (NODE_HEADER_HEIGHT / 2);
+    return { x: centerX, y: centerY };
+  }
+
   _getDecorationBounds(deco) {
       return { x: deco.x, y: deco.y, width: deco.width, height: deco.height };
   }
@@ -741,55 +748,59 @@ _getIntersectionWithNodeRect(node, externalPoint) {
   }
   _drawSnapGuides() { }
 
-  centerOnNode(nodeId, targetScale = null, screenOffset = null) {
+centerOnNode(nodeId, targetScale = null, screenOffset = null) {
     if (!this.graphData) return;
     const node = this.graphData.getNodeById(nodeId);
     if (!node) return;
 
-    this.isAnimatingPan = true;
+    // REFACTOR: Use the new generic animateToView method
     const finalScale = targetScale !== null ? targetScale : this.scale;
-    
-    // REVISED: screenOffset is now the offset of the node from the screen center
     const finalScreenOffset = screenOffset || { x: 0, y: 0 };
-    
-    const nodeCenterX = node.x + NODE_WIDTH / 2;
-    const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-    
+    const { x: nodeCenterX, y: nodeCenterY } = this.getNodeVisualCenter(node); // Use new helper
     const targetOffsetX = (this.canvas.width / 2) - (nodeCenterX * finalScale) - finalScreenOffset.x;
     const targetOffsetY = (this.canvas.height / 2) - (nodeCenterY * finalScale) - finalScreenOffset.y;
-
-    const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
-    const startScale = this.scale;
-
-    const diffX = targetOffsetX - startOffsetX, diffY = targetOffsetY - startOffsetY;
-    const diffScale = finalScale - startScale;
-
-    const duration = 500;
-    let startTime = null;
-
-    const animate = (timestamp) => {
-        if (!startTime) startTime = timestamp;
-        const elapsed = timestamp - startTime;
-        if (elapsed >= duration || !this.isAnimatingPan) {
-            this.offset.x = targetOffsetX;
-            this.offset.y = targetOffsetY;
-            this.scale = finalScale;
-            this.isAnimatingPan = false;
-            return;
-        }
-
-        let progress = Math.min(elapsed / duration, 1);
-        progress = progress * (2 - progress); // Ease-out
-
-        this.offset.x = startOffsetX + diffX * progress;
-        this.offset.y = startOffsetY + diffY * progress;
-        this.scale = startScale + diffScale * progress;
-        
-        requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
+    
+    this.animateToView({ offset: {x: targetOffsetX, y: targetOffsetY}, scale: finalScale });
   }
-disableLocalInteraction() {
+  
+    // NEW: Generic method to animate the viewport to a target state
+  animateToView(targetView) {
+      if (!targetView || !targetView.offset || !targetView.scale) return;
+      
+      this.isAnimatingPan = true;
+      const { offset: targetOffset, scale: finalScale } = targetView;
+
+      const startOffsetX = this.offset.x, startOffsetY = this.offset.y;
+      const startScale = this.scale;
+
+      const diffX = targetOffset.x - startOffsetX, diffY = targetOffset.y - startOffsetY;
+      const diffScale = finalScale - startScale;
+
+      const duration = 600; // A bit slower for a smoother feel
+      let startTime = null;
+
+      const animate = (timestamp) => {
+          if (!startTime) startTime = timestamp;
+          const elapsed = timestamp - startTime;
+          if (elapsed >= duration || !this.isAnimatingPan) {
+              this.offset = targetOffset;
+              this.scale = finalScale;
+              this.isAnimatingPan = false;
+              return;
+          }
+          let progress = elapsed / duration;
+          progress = 0.5 - 0.5 * Math.cos(progress * Math.PI); // Ease in-out
+
+          this.offset.x = startOffsetX + diffX * progress;
+          this.offset.y = startOffsetY + diffY * progress;
+          this.scale = startScale + diffScale * progress;
+
+          requestAnimationFrame(animate);
+      };
+      requestAnimationFrame(animate);
+  }  
+  
+  disableLocalInteraction() {
     if (this.activeInteractionOverlay) {
         this.activeInteractionOverlay.classList.remove('interaction-enabled');
         this.activeInteractionOverlay = null;
@@ -813,7 +824,7 @@ disableLocalInteraction() {
   }
 
   setupCanvasInteraction(callbacks) {
-    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection } = callbacks;
+    const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection, onViewChanged } = callbacks;
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
@@ -824,7 +835,7 @@ disableLocalInteraction() {
         this.mousePos = this.getCanvasCoords(e);
         if (e.buttons === 0) { handleMouseUp(e); return; }
         this.dragged = true;
-        if (this.dragging) { this.offset.x = e.clientX - this.dragStart.x; this.offset.y = e.clientY - this.dragStart.y; }
+        if (this.dragging) { this.offset.x = e.clientX - this.dragStart.x; this.offset.y = e.clientY - this.dragStart.y; onViewChanged(); }
         else if (this.draggingEntity) {
             const dx = this.mousePos.x - oldMousePos.x; const dy = this.mousePos.y - oldMousePos.y;
             if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
@@ -900,6 +911,7 @@ disableLocalInteraction() {
         this.offset.x = mX - (mX - this.offset.x) * aZ; 
         this.offset.y = mY - (mY - this.offset.y) * aZ; 
         this.scale = nS; 
+        onViewChanged();
     }, { passive: false });
     this.canvas.addEventListener('click', onClick); this.canvas.addEventListener('dblclick', onDblClick);
 
@@ -914,6 +926,7 @@ disableLocalInteraction() {
       if (getIsEditorMode() || this.activeInteractionOverlay) return; e.preventDefault();
       if (isPinching && e.touches.length === 2) { const t1 = e.touches[0], t2 = e.touches[1]; const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); if (pinchStartDistance === 0) return; const scaleRatio = currentDistance / pinchStartDistance; const newScale = Math.max(0.05, Math.min(50, pinchStartScale * scaleRatio)); const rect = this.canvas.getBoundingClientRect(); const pMidX = (t1.clientX + t2.clientX) / 2 - rect.left, pMidY = (t1.clientY + t2.clientY) / 2 - rect.top; const wX = (pMidX - this.offset.x) / this.scale, wY = (pMidY - this.offset.y) / this.scale; this.scale = newScale; this.offset.x = pMidX - wX * newScale; this.offset.y = pMidY - wY * newScale; }
       else if (!isPinching && e.touches.length === 1) { const touch = e.touches[0]; const dx = touch.clientX - touchStartPos.x, dy = touch.clientY - touchStartPos.y; if (!this.dragged && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) { this.dragged = true; if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; } } if (this.dragged) { this.offset.x = touch.clientX - this.dragStart.x; this.offset.y = touch.clientY - this.dragStart.y; } }
+      onViewChanged();
     }, { passive: false });
     this.canvas.addEventListener('touchend', (e) => {
       if (getIsEditorMode()) return;
@@ -923,5 +936,29 @@ disableLocalInteraction() {
       if (e.touches.length === 1) { const touch = e.touches[0]; this.dragged = false; this.dragStart = { x: touch.clientX - this.offset.x, y: touch.clientY - this.offset.y }; touchStartPos = { x: touch.clientX, y: touch.clientY }; }
       setTimeout(() => { this.dragged = false; }, 0);
     });
+
+        this.markdownContainer.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (link && link.getAttribute('href').startsWith('#')) {
+            e.preventDefault();
+            try {
+                const params = new URLSearchParams(link.hash.substring(1));
+                const x = parseFloat(params.get('x'));
+                const y = parseFloat(params.get('y'));
+                const s = parseFloat(params.get('s'));
+                if (!isNaN(x) && !isNaN(y) && !isNaN(s)) {
+                    const targetOffset = {
+                        x: (this.canvas.width / 2) - (x * s),
+                        y: (this.canvas.height / 2) - (y * s)
+                    };
+                    const targetView = { offset: targetOffset, scale: s };
+                    // Use pushState so the browser back button works
+                    history.pushState({ view: targetView }, '', link.hash);
+                    this.animateToView(targetView);
+                }
+            } catch (err) { console.error("Failed to parse internal link:", err); }
+        }
+    });
   }
 }
+    
