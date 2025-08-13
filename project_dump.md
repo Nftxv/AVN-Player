@@ -20,16 +20,13 @@
   <!-- UNIFIED TOP TOOLBAR -->
   <div id="topToolbar">
     <!-- Mode Switcher (Always Visible) -->
-    <label class="switch" title="Toggle Editor Mode">
-      <input type="checkbox" id="editorModeToggle">
-      <span class="slider"></span>
-    </label>
-    <span class="editor-mode-label">Editor Mode</span>
+    <button id="toggleEditorModeBtn" title="Toggle Player/Editor Mode">🛠️🖥️🖱️</button>
     <div class="divider"></div>
 
     <!-- Always Visible Buttons -->
-    <button id="toggleAllNodesBtn" title="Collapse All Nodes">-</button>
-    <button id="followModeBtn" title="Toggle Follow Mode">[⊙]</button> 
+    <button id="toggleAllNodesBtn" title="Collapse All Nodes">➖</button>
+    <button id="followModeBtn" title="Toggle Follow Mode">📌</button> 
+    <button id="selectGraphBtn" title="Select Story" disabled>📂</button>
     <div class="divider"></div>
 
     <!-- Player Mode Controls (now empty) -->
@@ -38,19 +35,19 @@
 
     <!-- Editor Mode Controls (hidden by default) -->
     <div id="editorModeControls">
-      <button id="addNodeBtn" title="Add New Node">Add Node</button>
+      <button id="addNodeBtn" title="Add New Node">🎫</button>
+      <button id="addRectBtn" title="Add Rectangle Shape">🔳</button>
+      <button id="addTextBtn" title="Add Markdown Block">📋</button>
       <div class="divider"></div>
-      <button id="addRectBtn" title="Add Rectangle Shape">Add Rect</button>
-      <button id="addTextBtn" title="Add Markdown Block">Add Text</button>
       <button id="lockDecorationsBtn" title="Lock/Unlock Decorations">🔓</button>
       <div class="divider"></div>
       <button id="groupSelectionBtn" title="Group Selected Decorations" disabled>Group</button>
       <button id="attachToNodeBtn" title="Attach Group to Node" disabled>Attach</button>
       <div class="divider"></div>
-      <button id="exportBtn">Export Graph</button>
+      <button id="exportBtn" title="Export">💾</button>
       <button id="resetBtn">Reset</button>
       <div class="divider"></div>
-      <button id="deleteSelectionBtn" title="Delete Selected" disabled>Delete</button>
+      <button id="deleteSelectionBtn" title="Delete Selected">🗑️</button>
     </div>
   </div>
 
@@ -96,6 +93,15 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
 
   <script src="js/app.js" type="module"></script>
+
+  <!-- Graph Selection Modal -->
+  <div id="graphSelectionModal" class="hidden">
+    <div class="modal-content">
+      <h3>Select a Story</h3>
+      <div id="graphSelectionOptions"></div>
+      <button id="closeGraphModalBtn">Cancel</button>
+    </div>
+  </div>
 
   <footer id="copyright">
     AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank" rel="noopener nofollow">AbyssVoid.com</a>
@@ -371,15 +377,28 @@ button#lockDecorationsBtn.active:hover {
   flex-wrap: wrap;
 }
 #playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
-.editor-mode-label { user-select: none; font-size: 0.9em; color: var(--dark-subtle-text); }
-.divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
-.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .4s; border-radius: 24px; }
-.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #e0e0e0; transition: .4s; border-radius: 50%; }
-input:checked + .slider { background-color: var(--primary-color); }
-input:checked + .slider:before { transform: translateX(20px); }
+#toggleEditorModeBtn {
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+    padding: 6px 10px;
+    font-size: 16px;
+    line-height: 1;
+    font-weight: normal; /* Override default button bold */
+}
+
+#toggleEditorModeBtn:hover {
+    background: #4f4f4f;
+    transform: none; /* Override default button transform */
+}
+
+#toggleEditorModeBtn.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+}
+
+.divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
 #inspectorPanel {
   position: fixed; top: 60px; right: 10px; width: 300px;
@@ -436,7 +455,7 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     background: #3c3c3c;
     color: var(--dark-subtle-text);
     padding: 6px 10px;
-    font-size: 18px;
+    font-size: 16px; /* Adjusted for emoji */
     line-height: 1;
 }
 
@@ -449,6 +468,50 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     background: var(--primary-color);
     color: white;
     box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+}
+
+/* Graph Selection Modal */
+#graphSelectionModal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
+  justify-content: center; align-items: center; padding: 15px;
+}
+
+#graphSelectionOptions {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.graph-option {
+  padding: 15px;
+  border: 1px solid var(--dark-border);
+  border-radius: 6px;
+  background-color: #3c3c3c;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.graph-option:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  background-color: #4a4a4a;
+}
+
+.graph-option h5 {
+  margin: 0 0 5px 0;
+  font-size: 1.1em;
+  color: var(--dark-text);
+}
+
+.graph-option p {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--dark-subtle-text);
+  line-height: 1.4;
 }
 
 
@@ -1088,6 +1151,126 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
 }
 
 
+## ./public/data/manifest.json
+
+[
+  {
+    "title": "Ballad of Everything",
+    "file": "default.jsonld",
+    "description": "The default starter project with a variety of nodes and connections."
+  },
+  {
+    "title": "A New Story (Example)",
+    "file": "new_story.jsonld",
+    "description": "A placeholder for a completely different narrative experience."
+  }
+]
+
+
+## ./public/data/new_story.jsonld
+
+{
+  "@context": "https://schema.org/",
+  "@graph": [
+    {
+      "@id": "node-1755066807418",
+      "@type": "MusicRecording",
+      "name": "1",
+      "position": {
+        "x": -5.913801878004762,
+        "y": 611.4435167045033
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/AcousticRockBallads/08.%20When%20I%20See%20You%20Smile.mp3",
+      "coverUrl": "https://archive.org/download/AcousticRockBallads/six-part-invention.jpg",
+      "iframeUrl": null
+    },
+    {
+      "@id": "node-1755066925615",
+      "@type": "MusicRecording",
+      "name": "2",
+      "position": {
+        "x": 690.9970994974659,
+        "y": 663.1746792176955
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/12-make-me-wanna-die-acoustic/12%20-%20Make%20Me%20Wanna%20Die%20%28Acoustic%29.mp3",
+      "coverUrl": null,
+      "iframeUrl": null
+    },
+    {
+      "@id": "node-1755068125852",
+      "@type": "MusicRecording",
+      "name": "3",
+      "position": {
+        "x": 437.91907025273736,
+        "y": 972.3720444022259
+      },
+      "isCollapsed": false,
+      "sourceType": "audio",
+      "audioUrl": "https://archive.org/download/07RunOfTheMill/02%20-%20Before%20The%20Dawn.mp3",
+      "coverUrl": null,
+      "iframeUrl": null
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066807418",
+      "target": "node-1755066925615",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 569.0670392623003,
+          "y": 337.58409876331865
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066807418",
+      "target": "node-1755068125852",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": [
+        {
+          "x": 96.37860767283688,
+          "y": 968.6903448073391
+        }
+      ]
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755068125852",
+      "target": "node-1755066807418",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    },
+    {
+      "@type": "Path",
+      "source": "node-1755066925615",
+      "target": "node-1755066807418",
+      "color": "#888888",
+      "label": "",
+      "lineWidth": 2,
+      "controlPoints": []
+    }
+  ],
+  "view": {
+    "offset": {
+      "x": 71.44087214804847,
+      "y": -748.8582309575215
+    },
+    "scale": 2.0381101989183104
+  }
+}
+
+
 ## ./public/js/app.js
 
 /**
@@ -1137,72 +1320,77 @@ class GraphApp {
 
   async init() {
     try {
-      await this.graphData.load('data/default.jsonld');
+      // Step 1: Fetch the manifest file first
+      const manifestResponse = await fetch('data/manifest.json');
+      if (!manifestResponse.ok) throw new Error('Could not load manifest.json');
+      const manifest = await manifestResponse.json();
+
+      // Step 2: Determine which graph file to load
+      const urlParams = new URLSearchParams(window.location.search);
+      const requestedFile = urlParams.get('graph');
+      const isValidFile = manifest.some(item => item.file === requestedFile);
+      const graphFileToLoad = (requestedFile && isValidFile) ? requestedFile : manifest[0].file;
+
+      // Step 3: Load the determined graph data
+      await this.graphData.load(`data/${graphFileToLoad}`);
       this.renderer.setData(this.graphData);
 
-      // --- Smart Mobile Viewport Adjustment ---
+      // --- Smart Mobile Viewport Adjustment (logic is unchanged) ---
       const IS_MOBILE = window.innerWidth < 768;
-      const MOBILE_ZOOM_THRESHOLD = 2.5; // If saved scale is higher, it's a close-up
-      const MOBILE_TARGET_SCALE = 1.2;   // A comfortable scale to fit one node
+      const MOBILE_ZOOM_THRESHOLD = 2.5;
+      const MOBILE_TARGET_SCALE = 1.2;
 
       if (IS_MOBILE && this.graphData.view && this.graphData.view.scale > MOBILE_ZOOM_THRESHOLD) {
-        console.log('Mobile device with high initial zoom detected. Adjusting viewport.');
-
-        // Calculate the center of the saved desktop viewport
+        // ... (this entire block is the same as before, no need to copy it here)
+        // For brevity, I'm omitting the identical viewport adjustment logic. 
+        // Just imagine the original code block is here.
         const savedView = this.graphData.view;
-        const assumedDesktopWidth = 1920; // Assume a common desktop width for center calculation
-        const assumedDesktopHeight = 1080;
+        const assumedDesktopWidth = 1920, assumedDesktopHeight = 1080;
         const savedCenterX = (assumedDesktopWidth / 2 - savedView.offset.x) / savedView.scale;
         const savedCenterY = (assumedDesktopHeight / 2 - savedView.offset.y) / savedView.scale;
-
-        // Find the node closest to that saved center
-        let closestNode = null;
-        let minDistance = Infinity;
-        
-        if (this.graphData.nodes.length > 0) {
-            this.graphData.nodes.forEach(node => {
-                const nodeCenterX = node.x + NODE_WIDTH / 2;
-                const nodeCenterY = node.y + NODE_HEADER_HEIGHT / 2;
-                const dist = Math.hypot(savedCenterX - nodeCenterX, savedCenterY - nodeCenterY);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    closestNode = node;
-                }
-            });
-        }
-
-        if (closestNode) {
-            // Calculate the new viewport to center this node without animation
+        let closestNode = this.graphData.nodes.reduce((closest, node) => {
+            const dist = Math.hypot(savedCenterX - (node.x + NODE_WIDTH / 2), savedCenterY - (node.y + NODE_HEADER_HEIGHT / 2));
+            return (dist < closest.minDistance) ? { node, minDistance: dist } : closest;
+        }, { node: null, minDistance: Infinity }).node;
+        if(closestNode) {
             const nodeCenterX = closestNode.x + NODE_WIDTH / 2;
             const nodeCenterY = closestNode.y + NODE_HEADER_HEIGHT / 2;
             const newOffsetX = (this.renderer.canvas.width / 2) - (nodeCenterX * MOBILE_TARGET_SCALE);
             const newOffsetY = (this.renderer.canvas.height / 2) - (nodeCenterY * MOBILE_TARGET_SCALE);
-
-            this.renderer.setViewport({
-                offset: { x: newOffsetX, y: newOffsetY },
-                scale: MOBILE_TARGET_SCALE
-            });
-        } else {
-            // Fallback: if no nodes, just use the saved view anyway
-            this.renderer.setViewport(this.graphData.view);
-        }
+            this.renderer.setViewport({ offset: { x: newOffsetX, y: newOffsetY }, scale: MOBILE_TARGET_SCALE });
+        } else { this.renderer.setViewport(this.graphData.view); }
       } else {
-        // Standard behavior for desktop or non-zoomed views
-        if (this.graphData.view) {
-          this.renderer.setViewport(this.graphData.view);
-        }
+        if (this.graphData.view) this.renderer.setViewport(this.graphData.view);
       }
       
       this.renderer.render(); // Render initial state
-      this.setupEventListeners();
+      this.setupEventListeners(manifest); // Pass manifest to setup listeners
       this.toggleEditorMode(false);
       this.toggleFollowMode(true); // Enable follow mode by default
-      console.log('Application initialized successfully.');
+      console.log(`Application initialized with graph: ${graphFileToLoad}`);
 
     } catch (error) {
       console.error('Initialization failed:', error);
       alert('Could not load the application.');
     }
+  }
+
+  // NEW METHOD: To populate the selector modal
+  populateGraphSelector(manifest) {
+    const container = document.getElementById('graphSelectionOptions');
+    container.innerHTML = ''; // Clear previous options
+
+    manifest.forEach(item => {
+      const optionEl = document.createElement('div');
+      optionEl.className = 'graph-option';
+      optionEl.dataset.file = item.file; // Store filename in dataset for easy access
+      
+      optionEl.innerHTML = `
+        <h5>${item.title}</h5>
+        <p>${item.description}</p>
+      `;
+      container.appendChild(optionEl);
+    });
   }
 
   // REVISED: Smart Follow Mode logic with immediate centering
@@ -1229,14 +1417,12 @@ class GraphApp {
 
               console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
 
-              // Immediately and smoothly pan to center the current node with the new settings
-              // This eliminates the "jump" on the next navigation event.
-              this.renderer.centerOnNode(node.id, this.followScale, this.followScreenOffset);
-          } else {
-              // If no node is active, default to a centered view for the next node.
-              this.followScreenOffset = { x: 0, y: 0 };
-              console.log(`Follow mode activated. Target scale: ${this.followScale}. No active node, will center next.`);
+              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset captured:`, this.followScreenOffset);
           }
+          // If no node is active, we intentionally do nothing to the offset.
+          // This preserves the user's manual panning, respecting their desired view
+          // for the next node they select.
+
       } else {
           console.log('Follow mode deactivated.');
       }
@@ -1245,6 +1431,7 @@ class GraphApp {
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
+    document.getElementById('toggleEditorModeBtn').classList.toggle('active', isEditor);
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
@@ -1253,7 +1440,30 @@ class GraphApp {
     this.renderer.destroyAllMarkdownOverlays();
   }
 
-  setupEventListeners() {
+  setupEventListeners(manifest = []) { // Now accepts manifest
+    // NEW: Logic for the graph selector
+    const selectGraphBtn = document.getElementById('selectGraphBtn');
+    if (manifest.length > 1) {
+      selectGraphBtn.disabled = false;
+      this.populateGraphSelector(manifest);
+
+      const graphModal = document.getElementById('graphSelectionModal');
+      const closeGraphModalBtn = document.getElementById('closeGraphModalBtn');
+      const graphOptionsContainer = document.getElementById('graphSelectionOptions');
+
+      selectGraphBtn.addEventListener('click', () => graphModal.classList.remove('hidden'));
+      closeGraphModalBtn.addEventListener('click', () => graphModal.classList.add('hidden'));
+      
+      graphOptionsContainer.addEventListener('click', (e) => {
+        const option = e.target.closest('.graph-option');
+        if (option && option.dataset.file) {
+          const file = option.dataset.file;
+          // Reload the page with the new graph file as a URL parameter
+          window.location.href = window.location.pathname + '?graph=' + file;
+        }
+      });
+    }  
+
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
         getIsDecorationsLocked: () => this.editorTools.decorationsLocked,
@@ -1273,7 +1483,7 @@ class GraphApp {
         getSelection: () => this.editorTools.getSelection(),
     });
 
-    document.getElementById('editorModeToggle').addEventListener('change', (e) => this.toggleEditorMode(e.target.checked));
+    document.getElementById('toggleEditorModeBtn').addEventListener('click', () => this.toggleEditorMode(!this.isEditorMode));
     
     document.getElementById('toggleAllNodesBtn').addEventListener('click', () => this.editorTools.toggleAllNodes());
 
@@ -1402,7 +1612,7 @@ export default class EditorTools {
     this.graphData.nodes.forEach(node => node.isCollapsed = false);
   }
 
-  toggleAllNodes() {
+toggleAllNodes() {
     // Check if at least one node is currently expanded
     const isAnyNodeExpanded = this.graphData.nodes.some(node => !node.isCollapsed);
     const btn = document.getElementById('toggleAllNodesBtn');
@@ -1410,16 +1620,16 @@ export default class EditorTools {
     if (isAnyNodeExpanded) {
       // If any node is expanded, the action is to collapse all
       this.collapseAllNodes();
-      btn.textContent = '+';
+      btn.textContent = '➕';
       btn.title = 'Expand All Nodes';
     } else {
       // Otherwise, all are collapsed, so the action is to expand all
       this.expandAllNodes();
-      btn.textContent = '-';
+      btn.textContent = '➖';
       btn.title = 'Collapse All Nodes';
     }
   }
-
+  
   toggleDecorationsLock() {
     this.decorationsLocked = !this.decorationsLocked;
     this.initLockState();
@@ -1922,6 +2132,8 @@ export default class GraphData {
           break;
         case 'Path':
           this.edges.push({
+            // FIX: Assign a unique ID on load, which is crucial for selection and deletion.
+            id: `edge-${item.source}-${item.target}-${Math.random().toString(36).substr(2, 9)}`,
             source: item.source,
             target: item.target,
             color: item.color || '#888888',
@@ -2079,7 +2291,7 @@ export default class Navigation {
     this.graphData.edges.forEach(e => e.highlighted = false);
   }
 
-startFromNode(nodeId) {
+  startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
     this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
 
@@ -2091,11 +2303,33 @@ startFromNode(nodeId) {
     this.history = [nodeId];
     
     this.renderer.highlight(nodeId, prevNodeId);
-    this.player.play(node);
 
+    // THE FIX IS HERE.
     if (this.app.isFollowing) {
-      this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
+        // If we are starting a new navigation chain (no previous node was active),
+        // we must calculate the follow offset NOW, based on where the user clicked the node.
+        // This "captures" the user's intended viewport for the entire follow session.
+        if (!prevNodeId) {
+            const { offset, scale } = this.renderer.getViewport();
+            // Constants are not defined here, so we use their raw values.
+            const NODE_WIDTH = 200;
+            const NODE_HEADER_HEIGHT = 45;
+
+            const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
+            const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+            
+            this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
+            this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
+            
+            console.log('Follow mode: New chain started, capturing initial screen offset.', this.app.followScreenOffset);
+        }
+        
+        // Now, center on the node using the (potentially just-updated) offset.
+        this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
+    
+    // Play the node after initiating the camera movement.
+    this.player.play(node);
   }
 
   async advance() {
@@ -3372,6 +3606,18 @@ disableLocalInteraction() {
                 if(entity.type === 'rectangle' && entity.attachedToNodeId) { const node = this.graphData.getNodeById(entity.attachedToNodeId); if(node) { entity.attachOffsetX = entity.x - node.x; entity.attachOffsetY = entity.y - node.y; } }
             };
             selection.forEach(move);
+
+            // FIX: Explicitly move control points of selected edges
+            const selectedEdges = selection.filter(e => e.source && e.target);
+            selectedEdges.forEach(edge => {
+                if (edge.controlPoints && edge.controlPoints.length > 0) {
+                    edge.controlPoints.forEach(point => {
+                        point.x += dx;
+                        point.y += dy;
+                    });
+                }
+            });
+
         } else if (this.draggingControlPoint) { this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].x = this.mousePos.x; this.draggingControlPoint.edge.controlPoints[this.draggingControlPoint.pointIndex].y = this.mousePos.y;
         } else if (this.isMarqueeSelecting) { this.marqueeRect.w = this.mousePos.x - this.marqueeRect.x; this.marqueeRect.h = this.mousePos.y - this.marqueeRect.y; }
     };
