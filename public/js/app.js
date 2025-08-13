@@ -11,6 +11,8 @@ import Navigation from './modules/Navigation.js';
 // Constants exposed for other modules that need them
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
+const NODE_CONTENT_HEIGHT_DEFAULT = NODE_WIDTH * (9 / 16); // For iframes
+const NODE_CONTENT_HEIGHT_SQUARE = NODE_WIDTH;          // For audio with covers
 
 function loadYouTubeAPI() {
   return new Promise((resolve) => {
