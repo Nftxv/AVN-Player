@@ -125,20 +125,25 @@ class GraphApp {
           if (this.navigation.currentNode) {
               const node = this.navigation.currentNode;
               const { offset } = this.renderer.getViewport();
-                            // Calculate where the node currently is on screen
-              const nodeScreenX = (node.x + 200 / 2) * scale + offset.x;
-              const nodeScreenY = (node.y + 45 / 2) * scale + offset.y;
               
-              // Capture the user's desired placement of the node on the screen
+              // Calculate where the node currently is on screen
+              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
+              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+              
+              // Calculate the difference between the screen center and the node's current position
+              // This captures the user's desired placement of the node on the screen
               this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
 
+              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
+
               console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset captured:`, this.followScreenOffset);
           }
-          // If no node is active, we simply preserve the last known offset preference.
-          // This respects user's panning even when no node is active.              
+          // If no node is active, we intentionally do nothing to the offset.
+          // This preserves the user's manual panning, respecting their desired view
+          // for the next node they select.
 
-            } else {
+      } else {
           console.log('Follow mode deactivated.');
       }
   }
