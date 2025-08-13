@@ -43,6 +43,8 @@ export default class GraphData {
           break;
         case 'Path':
           this.edges.push({
+            // FIX: Assign a unique ID on load, which is crucial for selection and deletion.
+            id: `edge-${item.source}-${item.target}-${Math.random().toString(36).substr(2, 9)}`,
             source: item.source,
             target: item.target,
             color: item.color || '#888888',
