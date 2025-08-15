@@ -61,11 +61,21 @@ export default class Player {
         playBtn.textContent = '⏸';
         playBtn.disabled = false;
         progress.disabled = false;
-        // If the src is the same, just play. Otherwise, set new src.
+        // If the src is different (new track or coming from silent loop),
+        // we must load it and wait for it to be playable.
         if (this.audio.src !== node.audioUrl) {
             this.audio.src = node.audioUrl;
+            // This is the fix: wait for the 'canplay' event before playing.
+            const canPlayHandler = () => {
+                this.audio.play().catch(e => console.error("Playback error after src change:", e));
+                this.audio.removeEventListener('canplay', canPlayHandler); // Important: one-time listener
+            };
+            this.audio.addEventListener('canplay', canPlayHandler);
+            this.audio.load(); // Explicitly start loading the new source
+        } else {
+            // If src is the same, we can just resume playback.
+            this.audio.play().catch(e => console.error("Playback error:", e));
         }
-        this.audio.play().catch(e => console.error("Playback error:", e));
 
     } else if (node.sourceType === 'iframe') {
         progressContainer.style.visibility = 'hidden';
