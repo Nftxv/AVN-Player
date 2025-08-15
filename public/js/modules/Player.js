@@ -6,6 +6,9 @@
 const MEDIA_SESSION_ALBUM = 'Abyss Void: the Archive';
 const MEDIA_SESSION_ARTIST = 'Nftxv';
 
+// NEW: Base64 encoded silent audio for maintaining playback context on mobile
+const SILENT_AUDIO_LOOP = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
 export default class Player {
   constructor(graphData, iframeContainer) {
     this.graphData = graphData;
@@ -47,6 +50,7 @@ export default class Player {
     const progress = document.getElementById('progress');
 
     if (node.sourceType === 'audio') {
+        this.audio.loop = false; // Ensure real tracks don't loop by default
         progressContainer.style.visibility = 'visible'; 
         if (!node.audioUrl) {
           console.warn(`Audio URL is missing for "${node.title}".`);
@@ -109,6 +113,8 @@ export default class Player {
     this.audio.pause();
     this.audio.currentTime = 0;
     this.audio.src = '';
+
+    this.audio.loop = false; // Ensure loop is off when stopping
     
     if(this.currentYtPlayer) {
       this.currentYtPlayer.stopVideo();
@@ -123,6 +129,13 @@ export default class Player {
     document.getElementById('progress').value = 0;
     document.getElementById('currentTime').textContent = '0:00';
     document.getElementById('progressContainer').style.visibility = 'visible';
+  }
+
+    playSilentLoop() {
+    console.log('Playing silent loop to maintain audio context...');
+    this.audio.src = SILENT_AUDIO_LOOP;
+    this.audio.loop = true;
+    this.audio.play().catch(e => console.error("Silent loop playback error:", e));
   }
 
   createAndPlayYtPlayer(node) {
