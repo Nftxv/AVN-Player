@@ -77,8 +77,17 @@ export default class Navigation {
     if (options.length === 1) {
       nextEdge = options[0];
     } else {
-      nextEdge = await this.promptForChoice(options);
-      if (!nextEdge) return;
+
+      // On mobile, if the screen is off (document hidden) and it's an audio node,
+      // showing a choice modal will fail. We auto-select randomly to ensure playback continues.
+      const isMobileInBackground = (window.innerWidth < 768 && document.hidden);
+      if (isMobileInBackground && this.currentNode.sourceType === 'audio') {
+        console.log("Mobile background: auto-selecting next audio node randomly.");
+        nextEdge = options[Math.floor(Math.random() * options.length)];
+      } else {
+        nextEdge = await this.promptForChoice(options);
+        if (!nextEdge) return;
+      }
     }
     this.transitionToEdge(nextEdge);
   }
