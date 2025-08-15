@@ -77,11 +77,8 @@ export default class Navigation {
     if (options.length === 1) {
       nextEdge = options[0];
     } else {
-      this.player.playSilentLoop(); // Start silent audio BEFORE showing modal  
       nextEdge = await this.promptForChoice(options);
       if (!nextEdge) return;
-      this.player.stop(); // Stop silent loop if user cancels choice
-      return; 
     }
     this.transitionToEdge(nextEdge);
   }

@@ -6,9 +6,6 @@
 const MEDIA_SESSION_ALBUM = 'Abyss Void: the Archive';
 const MEDIA_SESSION_ARTIST = 'Nftxv';
 
-// NEW: Base64 encoded silent audio for maintaining playback context on mobile
-const SILENT_AUDIO_LOOP = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-
 export default class Player {
   constructor(graphData, iframeContainer) {
     this.graphData = graphData;
@@ -50,7 +47,6 @@ export default class Player {
     const progress = document.getElementById('progress');
 
     if (node.sourceType === 'audio') {
-        this.audio.loop = false; // Ensure real tracks don't loop by default
         progressContainer.style.visibility = 'visible'; 
         if (!node.audioUrl) {
           console.warn(`Audio URL is missing for "${node.title}".`);
@@ -61,21 +57,11 @@ export default class Player {
         playBtn.textContent = '⏸';
         playBtn.disabled = false;
         progress.disabled = false;
-        // If the src is different (new track or coming from silent loop),
-        // we must load it and wait for it to be playable.
+        // If the src is the same, just play. Otherwise, set new src.
         if (this.audio.src !== node.audioUrl) {
             this.audio.src = node.audioUrl;
-            // This is the fix: wait for the 'canplay' event before playing.
-            const canPlayHandler = () => {
-                this.audio.play().catch(e => console.error("Playback error after src change:", e));
-                this.audio.removeEventListener('canplay', canPlayHandler); // Important: one-time listener
-            };
-            this.audio.addEventListener('canplay', canPlayHandler);
-            this.audio.load(); // Explicitly start loading the new source
-        } else {
-            // If src is the same, we can just resume playback.
-            this.audio.play().catch(e => console.error("Playback error:", e));
         }
+        this.audio.play().catch(e => console.error("Playback error:", e));
 
     } else if (node.sourceType === 'iframe') {
         progressContainer.style.visibility = 'hidden';
@@ -123,8 +109,6 @@ export default class Player {
     this.audio.pause();
     this.audio.currentTime = 0;
     this.audio.src = '';
-
-    this.audio.loop = false; // Ensure loop is off when stopping
     
     if(this.currentYtPlayer) {
       this.currentYtPlayer.stopVideo();
@@ -139,13 +123,6 @@ export default class Player {
     document.getElementById('progress').value = 0;
     document.getElementById('currentTime').textContent = '0:00';
     document.getElementById('progressContainer').style.visibility = 'visible';
-  }
-
-    playSilentLoop() {
-    console.log('Playing silent loop to maintain audio context...');
-    this.audio.src = SILENT_AUDIO_LOOP;
-    this.audio.loop = true;
-    this.audio.play().catch(e => console.error("Silent loop playback error:", e));
   }
 
   createAndPlayYtPlayer(node) {
