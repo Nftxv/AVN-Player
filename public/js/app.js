@@ -410,11 +410,9 @@ onViewChanged: () => {
             }
         } else if (nodeTarget) {
             const nodeId = nodeTarget.dataset.nodeId;
-            if (this.isFollowing) {
-                this.navigation.startFromNode(nodeId);
-            } else {
-                this.renderer.centerOnNode(nodeId);
-            }
+            // A TOC click always implies starting navigation from that node.
+            // Pass a flag to handle camera logic correctly for non-canvas clicks.
+            this.navigation.startFromNode(nodeId, { isTocClick: true });
         }
         
         if (chapterTarget || nodeTarget) {

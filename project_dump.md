@@ -1417,11 +1417,28 @@ class GraphApp {
 this.updateUrlDebounceTimer = null; // For debouncing URL updates
   }
 
+  _naturalSort(a, b) {
+    const re = /(\d+|\D+)/g;
+    const aParts = String(a).match(re);
+    const bParts = String(b).match(re);
+
+    for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+        let aPart = aParts[i], bPart = bParts[i];
+        if (!isNaN(aPart) && !isNaN(bPart)) {
+            aPart = parseInt(aPart, 10);
+            bPart = parseInt(bPart, 10);
+        }
+        if (aPart < bPart) return -1;
+        if (aPart > bPart) return 1;
+    }
+    return aParts.length - bParts.length;
+  }
+
   _generateAndShowTOC() {
       const tocContent = document.getElementById('tocContent');
       const chapters = this.graphData.decorations
-          .filter(d => d.type === 'rectangle' && typeof d.tocOrder === 'number')
-          .sort((a, b) => a.tocOrder - b.tocOrder);
+          .filter(d => d.type === 'rectangle' && d.tocOrder != null)
+          .sort((a, b) => this._naturalSort(a.tocOrder, b.tocOrder));
 
       if (chapters.length === 0) {
           tocContent.innerHTML = '<p>No chapters defined in this story.</p>';
@@ -1435,11 +1452,11 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
           
           const nodesInChapter = this.graphData.nodes
               .filter(n =>
-                  typeof n.tocOrder === 'number' &&
+                  n.tocOrder != null &&
                   n.x >= chapter.x && n.x <= chapter.x + chapter.width &&
                   n.y >= chapter.y && n.y <= chapter.y + chapter.height
               )
-              .sort((a, b) => a.tocOrder - b.tocOrder);
+              .sort((a, b) => this._naturalSort(a.tocOrder, b.tocOrder));
 
           if (nodesInChapter.length > 0) {
               nodesInChapter.forEach(node => {
@@ -1473,6 +1490,25 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
         }
     }
     return smallestGroup;
+  }
+
+  // NEW: Update floating title based on current view center
+  _updateFloatingChapterTitle() {
+      const { scale } = this.renderer.getViewport();
+      const FLOATING_TITLE_THRESHOLD = 0.4; // Synced with MAP_VIEW_THRESHOLD
+      const titleDiv = document.getElementById('floating-chapter-title');
+      if (scale < FLOATING_TITLE_THRESHOLD) {
+          titleDiv.classList.add('hidden');
+      } else {
+          const center = this.renderer.getViewportCenter();
+          const currentGroup = this._findGroupAtPoint(center);
+          if (currentGroup && currentGroup.title) {
+              titleDiv.textContent = currentGroup.title;
+              titleDiv.classList.remove('hidden');
+          } else {
+              titleDiv.classList.add('hidden');
+          }
+      }
   }
 
   // NEW: Utility to parse view state from URL hash
@@ -1672,21 +1708,7 @@ onViewChanged: () => {
                 const center = this.renderer.getViewportCenter();
                 const hash = `#x=${center.x.toFixed(2)}&y=${center.y.toFixed(2)}&s=${scale.toFixed(2)}`;
                 history.replaceState(null, '', window.location.pathname + window.location.search + hash);
-                
-                // Floating Chapter Title Logic
-                const FLOATING_TITLE_THRESHOLD = 0.7;
-                const titleDiv = document.getElementById('floating-chapter-title');
-                if (scale < FLOATING_TITLE_THRESHOLD) {
-                    titleDiv.classList.add('hidden');
-                } else {
-                    const currentGroup = this._findGroupAtPoint(center);
-                    if (currentGroup) {
-                        titleDiv.textContent = currentGroup.title;
-                        titleDiv.classList.remove('hidden');
-                    } else {
-                        titleDiv.classList.add('hidden');
-                    }
-                }
+                this._updateFloatingChapterTitle();
             }, 250); // Reduced delay for more responsive feel
         }
     });
@@ -1782,7 +1804,7 @@ handleCanvasClick(event) {
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
-      if (event.ctrlKey) mode = 'add';
+      if (event.ctrlKey) mode = 'toggle'; // Use 'toggle' for clarity
       else if (event.shiftKey) mode = 'remove';
       
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);
@@ -2075,9 +2097,9 @@ toggleAllNodes() {
           finalSelection = Array.from(newSelectionMap.values());
       } else {
           const currentSelection = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
-          if (mode === 'add') {
+          if (mode === 'toggle') {
               newSelectionMap.forEach((value, key) => {
-                if (currentSelection.has(key)) currentSelection.delete(key); 
+                if (currentSelection.has(key)) currentSelection.delete(key);
                 else currentSelection.set(key, value);
               });
           } else if (mode === 'remove') {
@@ -2155,14 +2177,14 @@ toggleAllNodes() {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div><hr><label for="tocOrder">TOC Order (Node):</label><input type="number" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1.1, 1.2, 2.1...">`;
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div><hr><label for="tocOrder">TOC Order (Node):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1.1, 1.2, 2.1...">`;
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
         html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
     } else if (entity.type === 'rectangle') {
         const isTransparent = entity.backgroundColor === 'transparent';
-        title.textContent = 'Rectangle Properties';
-        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label for="tocOrder">TOC Order (Group):</label><input type="number" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
+        title.textContent = 'Rectangle / Group Properties';
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label for="tocOrder">TOC Order (Group):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
@@ -2253,7 +2275,7 @@ toggleAllNodes() {
     if (entity.sourceType) { // Node
         entity.title = document.getElementById('nodeTitle').value;
         const tocOrderVal = document.getElementById('tocOrder').value;
-        entity.tocOrder = tocOrderVal === '' ? undefined : parseFloat(tocOrderVal);
+        entity.tocOrder = tocOrderVal === '' ? undefined : tocOrderVal;
         if (entity.sourceType === 'audio') {
             entity.audioUrl = document.getElementById('audioUrl').value || null;
             entity.coverUrl = document.getElementById('coverUrl').value || null;
@@ -2275,7 +2297,7 @@ toggleAllNodes() {
         entity.title = document.getElementById('groupTitle').value;
         entity.titleFontSize = parseInt(document.getElementById('titleFontSize').value, 10);
         const tocOrderVal = document.getElementById('tocOrder').value;
-        entity.tocOrder = tocOrderVal === '' ? undefined : parseFloat(tocOrderVal);
+        entity.tocOrder = tocOrderVal === '' ? undefined : tocOrderVal;
     } else if (entity.type === 'markdown') {
         entity.textContent = document.getElementById('textContent').value;
         entity.fontSize = parseInt(document.getElementById('fontSize').value, 10);
@@ -2601,6 +2623,7 @@ export default class Navigation {
     
     // Play the node after initiating the camera movement.
     this.player.play(node);
+    this.app._updateFloatingChapterTitle(); // Update title on new node start
   }
 
   async advance() {
@@ -2669,6 +2692,7 @@ goBack() {
         if (this.app.isFollowing) {
             this.renderer.centerOnNode(prevNodeId, this.app.followScale, this.app.followScreenOffset);
         }
+        this.app._updateFloatingChapterTitle(); // Update title on back navigation
     }
   }
 
@@ -2687,6 +2711,7 @@ goBack() {
     if (this.app.isFollowing) {
         this.renderer.centerOnNode(nextNode.id, this.app.followScale, this.app.followScreenOffset);
     }
+    this.app._updateFloatingChapterTitle(); // Update title on advancing
   }
   
   promptForChoice(options) {
@@ -3112,6 +3137,8 @@ this.ctx.translate(this.offset.x, this.offset.y);
     const MAP_VIEW_THRESHOLD = 0.4;
     const isMapView = this.scale < MAP_VIEW_THRESHOLD;
 
+    this._drawGroupTitles();
+
     // Always draw chapter containers
     this.graphData.decorations.forEach(deco => {
         if (deco.type === 'rectangle') this.drawRectangle(deco);
@@ -3153,24 +3180,26 @@ this.ctx.translate(this.offset.x, this.offset.y);
         this.updateIframes();
     }
 
-    requestAnimationFrame(this.renderLoop);
-  }
+  requestAnimationFrame(this.renderLoop);
+    }
 
-  _drawGroupTitles() {
-      const ctx = this.ctx;
-      this.graphData.decorations.forEach(deco => {
-          if (deco.type === 'rectangle' && deco.title) {
-              ctx.font = `${deco.titleFontSize / this.scale}px "Segoe UI"`;
-              ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'bottom';
-              const x = deco.x + deco.width / 2;
-              const y = deco.y - (10 / this.scale);
-              ctx.fillText(deco.title, x, y);
-          }
-      });
-  }
-  
+    _drawGroupTitles() {
+        const ctx = this.ctx;
+        this.graphData.decorations.forEach(deco => {
+            if (deco.type === 'rectangle' && deco.title) {
+                // Don't draw title for groups that are children of other groups
+                if (deco.parentId) return;
+
+                ctx.font = `${(deco.titleFontSize || 14) / this.scale}px "Segoe UI"`;
+                ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                const x = deco.x + deco.width / 2;
+                const y = deco.y - (10 / this.scale);
+                ctx.fillText(deco.title, x, y);
+            }
+        });
+    } 
   drawDecoration(deco, isLodActive) {
     if (isLodActive && deco.backgroundColor !== 'transparent') {
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
@@ -3201,6 +3230,8 @@ this.ctx.translate(this.offset.x, this.offset.y);
         ctx.setLineDash([6 / this.scale, 4 / this.scale]);
         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
     }
+    
+    // Always draw chapter titles if they exist, regardless of zoom
     ctx.restore();
   }
   
@@ -3621,6 +3652,9 @@ _drawNodeHeader(node) {
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
+    const MAP_VIEW_THRESHOLD = 0.4;
+    if (this.scale < MAP_VIEW_THRESHOLD) return null; // Disable clicks in map view
+
     // Nodes are on top
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
@@ -3640,7 +3674,7 @@ _drawNodeHeader(node) {
             const tolerance = 7 / this.scale;
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                  const deco = this.graphData.decorations[i];
-                 if (deco.backgroundColor === 'transparent') continue;
+                 // if (deco.backgroundColor === 'transparent') continue; // REMOVED to allow moving transparent groups in LOD
                  const decoCenterX = deco.x + deco.width/2;
                  const decoCenterY = deco.y + deco.height/2;
                  if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {
