@@ -32,6 +32,7 @@ export default class GraphData {
           this.nodes.push({
             id: item['@id'],
             title: item.name || 'Untitled',
+            parentId: item.parentId || null,
             x: item.position?.x || 0,
             y: item.position?.y || 0,
             isCollapsed: item.isCollapsed === true,
@@ -100,6 +101,7 @@ export default class GraphData {
         '@type': 'MusicRecording',
         name: n.title,
         position: { x: n.x, y: n.y },
+        ...(n.parentId && { parentId: n.parentId }),
         isCollapsed: n.isCollapsed,
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,

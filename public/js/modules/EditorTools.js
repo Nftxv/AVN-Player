@@ -4,8 +4,8 @@
  */
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
-const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
-const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+const NODE_CONTENT_HEIGHT_DEFAULT = NODE_WIDTH * (9 / 16);
+const NODE_CONTENT_HEIGHT_SQUARE = NODE_WIDTH;
 
 
 export default class EditorTools {
@@ -128,37 +128,53 @@ toggleAllNodes() {
     this.selectEntity(newEdge);
   }
   
+  _getEntityBounds(entity) {
+    if (entity.sourceType) { // Is a Node
+        if (entity.isCollapsed) {
+            return { x: entity.x, y: entity.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
+        }
+        const contentHeight = entity.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
+        const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
+        return { x: entity.x, y: entity.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
+    } else { // Is a Decoration
+        return { x: entity.x, y: entity.y, width: entity.width, height: entity.height };
+    }
+  }
+
   // REVISED: New intuitive grouping logic
   groupOrUngroupSelection() {
       const groupBtn = document.getElementById('groupSelectionBtn');
       const isUngroupAction = groupBtn.textContent === 'Ungroup';
-      const decorations = this.selectedEntities.filter(e => e.type);
+      const selectedItems = this.selectedEntities.filter(e => e.type || e.sourceType);
 
       if (isUngroupAction) {
-          const container = decorations[0];
+          const container = selectedItems[0];
           if (!container) return;
 
-          const children = this.graphData.decorations.filter(d => d.parentId === container.id);
+          const children = [
+              ...this.graphData.nodes.filter(n => n.parentId === container.id),
+              ...this.graphData.decorations.filter(d => d.parentId === container.id)
+          ];
           children.forEach(child => child.parentId = null);
 
-          // Remove the container itself
           const index = this.graphData.decorations.findIndex(d => d.id === container.id);
-          if(index > -1) this.graphData.decorations.splice(index, 1);
+          if (index > -1) this.graphData.decorations.splice(index, 1);
           
           this.updateSelection(children, 'set');
           console.log(`Ungrouped items. Container ${container.id} removed.`);
 
       } else { // Group action
-          if (decorations.length < 2) {
-              alert('To group, select at least two decorations.');
+          if (selectedItems.length < 1) {
+              alert('To group, select at least one node or decoration.');
               return;
           }
           let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-          decorations.forEach(deco => {
-              minX = Math.min(minX, deco.x);
-              minY = Math.min(minY, deco.y);
-              maxX = Math.max(maxX, deco.x + deco.width);
-              maxY = Math.max(maxY, deco.y + deco.height);
+          selectedItems.forEach(item => {
+              const bounds = this._getEntityBounds(item);
+              minX = Math.min(minX, bounds.x);
+              minY = Math.min(minY, bounds.y);
+              maxX = Math.max(maxX, bounds.x + bounds.width);
+              maxY = Math.max(maxY, bounds.y + bounds.height);
           });
           const padding = 20;
           const container = {
@@ -167,15 +183,14 @@ toggleAllNodes() {
               x: minX - padding, y: minY - padding,
               width: (maxX - minX) + padding * 2,
               height: (maxY - minY) + padding * 2,
-              backgroundColor: 'transparent',
-              parentId: null,
-              attachedToNodeId: null,
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              parentId: null, attachedToNodeId: null,
           };
           this.graphData.decorations.push(container);
-          decorations.forEach(deco => deco.parentId = container.id);
+          selectedItems.forEach(item => item.parentId = container.id);
           
           this.updateSelection([container], 'set');
-          console.log(`Grouped ${decorations.length} items into new container ${container.id}`);
+          console.log(`Grouped ${selectedItems.length} items into new container ${container.id}`);
       }
       this.updateUIState();
   }
@@ -281,7 +296,10 @@ toggleAllNodes() {
       const decos = this.selectedEntities.filter(e => e.type);
       const nodes = this.selectedEntities.filter(e => e.sourceType);
       
-      const isSingleGroupSelected = decos.length === 1 && this.graphData.decorations.some(d => d.parentId === decos[0].id);
+      const isSingleGroupSelected = this.selectedEntities.length === 1 &&
+          this.selectedEntities[0].type === 'rectangle' &&
+          (this.graphData.nodes.some(n => n.parentId === this.selectedEntities[0].id) ||
+           this.graphData.decorations.some(d => d.parentId === this.selectedEntities[0].id));
 
       if (isSingleGroupSelected) {
           groupBtn.textContent = 'Ungroup';
@@ -289,8 +307,8 @@ toggleAllNodes() {
           groupBtn.title = 'Ungroup all items from this container';
       } else {
           groupBtn.textContent = 'Group';
-          groupBtn.disabled = decos.length < 2;
-          groupBtn.title = 'Group selected decorations into a new container';
+          groupBtn.disabled = this.selectedEntities.length === 0;
+          groupBtn.title = 'Group selected items into a new container';
       }
       
       const container = decos.find(e => e.type === 'rectangle' && !e.parentId);

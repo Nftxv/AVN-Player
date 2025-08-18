@@ -905,9 +905,10 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
                 if (!entity || movedItems.has(entity.id) || (getIsDecorationsLocked() && entity.type)) return;
                 movedItems.add(entity.id); entity.x += dx; entity.y += dy;
                 if (entity.type === 'rectangle' || entity.sourceType) {
-                    this.graphData.decorations.forEach(child => { if (child.parentId === entity.id) move(child); });
-                    if (entity.sourceType) { this.graphData.decorations.forEach(c => { if(c.attachedToNodeId === entity.id && !c.parentId) move(c); }); }
-                }
+                this.graphData.nodes.forEach(child => { if (child.parentId === entity.id) move(child); });
+                this.graphData.decorations.forEach(child => { if (child.parentId === entity.id) move(child); });
+                if (entity.sourceType) { this.graphData.decorations.forEach(c => { if(c.attachedToNodeId === entity.id && !c.parentId) move(c); }); }
+            }
                 if(entity.type === 'rectangle' && entity.attachedToNodeId) { const node = this.graphData.getNodeById(entity.attachedToNodeId); if(node) { entity.attachOffsetX = entity.x - node.x; entity.attachOffsetY = entity.y - node.y; } }
             };
             selection.forEach(move);
