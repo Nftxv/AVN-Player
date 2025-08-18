@@ -60,28 +60,71 @@ export default class Renderer {
     }
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
-    this.ctx.translate(this.offset.x, this.offset.y);
+this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
-    const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+    const MAP_VIEW_THRESHOLD = 0.4;
+    const isMapView = this.scale < MAP_VIEW_THRESHOLD;
 
-    this.graphData.decorations.forEach(deco => this.drawDecoration(deco, isLodActive));
-    this.graphData.nodes.forEach(node => this._drawNodeContent(node));
-    this.graphData.edges.forEach(edge => this.drawEdge(edge));
-    this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
+    // Always draw chapter containers
+    this.graphData.decorations.forEach(deco => {
+        if (deco.type === 'rectangle') this.drawRectangle(deco);
+    });
 
-    if (this.isCreatingEdge) this.drawTemporaryEdge();
-    if (this.isMarqueeSelecting) this.drawMarquee();
-    this._drawSnapGuides();
+    if (isMapView) {
+        // MAP VIEW: Only show chapter titles
+        this._drawGroupTitles();
+    } else {
+        // DETAIL VIEW: Render the full graph
+        const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+        
+        // Draw non-rectangle decorations (like text blocks)
+        this.graphData.decorations.forEach(deco => {
+            if (deco.type !== 'rectangle') this.drawDecoration(deco, isLodActive);
+        });
+
+        this.graphData.nodes.forEach(node => this._drawNodeContent(node));
+        this.graphData.edges.forEach(edge => this.drawEdge(edge));
+        this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
+
+        if (this.isCreatingEdge) this.drawTemporaryEdge();
+        if (this.isMarqueeSelecting) this.drawMarquee();
+        this._drawSnapGuides();
+    }
     
     this.ctx.restore();
     
-    this.updateIframes();
-    this.updateMarkdownOverlays(isLodActive);
+    // HTML Overlays
+    const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+    this.updateMarkdownOverlays(isLodActive || isMapView); // Hide overlays in map view too
+    
+    if (isMapView) {
+        this.graphData.nodes.forEach(node => { // Force-hide all iframes in map view
+            const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+            if(wrapper) wrapper.style.display = 'none';
+        });
+    } else {
+        this.updateIframes();
+    }
 
     requestAnimationFrame(this.renderLoop);
   }
 
+  _drawGroupTitles() {
+      const ctx = this.ctx;
+      this.graphData.decorations.forEach(deco => {
+          if (deco.type === 'rectangle' && deco.title) {
+              ctx.font = `${deco.titleFontSize / this.scale}px "Segoe UI"`;
+              ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              const x = deco.x + deco.width / 2;
+              const y = deco.y - (10 / this.scale);
+              ctx.fillText(deco.title, x, y);
+          }
+      });
+  }
+  
   drawDecoration(deco, isLodActive) {
     if (isLodActive && deco.backgroundColor !== 'transparent') {
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';

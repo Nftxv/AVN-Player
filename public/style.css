@@ -356,6 +356,30 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
 }
 
+/* NEW: Floating Chapter Title */
+#floating-chapter-title {
+  position: fixed;
+  top: 70px; /* Below the top toolbar */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(45, 45, 45, 0.9);
+  color: var(--dark-text);
+  padding: 8px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--dark-border);
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  z-index: 150;
+  pointer-events: none; /* Crucial: let clicks pass through to the canvas */
+  white-space: nowrap;
+  transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out;
+}
+
+#floating-chapter-title.hidden {
+  opacity: 0;
+  top: 50px; /* Move up slightly when hiding */
+}
 /* Graph Selection Modal */
 #graphSelectionModal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;

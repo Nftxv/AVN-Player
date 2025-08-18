@@ -44,7 +44,29 @@ class GraphApp {
     this.followScale = 1.0;
     this.followScreenOffset = { x: 0, y: 0 };
 
-    this.updateUrlDebounceTimer = null; // For debouncing URL updates
+this.updateUrlDebounceTimer = null; // For debouncing URL updates
+  }
+
+  _findGroupAtPoint(point) {
+    let smallestGroup = null;
+    let smallestArea = Infinity;
+
+    for (const deco of this.graphData.decorations) {
+        if (deco.type === 'rectangle' && deco.title) {
+            const isInside = (
+                point.x >= deco.x && point.x <= deco.x + deco.width &&
+                point.y >= deco.y && point.y <= deco.y + deco.height
+            );
+            if (isInside) {
+                const area = deco.width * deco.height;
+                if (area < smallestArea) {
+                    smallestArea = area;
+                    smallestGroup = deco;
+                }
+            }
+        }
+    }
+    return smallestGroup;
   }
 
   // NEW: Utility to parse view state from URL hash
@@ -212,11 +234,12 @@ class GraphApp {
         const option = e.target.closest('.graph-option');
         if (option && option.dataset.file) {
           const file = option.dataset.file;
-          // Reload the page with the new graph file as a URL parameter
-          window.location.href = window.location.pathname + '?graph=' + file;
+          const currentHash = window.location.hash;
+          // Reload the page, preserving the current view hash if it exists
+          window.location.href = window.location.pathname + '?graph=' + file + currentHash;
         }
       });
-    }  
+    } 
 
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
@@ -236,18 +259,31 @@ class GraphApp {
         },
         getSelection: () => this.editorTools.getSelection(),
         // NEW: Callback for when the view changes
-        onViewChanged: () => {
+onViewChanged: () => {
             clearTimeout(this.updateUrlDebounceTimer);
             this.updateUrlDebounceTimer = setTimeout(() => {
+                const { offset, scale } = this.renderer.getViewport();
                 const center = this.renderer.getViewportCenter();
-                const scale = this.renderer.getViewport().scale;
                 const hash = `#x=${center.x.toFixed(2)}&y=${center.y.toFixed(2)}&s=${scale.toFixed(2)}`;
-                // Use replaceState so it doesn't pollute browser history
-                history.replaceState(null, '', window.location.pathname + hash);
-            }, 500);
+                history.replaceState(null, '', window.location.pathname + window.location.search + hash);
+                
+                // Floating Chapter Title Logic
+                const FLOATING_TITLE_THRESHOLD = 0.7;
+                const titleDiv = document.getElementById('floating-chapter-title');
+                if (scale < FLOATING_TITLE_THRESHOLD) {
+                    titleDiv.classList.add('hidden');
+                } else {
+                    const currentGroup = this._findGroupAtPoint(center);
+                    if (currentGroup) {
+                        titleDiv.textContent = currentGroup.title;
+                        titleDiv.classList.remove('hidden');
+                    } else {
+                        titleDiv.classList.add('hidden');
+                    }
+                }
+            }, 250); // Reduced delay for more responsive feel
         }
     });
-
     // NEW: Handle browser back/forward buttons for hash navigation
     window.addEventListener('popstate', (e) => {
         const view = this.parseViewFromHash();
