@@ -447,6 +447,7 @@
       "backgroundColor": "rgba(45, 45, 45, 0.85)"
     },
     {
+      "@id": "deco-rect-chapter1",
       "position": {
         "x": 270,
         "y": 350

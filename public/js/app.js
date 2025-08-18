@@ -124,20 +124,15 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
 
   // NEW: Update floating title based on current view center
   _updateFloatingChapterTitle() {
-      const { scale } = this.renderer.getViewport();
-      const FLOATING_TITLE_THRESHOLD = 0.4; // Synced with MAP_VIEW_THRESHOLD
       const titleDiv = document.getElementById('floating-chapter-title');
-      if (scale < FLOATING_TITLE_THRESHOLD) {
-          titleDiv.classList.add('hidden');
+      const center = this.renderer.getViewportCenter();
+      const currentGroup = this._findGroupAtPoint(center);
+
+      if (currentGroup && currentGroup.title) {
+          titleDiv.textContent = currentGroup.title;
+          titleDiv.classList.remove('hidden');
       } else {
-          const center = this.renderer.getViewportCenter();
-          const currentGroup = this._findGroupAtPoint(center);
-          if (currentGroup && currentGroup.title) {
-              titleDiv.textContent = currentGroup.title;
-              titleDiv.classList.remove('hidden');
-          } else {
-              titleDiv.classList.add('hidden');
-          }
+          titleDiv.classList.add('hidden');
       }
   }
 
