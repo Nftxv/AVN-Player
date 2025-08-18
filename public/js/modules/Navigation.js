@@ -17,7 +17,7 @@ export default class Navigation {
     this.graphData.edges.forEach(e => e.highlighted = false);
   }
 
-  startFromNode(nodeId) {
+startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
     this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
 
@@ -30,23 +30,10 @@ export default class Navigation {
     
     this.renderer.highlight(nodeId, prevNodeId);
 
+    // THE FIX IS HERE.
     if (this.app.isFollowing) {
-        // FIX: If starting a new navigation chain (no previous node),
-        // we must calculate the follow offset now. This captures the
-        // author's intended viewport for the entire follow session.
-        if (!prevNodeId) {
-            const { offset, scale } = this.renderer.getViewport();
-            const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
-            const nodeScreenX = nodeWorldX * scale + offset.x;
-            const nodeScreenY = nodeWorldY * scale + offset.y;
-            
-            this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
-            this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
-            
-            console.log('Follow mode: New chain started, capturing initial screen offset.', this.app.followScreenOffset);
-        }
-        
-        // Now, center on the node using the (potentially just-updated) offset.
+        // The offset is now correctly set in app.js.
+        // We just need to use it.
         this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
     
@@ -54,7 +41,6 @@ export default class Navigation {
     this.player.play(node);
     this.app._updateFloatingChapterTitle(); // Update title on new node start
   }
-
   async advance() {
     if (!this.currentNode) return;
     
