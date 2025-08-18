@@ -13,7 +13,8 @@
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "iframeUrl": "YGJvDBRbYdM"
+      "iframeUrl": "YGJvDBRbYdM",
+      "tocOrder": 1.1
     },
     {
       "@id": "node-3a",
@@ -55,7 +56,8 @@
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "iframeUrl": "DcRXJrtysG0"
+      "iframeUrl": "DcRXJrtysG0",
+      "tocOrder": 1.3
     },
     {
       "@id": "node-1754728254075",
@@ -97,7 +99,8 @@
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "iframeUrl": "mM5Jtcd34z0"
+      "iframeUrl": "mM5Jtcd34z0",
+      "tocOrder": 1.2
     },
     {
       "@id": "node-1754729280653",
@@ -444,17 +447,19 @@
       "backgroundColor": "rgba(45, 45, 45, 0.85)"
     },
     {
-      "@id": "deco-rect-1754720945592",
       "position": {
-        "x": 302.74123870714993,
-        "y": 218.723020267453
+        "x": 270,
+        "y": 350
       },
       "@type": "RectangleAnnotation",
       "size": {
-        "width": 600,
-        "height": 2
+        "width": 450,
+        "height": 550
       },
-      "backgroundColor": "#8b079d"
+      "backgroundColor": "rgba(40, 40, 70, 0.2)",
+      "title": "Chapter 1: The Ballad",
+      "titleFontSize": 24,
+      "tocOrder": 1
     },
     {
       "@id": "deco-text-1754721399707",

@@ -39,6 +39,7 @@ export default class GraphData {
             audioUrl: item.audioUrl || null,
             coverUrl: item.coverUrl || null,
             iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
+            tocOrder: item.tocOrder,
           });
           break;
         case 'Path':
@@ -67,6 +68,9 @@ export default class GraphData {
             attachedToNodeId: item.attachedToNodeId || null,
             attachOffsetX: item.attachOffsetX,
             attachOffsetY: item.attachOffsetY,
+            title: item.title || '',
+            titleFontSize: item.titleFontSize || 14,
+            tocOrder: item.tocOrder, // Can be undefined
           });
           break;
         case 'TextAnnotation': // Legacy support
@@ -101,6 +105,7 @@ export default class GraphData {
         audioUrl: n.audioUrl,
         coverUrl: n.coverUrl,
         iframeUrl: n.iframeUrl,
+        ...(typeof n.tocOrder === 'number' && { tocOrder: n.tocOrder }),
       })),
       ...this.edges.map(e => ({
         '@type': 'Path',
@@ -127,6 +132,9 @@ export default class GraphData {
             ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId }),
             ...(d.attachOffsetX !== undefined && { attachOffsetX: d.attachOffsetX }),
             ...(d.attachOffsetY !== undefined && { attachOffsetY: d.attachOffsetY }),
+            ...(d.title && { title: d.title }),
+            ...(d.titleFontSize && d.titleFontSize !== 14 && { titleFontSize: d.titleFontSize }),
+            ...(typeof d.tocOrder === 'number' && { tocOrder: d.tocOrder }),
           };
         }
         if (d.type === 'markdown') {
