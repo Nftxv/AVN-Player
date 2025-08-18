@@ -66,8 +66,6 @@ this.ctx.translate(this.offset.x, this.offset.y);
     const MAP_VIEW_THRESHOLD = 0.4;
     const isMapView = this.scale < MAP_VIEW_THRESHOLD;
 
-    this._drawGroupTitles();
-
     // Always draw chapter containers
     this.graphData.decorations.forEach(deco => {
         if (deco.type === 'rectangle') this.drawRectangle(deco);
@@ -92,6 +90,9 @@ this.ctx.translate(this.offset.x, this.offset.y);
         if (this.isCreatingEdge) this.drawTemporaryEdge();
         if (this.isMarqueeSelecting) this.drawMarquee();
         this._drawSnapGuides();
+        
+        // Draw titles last to ensure they are on top of everything.
+        this._drawGroupTitles();
     }
     
     this.ctx.restore();
@@ -114,17 +115,31 @@ this.ctx.translate(this.offset.x, this.offset.y);
 
     _drawGroupTitles() {
         const ctx = this.ctx;
+        const padding = 15 / this.scale; // Padding for left/right alignment
+
         this.graphData.decorations.forEach(deco => {
             if (deco.type === 'rectangle' && deco.title) {
-                // Don't draw title for groups that are children of other groups
                 if (deco.parentId) return;
 
                 ctx.font = `${(deco.titleFontSize || 14) / this.scale}px "Segoe UI"`;
                 ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
-                ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
-                const x = deco.x + deco.width / 2;
+                
+                let x;
                 const y = deco.y - (10 / this.scale);
+                const align = deco.titleAlignment || 'center';
+
+                if (align === 'left') {
+                    ctx.textAlign = 'left';
+                    x = deco.x + padding;
+                } else if (align === 'right') {
+                    ctx.textAlign = 'right';
+                    x = deco.x + deco.width - padding;
+                } else { // center
+                    ctx.textAlign = 'center';
+                    x = deco.x + deco.width / 2;
+                }
+                
                 ctx.fillText(deco.title, x, y);
             }
         });

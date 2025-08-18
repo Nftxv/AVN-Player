@@ -350,7 +350,7 @@ toggleAllNodes() {
     } else if (entity.type === 'rectangle') {
         const isTransparent = entity.backgroundColor === 'transparent';
         title.textContent = 'Rectangle / Group Properties';
-        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label for="tocOrder">TOC Order (Group):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label>Title Alignment:</label><div class="toggle-switch" id="titleAlignmentGroup"><button data-align="left" class="${entity.titleAlignment === 'left' ? 'active' : ''}">Left</button><button data-align="center" class="${entity.titleAlignment === 'center' ? 'active' : ''}">Center</button><button data-align="right" class="${entity.titleAlignment === 'right' ? 'active' : ''}">Right</button></div><label for="tocOrder">TOC Order (Group):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
@@ -396,7 +396,14 @@ toggleAllNodes() {
       } else if (entity.type === 'rectangle') {
           document.getElementById('rectTransparentBtn').addEventListener('click', () => {
               entity.backgroundColor = 'transparent';
-              this.renderer.render();
+          });
+          document.getElementById('titleAlignmentGroup').addEventListener('click', (e) => {
+              const target = e.target.closest('button');
+              if (!target) return;
+              const newAlign = target.dataset.align;
+              entity.titleAlignment = newAlign;
+              const buttons = document.querySelectorAll('#titleAlignmentGroup button');
+              buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.align === newAlign));
           });
       } else if (entity.type === 'markdown') {
           const textarea = document.getElementById('textContent');

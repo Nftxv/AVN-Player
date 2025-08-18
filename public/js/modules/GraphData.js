@@ -71,7 +71,8 @@ export default class GraphData {
             attachOffsetY: item.attachOffsetY,
             title: item.title || '',
             titleFontSize: item.titleFontSize || 14,
-            tocOrder: item.tocOrder, // Can be undefined
+            titleAlignment: item.titleAlignment || 'center', // 'left', 'center', 'right'
+            tocOrder: item.tocOrder, // Can be undefined // Can be undefined
           });
           break;
         case 'TextAnnotation': // Legacy support
@@ -136,6 +137,7 @@ export default class GraphData {
             ...(d.attachOffsetY !== undefined && { attachOffsetY: d.attachOffsetY }),
             ...(d.title && { title: d.title }),
             ...(d.titleFontSize && d.titleFontSize !== 14 && { titleFontSize: d.titleFontSize }),
+            ...(d.titleAlignment && d.titleAlignment !== 'center' && { titleAlignment: d.titleAlignment }),
             ...(typeof d.tocOrder === 'number' && { tocOrder: d.tocOrder }),
           };
         }
