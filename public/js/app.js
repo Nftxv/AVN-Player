@@ -255,8 +255,9 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
               const { offset } = this.renderer.getViewport();
               
               // Calculate where the node currently is on screen
-              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
-              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+              const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
+              const nodeScreenX = nodeWorldX * scale + offset.x;
+              const nodeScreenY = nodeWorldY * scale + offset.y;
               
               // Calculate the difference between the screen center and the node's current position
               // This captures the user's desired placement of the node on the screen
