@@ -66,6 +66,8 @@ this.ctx.translate(this.offset.x, this.offset.y);
     const MAP_VIEW_THRESHOLD = 0.4;
     const isMapView = this.scale < MAP_VIEW_THRESHOLD;
 
+    this._drawGroupTitles();
+
     // Always draw chapter containers
     this.graphData.decorations.forEach(deco => {
         if (deco.type === 'rectangle') this.drawRectangle(deco);
@@ -107,24 +109,26 @@ this.ctx.translate(this.offset.x, this.offset.y);
         this.updateIframes();
     }
 
-    requestAnimationFrame(this.renderLoop);
-  }
+  requestAnimationFrame(this.renderLoop);
+    }
 
-  _drawGroupTitles() {
-      const ctx = this.ctx;
-      this.graphData.decorations.forEach(deco => {
-          if (deco.type === 'rectangle' && deco.title) {
-              ctx.font = `${deco.titleFontSize / this.scale}px "Segoe UI"`;
-              ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'bottom';
-              const x = deco.x + deco.width / 2;
-              const y = deco.y - (10 / this.scale);
-              ctx.fillText(deco.title, x, y);
-          }
-      });
-  }
+    _drawGroupTitles() {
+        const ctx = this.ctx;
+        this.graphData.decorations.forEach(deco => {
+            if (deco.type === 'rectangle' && deco.title) {
+                // Don't draw title for groups that are children of other groups
+                if (deco.parentId) return;
 
+                ctx.font = `${(deco.titleFontSize || 14) / this.scale}px "Segoe UI"`;
+                ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                const x = deco.x + deco.width / 2;
+                const y = deco.y - (10 / this.scale);
+                ctx.fillText(deco.title, x, y);
+            }
+        });
+    } 
   drawDecoration(deco, isLodActive) {
     if (isLodActive && deco.backgroundColor !== 'transparent') {
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
@@ -157,16 +161,6 @@ this.ctx.translate(this.offset.x, this.offset.y);
     }
     
     // Always draw chapter titles if they exist, regardless of zoom
-    if (rect.title) {
-        ctx.font = `${rect.titleFontSize || 14}px "Segoe UI"`;
-        ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const x = rect.x + rect.width / 2;
-        const y = rect.y + rect.height / 2;
-        ctx.fillText(rect.title, x, y);
-    }
-
     ctx.restore();
   }
   
