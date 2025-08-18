@@ -241,19 +241,19 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
     });
   }
 
-  // REVISED: Smart Follow Mode logic with immediate centering
+// REVISED: Smart Follow Mode logic with immediate centering
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
           const { offset, scale } = this.renderer.getViewport();
-          this.followScale = scale; // Capture current scale as the desired follow scale
-          
+          this.followScale = scale; // Always capture the current scale
+
+          // Determine the reference node for calculating the screen offset.
+          // If a node is playing, use it. Otherwise, find the node closest to the
+          // center of the current view to capture the "author's view" or "user's panned view".
           let referenceNode = this.navigation.currentNode;
-          
-          // FIX: If no node is playing, capture the initial "author's view"
-          // by finding which node is the current focus of the viewport.
           if (!referenceNode) {
               const center = this.renderer.getViewportCenter();
               referenceNode = this.graphData.nodes.reduce((closest, node) => {
@@ -264,21 +264,22 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
           }
 
           if (referenceNode) {
+              // Calculate where the reference node currently is on screen.
               const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(referenceNode);
               const nodeScreenX = nodeWorldX * scale + offset.x;
               const nodeScreenY = nodeWorldY * scale + offset.y;
               
+              // This difference is the "golden standard" offset we want to maintain.
               this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
               
-              console.log(`Follow mode activated. Captured offset from '${referenceNode.title}'.`, this.followScreenOffset);
+              console.log(`Follow mode activated. Captured offset from '${referenceNode.title}'. Scale: ${this.followScale.toFixed(2)}`, this.followScreenOffset);
           }
 
       } else {
           console.log('Follow mode deactivated.');
       }
   }
-
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
