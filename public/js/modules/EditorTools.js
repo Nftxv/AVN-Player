@@ -245,9 +245,9 @@ toggleAllNodes() {
           finalSelection = Array.from(newSelectionMap.values());
       } else {
           const currentSelection = new Map(this.selectedEntities.map(e => [entityToId(e), e]));
-          if (mode === 'add') {
+          if (mode === 'toggle') {
               newSelectionMap.forEach((value, key) => {
-                if (currentSelection.has(key)) currentSelection.delete(key); 
+                if (currentSelection.has(key)) currentSelection.delete(key);
                 else currentSelection.set(key, value);
               });
           } else if (mode === 'remove') {
@@ -325,14 +325,14 @@ toggleAllNodes() {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div><hr><label for="tocOrder">TOC Order (Node):</label><input type="number" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1.1, 1.2, 2.1...">`;
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div><hr><label for="tocOrder">TOC Order (Node):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1.1, 1.2, 2.1...">`;
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
         html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
     } else if (entity.type === 'rectangle') {
         const isTransparent = entity.backgroundColor === 'transparent';
-        title.textContent = 'Rectangle Properties';
-        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label for="tocOrder">TOC Order (Group):</label><input type="number" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
+        title.textContent = 'Rectangle / Group Properties';
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label for="tocOrder">TOC Order (Group):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
@@ -423,7 +423,7 @@ toggleAllNodes() {
     if (entity.sourceType) { // Node
         entity.title = document.getElementById('nodeTitle').value;
         const tocOrderVal = document.getElementById('tocOrder').value;
-        entity.tocOrder = tocOrderVal === '' ? undefined : parseFloat(tocOrderVal);
+        entity.tocOrder = tocOrderVal === '' ? undefined : tocOrderVal;
         if (entity.sourceType === 'audio') {
             entity.audioUrl = document.getElementById('audioUrl').value || null;
             entity.coverUrl = document.getElementById('coverUrl').value || null;
@@ -445,7 +445,7 @@ toggleAllNodes() {
         entity.title = document.getElementById('groupTitle').value;
         entity.titleFontSize = parseInt(document.getElementById('titleFontSize').value, 10);
         const tocOrderVal = document.getElementById('tocOrder').value;
-        entity.tocOrder = tocOrderVal === '' ? undefined : parseFloat(tocOrderVal);
+        entity.tocOrder = tocOrderVal === '' ? undefined : tocOrderVal;
     } else if (entity.type === 'markdown') {
         entity.textContent = document.getElementById('textContent').value;
         entity.fontSize = parseInt(document.getElementById('fontSize').value, 10);

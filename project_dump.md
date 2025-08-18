@@ -26,6 +26,7 @@
     <button id="toggleAllNodesBtn" title="Collapse All Nodes">➖</button>
     <button id="followModeBtn" title="Lock current view and follow playback">🎯</button> 
     <button id="selectGraphBtn" title="Select Story" disabled>📂</button>
+    <button id="tocBtn" title="Table of Contents">📖</button>
     <div class="divider"></div>
 
     <!-- Player Mode Controls (now empty) -->
@@ -50,6 +51,10 @@
     </div>
   </div>
 
+  <!-- NEW: Floating title for current chapter -->
+  <div id="floating-chapter-title" class="hidden"></div>
+
+  
   <!-- Properties Inspector Panel (hidden) -->
   <div id="inspectorPanel" class="hidden">
       <h4>Properties</h4>
@@ -93,6 +98,15 @@
 
   <script src="js/app.js" type="module"></script>
 
+  <!-- Table of Contents Modal -->
+  <div id="tocModal" class="hidden">
+    <div class="modal-content">
+      <h3>Table of Contents</h3>
+      <div id="tocContent"></div>
+      <button id="closeTocBtn">Close</button>
+    </div>
+  </div>
+  
   <!-- Graph Selection Modal -->
   <div id="graphSelectionModal" class="hidden">
     <div class="modal-content">
@@ -449,6 +463,20 @@ button#lockDecorationsBtn.active:hover {
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
+body.editor-mode #tocBtn { display: none; } /* Hide TOC in editor mode */
+
+#tocBtn {
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+    padding: 6px 10px;
+    font-size: 16px;
+    line-height: 1;
+}
+
+#tocBtn:hover {
+    background: #4f4f4f;
+    transform: none;
+}
 
 #followModeBtn {
     background: #3c3c3c;
@@ -469,11 +497,74 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
     box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
 }
 
+/* NEW: Floating Chapter Title */
+#floating-chapter-title {
+  position: fixed;
+  top: 70px; /* Below the top toolbar */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(45, 45, 45, 0.9);
+  color: var(--dark-text);
+  padding: 8px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--dark-border);
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  z-index: 150;
+  pointer-events: none; /* Crucial: let clicks pass through to the canvas */
+  white-space: nowrap;
+  transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out;
+}
+
+#floating-chapter-title.hidden {
+  opacity: 0;
+  top: 50px; /* Move up slightly when hiding */
+}
 /* Graph Selection Modal */
 #graphSelectionModal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.6); z-index: 400; display: flex;
   justify-content: center; align-items: center; padding: 15px;
+}
+
+
+#graphSelectionModal, #tocModal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 400; display: flex;
+  justify-content: center; align-items: center; padding: 15px;
+}
+
+#tocContent {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.toc-group-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin: 10px 0 5px 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--dark-border);
+  cursor: pointer;
+}
+.toc-group-title:hover {
+  color: var(--primary-hover);
+}
+
+.toc-node-item {
+  padding-left: 20px;
+  cursor: pointer;
+  color: var(--dark-text);
+  padding-bottom: 5px;
+}
+.toc-node-item:hover {
+  color: #fff;
 }
 
 #graphSelectionOptions {
@@ -531,7 +622,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "iframeUrl": "YGJvDBRbYdM"
+      "iframeUrl": "YGJvDBRbYdM",
+      "tocOrder": 1.1
     },
     {
       "@id": "node-3a",
@@ -573,7 +665,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "iframeUrl": "DcRXJrtysG0"
+      "iframeUrl": "DcRXJrtysG0",
+      "tocOrder": 1.3
     },
     {
       "@id": "node-1754728254075",
@@ -615,7 +708,8 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "sourceType": "iframe",
       "audioUrl": null,
       "coverUrl": null,
-      "iframeUrl": "mM5Jtcd34z0"
+      "iframeUrl": "mM5Jtcd34z0",
+      "tocOrder": 1.2
     },
     {
       "@id": "node-1754729280653",
@@ -962,17 +1056,19 @@ body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
       "backgroundColor": "rgba(45, 45, 45, 0.85)"
     },
     {
-      "@id": "deco-rect-1754720945592",
       "position": {
-        "x": 302.74123870714993,
-        "y": 218.723020267453
+        "x": 270,
+        "y": 350
       },
       "@type": "RectangleAnnotation",
       "size": {
-        "width": 600,
-        "height": 2
+        "width": 450,
+        "height": 550
       },
-      "backgroundColor": "#8b079d"
+      "backgroundColor": "rgba(40, 40, 70, 0.2)",
+      "title": "Chapter 1: The Ballad",
+      "titleFontSize": 24,
+      "tocOrder": 1
     },
     {
       "@id": "deco-text-1754721399707",
@@ -1318,7 +1414,65 @@ class GraphApp {
     this.followScale = 1.0;
     this.followScreenOffset = { x: 0, y: 0 };
 
-    this.updateUrlDebounceTimer = null; // For debouncing URL updates
+this.updateUrlDebounceTimer = null; // For debouncing URL updates
+  }
+
+  _generateAndShowTOC() {
+      const tocContent = document.getElementById('tocContent');
+      const chapters = this.graphData.decorations
+          .filter(d => d.type === 'rectangle' && typeof d.tocOrder === 'number')
+          .sort((a, b) => a.tocOrder - b.tocOrder);
+
+      if (chapters.length === 0) {
+          tocContent.innerHTML = '<p>No chapters defined in this story.</p>';
+          return;
+      }
+
+      let html = '';
+      chapters.forEach(chapter => {
+          html += `<div class="toc-group">`;
+          html += `<h5 class="toc-group-title" data-group-id="${chapter.id}">${chapter.title || 'Untitled Chapter'}</h5>`;
+          
+          const nodesInChapter = this.graphData.nodes
+              .filter(n =>
+                  typeof n.tocOrder === 'number' &&
+                  n.x >= chapter.x && n.x <= chapter.x + chapter.width &&
+                  n.y >= chapter.y && n.y <= chapter.y + chapter.height
+              )
+              .sort((a, b) => a.tocOrder - b.tocOrder);
+
+          if (nodesInChapter.length > 0) {
+              nodesInChapter.forEach(node => {
+                  html += `<div class="toc-node-item" data-node-id="${node.id}">${node.title}</div>`;
+              });
+          }
+          html += `</div>`;
+      });
+      
+      tocContent.innerHTML = html;
+      document.getElementById('tocModal').classList.remove('hidden');
+  }
+
+  _findGroupAtPoint(point) {
+    let smallestGroup = null;
+    let smallestArea = Infinity;
+
+    for (const deco of this.graphData.decorations) {
+        if (deco.type === 'rectangle' && deco.title) {
+            const isInside = (
+                point.x >= deco.x && point.x <= deco.x + deco.width &&
+                point.y >= deco.y && point.y <= deco.y + deco.height
+            );
+            if (isInside) {
+                const area = deco.width * deco.height;
+                if (area < smallestArea) {
+                    smallestArea = area;
+                    smallestGroup = deco;
+                }
+            }
+        }
+    }
+    return smallestGroup;
   }
 
   // NEW: Utility to parse view state from URL hash
@@ -1486,11 +1640,12 @@ class GraphApp {
         const option = e.target.closest('.graph-option');
         if (option && option.dataset.file) {
           const file = option.dataset.file;
-          // Reload the page with the new graph file as a URL parameter
-          window.location.href = window.location.pathname + '?graph=' + file;
+          const currentHash = window.location.hash;
+          // Reload the page, preserving the current view hash if it exists
+          window.location.href = window.location.pathname + '?graph=' + file + currentHash;
         }
       });
-    }  
+    } 
 
     this.renderer.setupCanvasInteraction({
         getIsEditorMode: () => this.isEditorMode,
@@ -1510,18 +1665,31 @@ class GraphApp {
         },
         getSelection: () => this.editorTools.getSelection(),
         // NEW: Callback for when the view changes
-        onViewChanged: () => {
+onViewChanged: () => {
             clearTimeout(this.updateUrlDebounceTimer);
             this.updateUrlDebounceTimer = setTimeout(() => {
+                const { offset, scale } = this.renderer.getViewport();
                 const center = this.renderer.getViewportCenter();
-                const scale = this.renderer.getViewport().scale;
                 const hash = `#x=${center.x.toFixed(2)}&y=${center.y.toFixed(2)}&s=${scale.toFixed(2)}`;
-                // Use replaceState so it doesn't pollute browser history
-                history.replaceState(null, '', window.location.pathname + hash);
-            }, 500);
+                history.replaceState(null, '', window.location.pathname + window.location.search + hash);
+                
+                // Floating Chapter Title Logic
+                const FLOATING_TITLE_THRESHOLD = 0.7;
+                const titleDiv = document.getElementById('floating-chapter-title');
+                if (scale < FLOATING_TITLE_THRESHOLD) {
+                    titleDiv.classList.add('hidden');
+                } else {
+                    const currentGroup = this._findGroupAtPoint(center);
+                    if (currentGroup) {
+                        titleDiv.textContent = currentGroup.title;
+                        titleDiv.classList.remove('hidden');
+                    } else {
+                        titleDiv.classList.add('hidden');
+                    }
+                }
+            }, 250); // Reduced delay for more responsive feel
         }
     });
-
     // NEW: Handle browser back/forward buttons for hash navigation
     window.addEventListener('popstate', (e) => {
         const view = this.parseViewFromHash();
@@ -1563,6 +1731,44 @@ class GraphApp {
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
     
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
+
+    // TOC Modal Listeners
+    const tocModal = document.getElementById('tocModal');
+    document.getElementById('tocBtn').addEventListener('click', () => this._generateAndShowTOC());
+    document.getElementById('closeTocBtn').addEventListener('click', () => tocModal.classList.add('hidden'));
+    document.getElementById('tocContent').addEventListener('click', (e) => {
+        const chapterTarget = e.target.closest('.toc-group-title');
+        const nodeTarget = e.target.closest('.toc-node-item');
+
+        if (chapterTarget) {
+            const groupId = chapterTarget.dataset.groupId;
+            const group = this.graphData.getDecorationById(groupId);
+            if (group) {
+                const padding = 50; // pixels
+                const targetScale = Math.min(
+                    this.renderer.canvas.width / (group.width + padding),
+                    this.renderer.canvas.height / (group.height + padding)
+                );
+                const targetCenterX = group.x + group.width / 2;
+                const targetCenterY = group.y + group.height / 2;
+                const targetOffsetX = (this.renderer.canvas.width / 2) - (targetCenterX * targetScale);
+                const targetOffsetY = (this.renderer.canvas.height / 2) - (targetCenterY * targetScale);
+                
+                this.renderer.animateToView({ offset: { x: targetOffsetX, y: targetOffsetY }, scale: targetScale });
+            }
+        } else if (nodeTarget) {
+            const nodeId = nodeTarget.dataset.nodeId;
+            if (this.isFollowing) {
+                this.navigation.startFromNode(nodeId);
+            } else {
+                this.renderer.centerOnNode(nodeId);
+            }
+        }
+        
+        if (chapterTarget || nodeTarget) {
+            tocModal.classList.add('hidden');
+        }
+    });
 
     document.getElementById('topToolbar').addEventListener('mousedown', () => this.renderer.disableLocalInteraction());
     document.getElementById('player').addEventListener('mousedown', () => this.renderer.disableLocalInteraction());
@@ -1949,14 +2155,14 @@ toggleAllNodes() {
 
     if (entity.sourceType) { // Node
         title.textContent = 'Node Properties';
-        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div>`;
+        html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div><hr><label for="tocOrder">TOC Order (Node):</label><input type="number" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1.1, 1.2, 2.1...">`;
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
         html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
     } else if (entity.type === 'rectangle') {
         const isTransparent = entity.backgroundColor === 'transparent';
         title.textContent = 'Rectangle Properties';
-        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10">`;
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label for="tocOrder">TOC Order (Group):</label><input type="number" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
@@ -2046,6 +2252,8 @@ toggleAllNodes() {
 
     if (entity.sourceType) { // Node
         entity.title = document.getElementById('nodeTitle').value;
+        const tocOrderVal = document.getElementById('tocOrder').value;
+        entity.tocOrder = tocOrderVal === '' ? undefined : parseFloat(tocOrderVal);
         if (entity.sourceType === 'audio') {
             entity.audioUrl = document.getElementById('audioUrl').value || null;
             entity.coverUrl = document.getElementById('coverUrl').value || null;
@@ -2064,6 +2272,10 @@ toggleAllNodes() {
         entity.backgroundColor = document.getElementById('rectColor').value;
         entity.width = parseInt(document.getElementById('rectWidth').value, 10);
         entity.height = parseInt(document.getElementById('rectHeight').value, 10);
+        entity.title = document.getElementById('groupTitle').value;
+        entity.titleFontSize = parseInt(document.getElementById('titleFontSize').value, 10);
+        const tocOrderVal = document.getElementById('tocOrder').value;
+        entity.tocOrder = tocOrderVal === '' ? undefined : parseFloat(tocOrderVal);
     } else if (entity.type === 'markdown') {
         entity.textContent = document.getElementById('textContent').value;
         entity.fontSize = parseInt(document.getElementById('fontSize').value, 10);
@@ -2176,6 +2388,7 @@ export default class GraphData {
             audioUrl: item.audioUrl || null,
             coverUrl: item.coverUrl || null,
             iframeUrl: item.sourceType === 'iframe' ? this.parseYoutubeUrl(item.iframeUrl) : null,
+            tocOrder: item.tocOrder,
           });
           break;
         case 'Path':
@@ -2204,6 +2417,9 @@ export default class GraphData {
             attachedToNodeId: item.attachedToNodeId || null,
             attachOffsetX: item.attachOffsetX,
             attachOffsetY: item.attachOffsetY,
+            title: item.title || '',
+            titleFontSize: item.titleFontSize || 14,
+            tocOrder: item.tocOrder, // Can be undefined
           });
           break;
         case 'TextAnnotation': // Legacy support
@@ -2238,6 +2454,7 @@ export default class GraphData {
         audioUrl: n.audioUrl,
         coverUrl: n.coverUrl,
         iframeUrl: n.iframeUrl,
+        ...(typeof n.tocOrder === 'number' && { tocOrder: n.tocOrder }),
       })),
       ...this.edges.map(e => ({
         '@type': 'Path',
@@ -2264,6 +2481,9 @@ export default class GraphData {
             ...(d.attachedToNodeId && { attachedToNodeId: d.attachedToNodeId }),
             ...(d.attachOffsetX !== undefined && { attachOffsetX: d.attachOffsetX }),
             ...(d.attachOffsetY !== undefined && { attachOffsetY: d.attachOffsetY }),
+            ...(d.title && { title: d.title }),
+            ...(d.titleFontSize && d.titleFontSize !== 14 && { titleFontSize: d.titleFontSize }),
+            ...(typeof d.tocOrder === 'number' && { tocOrder: d.tocOrder }),
           };
         }
         if (d.type === 'markdown') {
@@ -2886,28 +3106,71 @@ export default class Renderer {
     }
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.save();
-    this.ctx.translate(this.offset.x, this.offset.y);
+this.ctx.translate(this.offset.x, this.offset.y);
     this.ctx.scale(this.scale, this.scale);
 
-    const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+    const MAP_VIEW_THRESHOLD = 0.4;
+    const isMapView = this.scale < MAP_VIEW_THRESHOLD;
 
-    this.graphData.decorations.forEach(deco => this.drawDecoration(deco, isLodActive));
-    this.graphData.nodes.forEach(node => this._drawNodeContent(node));
-    this.graphData.edges.forEach(edge => this.drawEdge(edge));
-    this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
+    // Always draw chapter containers
+    this.graphData.decorations.forEach(deco => {
+        if (deco.type === 'rectangle') this.drawRectangle(deco);
+    });
 
-    if (this.isCreatingEdge) this.drawTemporaryEdge();
-    if (this.isMarqueeSelecting) this.drawMarquee();
-    this._drawSnapGuides();
+    if (isMapView) {
+        // MAP VIEW: Only show chapter titles
+        this._drawGroupTitles();
+    } else {
+        // DETAIL VIEW: Render the full graph
+        const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+        
+        // Draw non-rectangle decorations (like text blocks)
+        this.graphData.decorations.forEach(deco => {
+            if (deco.type !== 'rectangle') this.drawDecoration(deco, isLodActive);
+        });
+
+        this.graphData.nodes.forEach(node => this._drawNodeContent(node));
+        this.graphData.edges.forEach(edge => this.drawEdge(edge));
+        this.graphData.nodes.forEach(node => this._drawNodeHeader(node));
+
+        if (this.isCreatingEdge) this.drawTemporaryEdge();
+        if (this.isMarqueeSelecting) this.drawMarquee();
+        this._drawSnapGuides();
+    }
     
     this.ctx.restore();
     
-    this.updateIframes();
-    this.updateMarkdownOverlays(isLodActive);
+    // HTML Overlays
+    const isLodActive = this.scale < DECORATION_LOD_THRESHOLD;
+    this.updateMarkdownOverlays(isLodActive || isMapView); // Hide overlays in map view too
+    
+    if (isMapView) {
+        this.graphData.nodes.forEach(node => { // Force-hide all iframes in map view
+            const wrapper = document.getElementById(`iframe-wrapper-${node.id}`);
+            if(wrapper) wrapper.style.display = 'none';
+        });
+    } else {
+        this.updateIframes();
+    }
 
     requestAnimationFrame(this.renderLoop);
   }
 
+  _drawGroupTitles() {
+      const ctx = this.ctx;
+      this.graphData.decorations.forEach(deco => {
+          if (deco.type === 'rectangle' && deco.title) {
+              ctx.font = `${deco.titleFontSize / this.scale}px "Segoe UI"`;
+              ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              const x = deco.x + deco.width / 2;
+              const y = deco.y - (10 / this.scale);
+              ctx.fillText(deco.title, x, y);
+          }
+      });
+  }
+  
   drawDecoration(deco, isLodActive) {
     if (isLodActive && deco.backgroundColor !== 'transparent') {
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';

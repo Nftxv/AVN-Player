@@ -124,7 +124,7 @@ this.ctx.translate(this.offset.x, this.offset.y);
           }
       });
   }
-  
+
   drawDecoration(deco, isLodActive) {
     if (isLodActive && deco.backgroundColor !== 'transparent') {
         this.ctx.fillStyle = deco.selected ? '#e74c3c' : '#5a5a5a';
@@ -155,6 +155,18 @@ this.ctx.translate(this.offset.x, this.offset.y);
         ctx.setLineDash([6 / this.scale, 4 / this.scale]);
         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
     }
+    
+    // Always draw chapter titles if they exist, regardless of zoom
+    if (rect.title) {
+        ctx.font = `${rect.titleFontSize || 14}px "Segoe UI"`;
+        ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const x = rect.x + rect.width / 2;
+        const y = rect.y + rect.height / 2;
+        ctx.fillText(rect.title, x, y);
+    }
+
     ctx.restore();
   }
   
@@ -575,6 +587,9 @@ _drawNodeHeader(node) {
   }
 
   getClickableEntityAt(x, y, { isDecorationsLocked } = {}) {
+    const MAP_VIEW_THRESHOLD = 0.4;
+    if (this.scale < MAP_VIEW_THRESHOLD) return null; // Disable clicks in map view
+
     // Nodes are on top
     for (let i = this.graphData.nodes.length - 1; i >= 0; i--) {
         const node = this.graphData.nodes[i];
@@ -594,7 +609,7 @@ _drawNodeHeader(node) {
             const tolerance = 7 / this.scale;
             for (let i = this.graphData.decorations.length - 1; i >= 0; i--) {
                  const deco = this.graphData.decorations[i];
-                 if (deco.backgroundColor === 'transparent') continue;
+                 // if (deco.backgroundColor === 'transparent') continue; // REMOVED to allow moving transparent groups in LOD
                  const decoCenterX = deco.x + deco.width/2;
                  const decoCenterY = deco.y + deco.height/2;
                  if(Math.hypot(x - decoCenterX, y - decoCenterY) < tolerance) {

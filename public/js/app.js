@@ -47,11 +47,28 @@ class GraphApp {
 this.updateUrlDebounceTimer = null; // For debouncing URL updates
   }
 
+  _naturalSort(a, b) {
+    const re = /(\d+|\D+)/g;
+    const aParts = String(a).match(re);
+    const bParts = String(b).match(re);
+
+    for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+        let aPart = aParts[i], bPart = bParts[i];
+        if (!isNaN(aPart) && !isNaN(bPart)) {
+            aPart = parseInt(aPart, 10);
+            bPart = parseInt(bPart, 10);
+        }
+        if (aPart < bPart) return -1;
+        if (aPart > bPart) return 1;
+    }
+    return aParts.length - bParts.length;
+  }
+
   _generateAndShowTOC() {
       const tocContent = document.getElementById('tocContent');
       const chapters = this.graphData.decorations
-          .filter(d => d.type === 'rectangle' && typeof d.tocOrder === 'number')
-          .sort((a, b) => a.tocOrder - b.tocOrder);
+          .filter(d => d.type === 'rectangle' && d.tocOrder != null)
+          .sort((a, b) => this._naturalSort(a.tocOrder, b.tocOrder));
 
       if (chapters.length === 0) {
           tocContent.innerHTML = '<p>No chapters defined in this story.</p>';
@@ -65,11 +82,11 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
           
           const nodesInChapter = this.graphData.nodes
               .filter(n =>
-                  typeof n.tocOrder === 'number' &&
+                  n.tocOrder != null &&
                   n.x >= chapter.x && n.x <= chapter.x + chapter.width &&
                   n.y >= chapter.y && n.y <= chapter.y + chapter.height
               )
-              .sort((a, b) => a.tocOrder - b.tocOrder);
+              .sort((a, b) => this._naturalSort(a.tocOrder, b.tocOrder));
 
           if (nodesInChapter.length > 0) {
               nodesInChapter.forEach(node => {
@@ -103,6 +120,25 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
         }
     }
     return smallestGroup;
+  }
+
+  // NEW: Update floating title based on current view center
+  _updateFloatingChapterTitle() {
+      const { scale } = this.renderer.getViewport();
+      const FLOATING_TITLE_THRESHOLD = 0.4; // Synced with MAP_VIEW_THRESHOLD
+      const titleDiv = document.getElementById('floating-chapter-title');
+      if (scale < FLOATING_TITLE_THRESHOLD) {
+          titleDiv.classList.add('hidden');
+      } else {
+          const center = this.renderer.getViewportCenter();
+          const currentGroup = this._findGroupAtPoint(center);
+          if (currentGroup && currentGroup.title) {
+              titleDiv.textContent = currentGroup.title;
+              titleDiv.classList.remove('hidden');
+          } else {
+              titleDiv.classList.add('hidden');
+          }
+      }
   }
 
   // NEW: Utility to parse view state from URL hash
@@ -302,21 +338,7 @@ onViewChanged: () => {
                 const center = this.renderer.getViewportCenter();
                 const hash = `#x=${center.x.toFixed(2)}&y=${center.y.toFixed(2)}&s=${scale.toFixed(2)}`;
                 history.replaceState(null, '', window.location.pathname + window.location.search + hash);
-                
-                // Floating Chapter Title Logic
-                const FLOATING_TITLE_THRESHOLD = 0.7;
-                const titleDiv = document.getElementById('floating-chapter-title');
-                if (scale < FLOATING_TITLE_THRESHOLD) {
-                    titleDiv.classList.add('hidden');
-                } else {
-                    const currentGroup = this._findGroupAtPoint(center);
-                    if (currentGroup) {
-                        titleDiv.textContent = currentGroup.title;
-                        titleDiv.classList.remove('hidden');
-                    } else {
-                        titleDiv.classList.add('hidden');
-                    }
-                }
+                this._updateFloatingChapterTitle();
             }, 250); // Reduced delay for more responsive feel
         }
     });
@@ -412,7 +434,7 @@ handleCanvasClick(event) {
     if (this.isEditorMode) {
       const clickedEntity = clicked ? clicked.entity : null;
       let mode = 'set';
-      if (event.ctrlKey) mode = 'add';
+      if (event.ctrlKey) mode = 'toggle'; // Use 'toggle' for clarity
       else if (event.shiftKey) mode = 'remove';
       
       this.editorTools.updateSelection(clickedEntity ? [clickedEntity] : [], mode);

@@ -59,6 +59,7 @@ export default class Navigation {
     
     // Play the node after initiating the camera movement.
     this.player.play(node);
+    this.app._updateFloatingChapterTitle(); // Update title on new node start
   }
 
   async advance() {
@@ -127,6 +128,7 @@ goBack() {
         if (this.app.isFollowing) {
             this.renderer.centerOnNode(prevNodeId, this.app.followScale, this.app.followScreenOffset);
         }
+        this.app._updateFloatingChapterTitle(); // Update title on back navigation
     }
   }
 
@@ -145,6 +147,7 @@ goBack() {
     if (this.app.isFollowing) {
         this.renderer.centerOnNode(nextNode.id, this.app.followScale, this.app.followScreenOffset);
     }
+    this.app._updateFloatingChapterTitle(); // Update title on advancing
   }
   
   promptForChoice(options) {
