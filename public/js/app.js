@@ -414,15 +414,6 @@ onViewChanged: () => {
             if (!this.isFollowing) {
                 // When not following, a TOC click should center the view on the node before playing.
                 this.renderer.centerOnNode(nodeId);
-            } else {
-                // FIX: If this is the first node being played from the TOC,
-                // the user's intent is to "go to" it, not preserve the current (potentially empty) view.
-                // We reset the offset to force a perfect centering, which then becomes the
-                // new "golden standard" for the follow session.
-                if (!this.navigation.currentNode) {
-                    this.followScale = this.renderer.getViewport().scale; // Keep current zoom
-                    this.followScreenOffset = { x: 0, y: 0 };           // Force center alignment
-                }
             }
             // Always start navigation, which handles playback and follow-mode camera adjustments.
             this.navigation.startFromNode(nodeId);

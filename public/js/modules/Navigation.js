@@ -30,23 +30,16 @@ export default class Navigation {
     
     this.renderer.highlight(nodeId, prevNodeId);
 
-    // THE FIX IS HERE.
     if (this.app.isFollowing) {
-        // If we are starting a new navigation chain (no previous node was active),
-        // we must calculate the follow offset NOW, based on where the user clicked the node.
-        // This "captures" the user's intended viewport for the entire follow session.
+        // FIX: If starting a new navigation chain (no previous node),
+        // we must calculate the follow offset now. This captures the
+        // author's intended viewport for the entire follow session.
         if (!prevNodeId) {
             const { offset, scale } = this.renderer.getViewport();
-            
-            // Get the TRUE visual center from the Renderer, which is the single source of truth.
             const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
-
-            // Calculate where that true center currently is on the screen.
             const nodeScreenX = nodeWorldX * scale + offset.x;
             const nodeScreenY = nodeWorldY * scale + offset.y;
             
-            // Calculate the difference between the screen center and the node's current position.
-            // This becomes the offset we maintain for all subsequent "follow" movements.
             this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
             this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
             

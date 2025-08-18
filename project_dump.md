@@ -1626,8 +1626,9 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
               const { offset } = this.renderer.getViewport();
               
               // Calculate where the node currently is on screen
-              const nodeScreenX = (node.x + NODE_WIDTH / 2) * scale + offset.x;
-              const nodeScreenY = (node.y + NODE_HEADER_HEIGHT / 2) * scale + offset.y;
+              const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
+              const nodeScreenX = nodeWorldX * scale + offset.x;
+              const nodeScreenY = nodeWorldY * scale + offset.y;
               
               // Calculate the difference between the screen center and the node's current position
               // This captures the user's desired placement of the node on the screen
@@ -1779,11 +1780,20 @@ onViewChanged: () => {
                 
                 this.renderer.animateToView({ offset: { x: targetOffsetX, y: targetOffsetY }, scale: targetScale });
             }
-        } else if (nodeTarget) {
+       } else if (nodeTarget) {
             const nodeId = nodeTarget.dataset.nodeId;
             if (!this.isFollowing) {
                 // When not following, a TOC click should center the view on the node before playing.
                 this.renderer.centerOnNode(nodeId);
+            } else {
+                // FIX: If this is the first node being played from the TOC,
+                // the user's intent is to "go to" it, not preserve the current (potentially empty) view.
+                // We reset the offset to force a perfect centering, which then becomes the
+                // new "golden standard" for the follow session.
+                if (!this.navigation.currentNode) {
+                    this.followScale = this.renderer.getViewport().scale; // Keep current zoom
+                    this.followScreenOffset = { x: 0, y: 0 };           // Force center alignment
+                }
             }
             // Always start navigation, which handles playback and follow-mode camera adjustments.
             this.navigation.startFromNode(nodeId);
