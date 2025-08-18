@@ -247,30 +247,32 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
-          const { scale } = this.renderer.getViewport();
+          const { offset, scale } = this.renderer.getViewport();
           this.followScale = scale; // Capture current scale as the desired follow scale
           
-          if (this.navigation.currentNode) {
-              const node = this.navigation.currentNode;
-              const { offset } = this.renderer.getViewport();
-              
-              // Calculate where the node currently is on screen
-              const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
+          let referenceNode = this.navigation.currentNode;
+          
+          // FIX: If no node is playing, capture the initial "author's view"
+          // by finding which node is the current focus of the viewport.
+          if (!referenceNode) {
+              const center = this.renderer.getViewportCenter();
+              referenceNode = this.graphData.nodes.reduce((closest, node) => {
+                  const nodeCenter = this.renderer.getNodeVisualCenter(node);
+                  const dist = Math.hypot(center.x - nodeCenter.x, center.y - nodeCenter.y);
+                  return (dist < closest.minDistance) ? { node, minDistance: dist } : closest;
+              }, { node: null, minDistance: Infinity }).node;
+          }
+
+          if (referenceNode) {
+              const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(referenceNode);
               const nodeScreenX = nodeWorldX * scale + offset.x;
               const nodeScreenY = nodeWorldY * scale + offset.y;
               
-              // Calculate the difference between the screen center and the node's current position
-              // This captures the user's desired placement of the node on the screen
               this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
-
-              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
-
-              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset captured:`, this.followScreenOffset);
+              
+              console.log(`Follow mode activated. Captured offset from '${referenceNode.title}'.`, this.followScreenOffset);
           }
-          // If no node is active, we intentionally do nothing to the offset.
-          // This preserves the user's manual panning, respecting their desired view
-          // for the next node they select.
 
       } else {
           console.log('Follow mode deactivated.');
