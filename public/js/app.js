@@ -47,6 +47,42 @@ class GraphApp {
 this.updateUrlDebounceTimer = null; // For debouncing URL updates
   }
 
+  _generateAndShowTOC() {
+      const tocContent = document.getElementById('tocContent');
+      const chapters = this.graphData.decorations
+          .filter(d => d.type === 'rectangle' && typeof d.tocOrder === 'number')
+          .sort((a, b) => a.tocOrder - b.tocOrder);
+
+      if (chapters.length === 0) {
+          tocContent.innerHTML = '<p>No chapters defined in this story.</p>';
+          return;
+      }
+
+      let html = '';
+      chapters.forEach(chapter => {
+          html += `<div class="toc-group">`;
+          html += `<h5 class="toc-group-title" data-group-id="${chapter.id}">${chapter.title || 'Untitled Chapter'}</h5>`;
+          
+          const nodesInChapter = this.graphData.nodes
+              .filter(n =>
+                  typeof n.tocOrder === 'number' &&
+                  n.x >= chapter.x && n.x <= chapter.x + chapter.width &&
+                  n.y >= chapter.y && n.y <= chapter.y + chapter.height
+              )
+              .sort((a, b) => a.tocOrder - b.tocOrder);
+
+          if (nodesInChapter.length > 0) {
+              nodesInChapter.forEach(node => {
+                  html += `<div class="toc-node-item" data-node-id="${node.id}">${node.title}</div>`;
+              });
+          }
+          html += `</div>`;
+      });
+      
+      tocContent.innerHTML = html;
+      document.getElementById('tocModal').classList.remove('hidden');
+  }
+
   _findGroupAtPoint(point) {
     let smallestGroup = null;
     let smallestArea = Infinity;
@@ -325,6 +361,44 @@ onViewChanged: () => {
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
     
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
+
+    // TOC Modal Listeners
+    const tocModal = document.getElementById('tocModal');
+    document.getElementById('tocBtn').addEventListener('click', () => this._generateAndShowTOC());
+    document.getElementById('closeTocBtn').addEventListener('click', () => tocModal.classList.add('hidden'));
+    document.getElementById('tocContent').addEventListener('click', (e) => {
+        const chapterTarget = e.target.closest('.toc-group-title');
+        const nodeTarget = e.target.closest('.toc-node-item');
+
+        if (chapterTarget) {
+            const groupId = chapterTarget.dataset.groupId;
+            const group = this.graphData.getDecorationById(groupId);
+            if (group) {
+                const padding = 50; // pixels
+                const targetScale = Math.min(
+                    this.renderer.canvas.width / (group.width + padding),
+                    this.renderer.canvas.height / (group.height + padding)
+                );
+                const targetCenterX = group.x + group.width / 2;
+                const targetCenterY = group.y + group.height / 2;
+                const targetOffsetX = (this.renderer.canvas.width / 2) - (targetCenterX * targetScale);
+                const targetOffsetY = (this.renderer.canvas.height / 2) - (targetCenterY * targetScale);
+                
+                this.renderer.animateToView({ offset: { x: targetOffsetX, y: targetOffsetY }, scale: targetScale });
+            }
+        } else if (nodeTarget) {
+            const nodeId = nodeTarget.dataset.nodeId;
+            if (this.isFollowing) {
+                this.navigation.startFromNode(nodeId);
+            } else {
+                this.renderer.centerOnNode(nodeId);
+            }
+        }
+        
+        if (chapterTarget || nodeTarget) {
+            tocModal.classList.add('hidden');
+        }
+    });
 
     document.getElementById('topToolbar').addEventListener('mousedown', () => this.renderer.disableLocalInteraction());
     document.getElementById('player').addEventListener('mousedown', () => this.renderer.disableLocalInteraction());

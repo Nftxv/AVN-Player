@@ -24,6 +24,7 @@
     <button id="toggleAllNodesBtn" title="Collapse All Nodes">➖</button>
     <button id="followModeBtn" title="Lock current view and follow playback">🎯</button> 
     <button id="selectGraphBtn" title="Select Story" disabled>📂</button>
+    <button id="tocBtn" title="Table of Contents">📖</button>
     <div class="divider"></div>
 
     <!-- Player Mode Controls (now empty) -->
@@ -95,6 +96,15 @@
 
   <script src="js/app.js" type="module"></script>
 
+  <!-- Table of Contents Modal -->
+  <div id="tocModal" class="hidden">
+    <div class="modal-content">
+      <h3>Table of Contents</h3>
+      <div id="tocContent"></div>
+      <button id="closeTocBtn">Close</button>
+    </div>
+  </div>
+  
   <!-- Graph Selection Modal -->
   <div id="graphSelectionModal" class="hidden">
     <div class="modal-content">
