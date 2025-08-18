@@ -870,6 +870,10 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
           this.offset.y = startOffsetY + diffY * progress;
           this.scale = startScale + diffScale * progress;
 
+          if (this.onViewChanged) {
+              this.onViewChanged();
+          }
+
           requestAnimationFrame(animate);
       };
       requestAnimationFrame(animate);
@@ -900,6 +904,7 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
 
   setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection, onViewChanged } = callbacks;
+    this.onViewChanged = onViewChanged; // Store the callback
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
