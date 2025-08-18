@@ -410,9 +410,12 @@ onViewChanged: () => {
             }
         } else if (nodeTarget) {
             const nodeId = nodeTarget.dataset.nodeId;
-            // A TOC click always implies starting navigation from that node.
-            // Pass a flag to handle camera logic correctly for non-canvas clicks.
-            this.navigation.startFromNode(nodeId, { isTocClick: true });
+            if (!this.isFollowing) {
+                // When not following, a TOC click should center the view on the node before playing.
+                this.renderer.centerOnNode(nodeId);
+            }
+            // Always start navigation, which handles playback and follow-mode camera adjustments.
+            this.navigation.startFromNode(nodeId);
         }
         
         if (chapterTarget || nodeTarget) {

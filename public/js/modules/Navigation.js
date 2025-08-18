@@ -17,7 +17,7 @@ export default class Navigation {
     this.graphData.edges.forEach(e => e.highlighted = false);
   }
 
-  startFromNode(nodeId, options = {}) {
+  startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
     this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
 
@@ -30,25 +30,30 @@ export default class Navigation {
     
     this.renderer.highlight(nodeId, prevNodeId);
 
+    // THE FIX IS HERE.
     if (this.app.isFollowing) {
-        // If starting a new chain (no previous node), determine the screen offset.
+        // If we are starting a new navigation chain (no previous node was active),
+        // we must calculate the follow offset NOW, based on where the user clicked the node.
+        // This "captures" the user's intended viewport for the entire follow session.
         if (!prevNodeId) {
-            // For TOC clicks, the user intent is to center the node, so offset is zero.
-            if (options.isTocClick) {
-                this.app.followScreenOffset = { x: 0, y: 0 };
-                console.log('Follow mode: New chain from TOC, resetting screen offset.');
-            } else {
-                // For canvas clicks, capture the user's current view offset.
-                const { offset, scale } = this.renderer.getViewport();
-                const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
-                const nodeScreenX = nodeWorldX * scale + offset.x;
-                const nodeScreenY = nodeWorldY * scale + offset.y;
-                this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
-                this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
-                console.log('Follow mode: New chain from canvas, capturing initial screen offset.', this.app.followScreenOffset);
-            }
+            const { offset, scale } = this.renderer.getViewport();
+            
+            // Get the TRUE visual center from the Renderer, which is the single source of truth.
+            const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
+
+            // Calculate where that true center currently is on the screen.
+            const nodeScreenX = nodeWorldX * scale + offset.x;
+            const nodeScreenY = nodeWorldY * scale + offset.y;
+            
+            // Calculate the difference between the screen center and the node's current position.
+            // This becomes the offset we maintain for all subsequent "follow" movements.
+            this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
+            this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
+            
+            console.log('Follow mode: New chain started, capturing initial screen offset.', this.app.followScreenOffset);
         }
-        // Center on the node using the correct offset.
+        
+        // Now, center on the node using the (potentially just-updated) offset.
         this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
     
