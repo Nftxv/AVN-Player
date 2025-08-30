@@ -473,7 +473,7 @@
         "width": 100,
         "height": 70
       },
-      "textContent": "### Global settings 🛠 \n./public/js/modules/Renderer.js\n\n**setupCanvasInteraction**\n\nconst newScale = Math.max(0.05, Math.min(25, this.scale * zoom));\n\n**LOD**\n\nconst DECORATION_LOD_THRESHOLD = 0.1;\n\n./public/js/modules/EditorTools.js\n\n**openInspector**\n\ninput type=\"number\" id=\"fontSize\" value=\"${entity.fontSize || 14}\" min=\"1\">",
+      "textContent": "### Global settings 🛠 \n\n.../index.html?editor=true\nor \n.../index.html?graph=new_story.jsonld&editor=true\n\n./public/js/modules/Renderer.js\n\n**setupCanvasInteraction**\n\nconst newScale = Math.max(0.05, Math.min(25, this.scale * zoom));\n\n**LOD**\n\nconst DECORATION_LOD_THRESHOLD = 0.1;\n\n./public/js/modules/EditorTools.js\n\n**openInspector**\n\ninput type=\"number\" id=\"fontSize\" value=\"${entity.fontSize || 14}\" min=\"1\">",
       "fontSize": 10,
       "backgroundColor": "rgba(45, 45, 45, 0)"
     },
