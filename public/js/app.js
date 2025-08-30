@@ -167,6 +167,7 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
 
       // Step 2: Determine which graph file to load
       const urlParams = new URLSearchParams(window.location.search);
+      const editorModeFromUrl = urlParams.get('editor') === 'true';
       const requestedFile = urlParams.get('graph');
       const isValidFile = manifest.some(item => item.file === requestedFile);
       const graphFileToLoad = (requestedFile && isValidFile) ? requestedFile : manifest[0].file;
@@ -209,7 +210,7 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
 
       this.renderer.render(); // Render initial state
       this.setupEventListeners(manifest); // Pass manifest to setup listeners
-      this.toggleEditorMode(false);
+      this.toggleEditorMode(editorModeFromUrl);
       this.toggleFollowMode(true); // Enable follow mode by default
       console.log(`Application initialized with graph: ${graphFileToLoad}`);
 
@@ -277,7 +278,6 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
-    document.getElementById('toggleEditorModeBtn').classList.toggle('active', isEditor);
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
@@ -347,8 +347,6 @@ onViewChanged: () => {
             this.renderer.animateToView(view);
         }
     });
-
-    document.getElementById('toggleEditorModeBtn').addEventListener('click', () => this.toggleEditorMode(!this.isEditorMode));
     
     document.getElementById('toggleAllNodesBtn').addEventListener('click', () => this.editorTools.toggleAllNodes());
 
