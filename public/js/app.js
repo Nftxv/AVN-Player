@@ -305,7 +305,7 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
         if (option && option.dataset.file) {
           const file = option.dataset.file;
           // Reload the page, preserving the current view hash if it exists
-          window.location.href = window.location.pathname + '?graph=' + file + currentHash;
+          window.location.href = window.location.pathname + '?graph=' + file;
         }
       });
     } 
