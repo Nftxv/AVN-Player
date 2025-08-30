@@ -17,6 +17,9 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   background-color: var(--dark-bg);
   color: var(--dark-text);
+  /* Reserve space at the bottom for the player and copyright */
+  padding-bottom: calc(var(--player-height) + 20px); 
+  box-sizing: border-box;
 }
 
 canvas {
@@ -155,12 +158,11 @@ button#lockDecorationsBtn.active:hover {
   height: var(--player-height);
   background: rgba(45, 45, 45, 0.9);
   border-top: 1px solid var(--dark-border);
-  padding: 10px 20px 20px; /* Increased bottom padding */
+  padding: 10px 20px;
   display: flex;
   align-items: center;
   z-index: 100;
   gap: 15px;
-  box-sizing: border-box; /* Ensures padding is included in height */
 }
 
 #playerContent {
@@ -272,9 +274,10 @@ button#lockDecorationsBtn.active:hover {
 }
 
 @media (max-width: 768px) {
-  #player { flex-direction: column; height: auto; padding-bottom: 30px;} /* Increased for copyright */
+  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
   #songTitle { text-align: center; }
   #playerControls { width: 100%; }
+
   #copyright {
     right: 0;
     left: 0;
