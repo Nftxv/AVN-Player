@@ -357,9 +357,16 @@ button#lockDecorationsBtn.active:hover {
     margin-top: 0;
 }
 #topToolbar .toggle-switch button {
-    padding: 6px 10px;
-    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px; /* Make it more square */
     font-weight: normal;
+}
+
+#topToolbar .toggle-switch button svg {
+    width: 20px;
+    height: 20px;
 }
 
 body:not(.editor-mode) #editorModeControls { display: none; }
