@@ -304,7 +304,6 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
         const option = e.target.closest('.graph-option');
         if (option && option.dataset.file) {
           const file = option.dataset.file;
-          const currentHash = window.location.hash;
           // Reload the page, preserving the current view hash if it exists
           window.location.href = window.location.pathname + '?graph=' + file + currentHash;
         }
