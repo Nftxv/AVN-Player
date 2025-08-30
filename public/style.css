@@ -274,6 +274,14 @@ button#lockDecorationsBtn.active:hover {
   #player { flex-direction: column; height: auto; padding-bottom: 15px;}
   #songTitle { text-align: center; }
   #playerControls { width: 100%; }
+  #copyright {
+    right: 0;
+    left: 0;
+    text-align: center;
+    padding: 0 15px;
+    width: 100%;
+    box-sizing: border-box;
+  }
 }
 
 #copyright {
