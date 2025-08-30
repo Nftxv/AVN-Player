@@ -333,6 +333,15 @@ button#lockDecorationsBtn.active:hover {
     color: white;
 }
 
+#topToolbar .toggle-switch {
+    margin-top: 0;
+}
+#topToolbar .toggle-switch button {
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: normal;
+}
+
 body:not(.editor-mode) #editorModeControls { display: none; }
 body.editor-mode #playerModeControls { display: none; }
 body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }

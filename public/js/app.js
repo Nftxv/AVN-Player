@@ -43,6 +43,7 @@ class GraphApp {
     this.isFollowing = false;
     this.followScale = 1.0;
     this.followScreenOffset = { x: 0, y: 0 };
+    this.playbackMode = 'default'; // 'default', 'alternative', 'random'
 
 this.updateUrlDebounceTimer = null; // For debouncing URL updates
   }
@@ -380,6 +381,19 @@ onViewChanged: () => {
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
     
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
+
+    // Playback Mode Switch
+    document.getElementById('playbackModeSwitch').addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        this.playbackMode = target.id.replace('mode-', '');
+        
+        document.querySelectorAll('#playbackModeSwitch button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        target.classList.add('active');
+    });
 
     // TOC Modal Listeners
     const tocModal = document.getElementById('tocModal');

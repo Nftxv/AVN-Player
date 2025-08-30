@@ -41,12 +41,29 @@ startFromNode(nodeId) {
     this.player.play(node);
     this.app._updateFloatingChapterTitle(); // Update title on new node start
   }
+  
   async advance() {
     if (!this.currentNode) return;
     
-    const options = this.graphData.getEdgesFromNode(this.currentNode.id);
-    if (options.length === 0) {
-      console.log("End of path.");
+    const allOptions = this.graphData.getEdgesFromNode(this.currentNode.id);
+    let filteredOptions = [];
+
+    const mode = this.app.playbackMode;
+
+    switch (mode) {
+        case 'default':
+            filteredOptions = allOptions.filter(edge => !edge.isAlternative);
+            break;
+        case 'alternative':
+            filteredOptions = allOptions.filter(edge => edge.isAlternative);
+            break;
+        case 'random':
+            filteredOptions = allOptions;
+            break;
+    }
+
+    if (filteredOptions.length === 0) {
+      console.log("End of path for current mode.");
       this.player.stop();
       this.renderer.highlight(null, this.currentNode.id);
       this.currentNode = null;
@@ -54,8 +71,8 @@ startFromNode(nodeId) {
     }
     
     let nextEdge;
-    if (options.length === 1) {
-      nextEdge = options[0];
+    if (filteredOptions.length === 1) {
+      nextEdge = filteredOptions[0];
     } else {
 
       // On mobile, if the screen is off (document hidden) and it's an audio node,
@@ -63,9 +80,9 @@ startFromNode(nodeId) {
       const isMobileInBackground = (window.innerWidth < 768 && document.hidden);
       if (isMobileInBackground && this.currentNode.sourceType === 'audio') {
         console.log("Mobile background: auto-selecting next audio node randomly.");
-        nextEdge = options[Math.floor(Math.random() * options.length)];
+        nextEdge = filteredOptions[Math.floor(Math.random() * filteredOptions.length)];
       } else {
-        nextEdge = await this.promptForChoice(options);
+        nextEdge = await this.promptForChoice(filteredOptions);
         if (!nextEdge) return;
       }
     }
