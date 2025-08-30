@@ -209,7 +209,7 @@ button#lockDecorationsBtn.active:hover {
     width: 1px;
     height: 20px;
     background-color: var(--dark-border);
-    margin: 0 4px;
+    margin: 0 12px;
 }
 
 /* NEW: Style for the progress container */
