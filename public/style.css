@@ -1,5 +1,6 @@
 :root {
-  --player-height: 60px;
+  --player-height: 70px;
+  --copyright-height: 22px; /* New: Define copyright area height */
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
   --dark-bg: #1e1e1e;
@@ -17,9 +18,6 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   background-color: var(--dark-bg);
   color: var(--dark-text);
-  /* Reserve space at the bottom for the player and copyright */
-  padding-bottom: calc(var(--player-height) + 20px); 
-  box-sizing: border-box;
 }
 
 canvas {
@@ -152,6 +150,7 @@ button#lockDecorationsBtn.active:hover {
 
 #player {
   position: fixed;
+  bottom: var(--copyright-height); /* Lift player to make space */
   bottom: 0;
   left: 0;
   right: 0;
@@ -281,7 +280,7 @@ button#lockDecorationsBtn.active:hover {
   #copyright {
     right: 0;
     left: 0;
-    text-align: center;
+    justify-content: center; /* Use flexbox for centering */
     padding: 0 15px;
     width: 100%;
     box-sizing: border-box;
@@ -290,12 +289,16 @@ button#lockDecorationsBtn.active:hover {
 
 #copyright {
   position: fixed;
-  bottom: 5px;
+  bottom: 0;
   right: 15px;
+  height: var(--copyright-height);
+  display: flex;
+  align-items: center;
   font-size: 12px;
   color: var(--dark-subtle-text);
   z-index: 99;
 }
+
 #copyright a { color: var(--primary-color); text-decoration: none; }
 #copyright a:hover { text-decoration: underline; }
 
