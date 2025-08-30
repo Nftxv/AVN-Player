@@ -192,6 +192,26 @@ button#lockDecorationsBtn.active:hover {
   max-width: 500px; /* And constrain it like the progress bar */
 }
 
+#playerControls button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px; /* Adjust padding for icon buttons */
+}
+
+#playerControls button svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor; /* Makes the icon color same as text color */
+}
+
+.player-controls-divider {
+    width: 1px;
+    height: 20px;
+    background-color: var(--dark-border);
+    margin: 0 4px;
+}
+
 /* NEW: Style for the progress container */
 #progressContainer {
   display: flex;

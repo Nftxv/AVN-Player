@@ -374,6 +374,10 @@ onViewChanged: () => {
     
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
+
+    document.getElementById('tipJarBtn').addEventListener('click', () => {
+        window.open('https://abyssvoid.com/', '_blank', 'noopener,noreferrer');
+    });
     
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
