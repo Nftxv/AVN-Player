@@ -155,11 +155,12 @@ button#lockDecorationsBtn.active:hover {
   height: var(--player-height);
   background: rgba(45, 45, 45, 0.9);
   border-top: 1px solid var(--dark-border);
-  padding: 10px 20px;
+  padding: 10px 20px 20px; /* Increased bottom padding */
   display: flex;
   align-items: center;
   z-index: 100;
   gap: 15px;
+  box-sizing: border-box; /* Ensures padding is included in height */
 }
 
 #playerContent {
@@ -271,7 +272,7 @@ button#lockDecorationsBtn.active:hover {
 }
 
 @media (max-width: 768px) {
-  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
+  #player { flex-direction: column; height: auto; padding-bottom: 30px;} /* Increased for copyright */
   #songTitle { text-align: center; }
   #playerControls { width: 100%; }
   #copyright {
