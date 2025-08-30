@@ -333,6 +333,27 @@ button#lockDecorationsBtn.active:hover {
     color: white;
 }
 
+/* NEW: Generic style for all top toolbar buttons */
+#topToolbar > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+}
+#topToolbar > button:hover {
+    background: #4f4f4f;
+    transform: none;
+}
+#topToolbar > button:disabled {
+    opacity: 0.5;
+}
+#topToolbar > button svg {
+    width: 20px;
+    height: 20px;
+}
+
 #topToolbar .toggle-switch {
     margin-top: 0;
 }
