@@ -53,6 +53,7 @@ export default class GraphData {
             label: item.label || '',
             lineWidth: item.lineWidth || 2,
             controlPoints: item.controlPoints || [],
+            isAlternative: item.isAlternative || false,
           });
           break;
         case 'RectangleAnnotation':
@@ -118,6 +119,7 @@ export default class GraphData {
         label: e.label,
         lineWidth: e.lineWidth,
         controlPoints: e.controlPoints,
+        ...(e.isAlternative && { isAlternative: true }),
       })),
       ...this.decorations.map(d => {
         const common = { 

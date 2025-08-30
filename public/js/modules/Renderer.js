@@ -235,9 +235,18 @@ drawEdge(edge) {
       if (Math.hypot(adjustedEndPoint.x - pBeforeArrow.x, adjustedEndPoint.y - pBeforeArrow.y) > 1) {
           ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
       }
+
+      if (edge.isAlternative) {
+          ctx.setLineDash([10 / this.scale, 8 / this.scale]);
+      }
       
       ctx.strokeStyle = color; 
       ctx.stroke();
+
+      // Reset dash for arrows and other elements
+      if (edge.isAlternative) {
+          ctx.setLineDash([]);
+      }
       
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSizeInWorld);
 

@@ -1057,6 +1057,7 @@ body.editor-mode #tocBtn { display: none; } /* Hide TOC in editor mode */
       "backgroundColor": "rgba(45, 45, 45, 0.85)"
     },
     {
+      "@id": "deco-rect-chapter1",
       "position": {
         "x": 270,
         "y": 350
@@ -1495,20 +1496,15 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
 
   // NEW: Update floating title based on current view center
   _updateFloatingChapterTitle() {
-      const { scale } = this.renderer.getViewport();
-      const FLOATING_TITLE_THRESHOLD = 0.4; // Synced with MAP_VIEW_THRESHOLD
       const titleDiv = document.getElementById('floating-chapter-title');
-      if (scale < FLOATING_TITLE_THRESHOLD) {
-          titleDiv.classList.add('hidden');
+      const center = this.renderer.getViewportCenter();
+      const currentGroup = this._findGroupAtPoint(center);
+
+      if (currentGroup && currentGroup.title) {
+          titleDiv.textContent = currentGroup.title;
+          titleDiv.classList.remove('hidden');
       } else {
-          const center = this.renderer.getViewportCenter();
-          const currentGroup = this._findGroupAtPoint(center);
-          if (currentGroup && currentGroup.title) {
-              titleDiv.textContent = currentGroup.title;
-              titleDiv.classList.remove('hidden');
-          } else {
-              titleDiv.classList.add('hidden');
-          }
+          titleDiv.classList.add('hidden');
       }
   }
 
@@ -1612,42 +1608,43 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
     });
   }
 
-  // REVISED: Smart Follow Mode logic with immediate centering
+// REVISED: Smart Follow Mode logic with immediate centering
   toggleFollowMode(forceState = null) {
       this.isFollowing = forceState !== null ? forceState : !this.isFollowing;
       document.getElementById('followModeBtn').classList.toggle('active', this.isFollowing);
 
       if (this.isFollowing) {
-          const { scale } = this.renderer.getViewport();
-          this.followScale = scale; // Capture current scale as the desired follow scale
+          const { offset, scale } = this.renderer.getViewport();
+          this.followScale = scale; // Always capture the current scale
+
+          // To capture the current view, always find the node closest to the center
+          // of what the user is currently looking at. This makes the button's
+          // behavior predictable and intuitive.
+          const center = this.renderer.getViewportCenter();
+          const referenceNode = this.graphData.nodes.reduce((closest, node) => {
+              const nodeCenter = this.renderer.getNodeVisualCenter(node);
+              const dist = Math.hypot(center.x - nodeCenter.x, center.y - nodeCenter.y);
+              return (dist < closest.minDistance) ? { node, minDistance: dist } : closest;
+          }, { node: null, minDistance: Infinity }).node;
           
-          if (this.navigation.currentNode) {
-              const node = this.navigation.currentNode;
-              const { offset } = this.renderer.getViewport();
-              
-              // Calculate where the node currently is on screen
-              const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
+
+          if (referenceNode) {
+              // Calculate where the reference node currently is on screen.
+              const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(referenceNode);
               const nodeScreenX = nodeWorldX * scale + offset.x;
               const nodeScreenY = nodeWorldY * scale + offset.y;
               
-              // Calculate the difference between the screen center and the node's current position
-              // This captures the user's desired placement of the node on the screen
+              // This difference is the "golden standard" offset we want to maintain.
               this.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
               this.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
-
-              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset:`, this.followScreenOffset);
-
-              console.log(`Follow mode activated. Target scale: ${this.followScale}, Screen offset captured:`, this.followScreenOffset);
+              
+              console.log(`Follow mode (re)activated. Captured new view from '${referenceNode.title}'.`, this.followScreenOffset);
           }
-          // If no node is active, we intentionally do nothing to the offset.
-          // This preserves the user's manual panning, respecting their desired view
-          // for the next node they select.
 
       } else {
           console.log('Follow mode deactivated.');
       }
   }
-
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
@@ -1785,15 +1782,6 @@ onViewChanged: () => {
             if (!this.isFollowing) {
                 // When not following, a TOC click should center the view on the node before playing.
                 this.renderer.centerOnNode(nodeId);
-            } else {
-                // FIX: If this is the first node being played from the TOC,
-                // the user's intent is to "go to" it, not preserve the current (potentially empty) view.
-                // We reset the offset to force a perfect centering, which then becomes the
-                // new "golden standard" for the follow session.
-                if (!this.navigation.currentNode) {
-                    this.followScale = this.renderer.getViewport().scale; // Keep current zoom
-                    this.followScreenOffset = { x: 0, y: 0 };           // Force center alignment
-                }
             }
             // Always start navigation, which handles playback and follow-mode camera adjustments.
             this.navigation.startFromNode(nodeId);
@@ -1868,8 +1856,8 @@ handleCanvasClick(event) {
  */
 const NODE_WIDTH = 200;
 const NODE_HEADER_HEIGHT = 45;
-const NODE_CONTENT_ASPECT_RATIO = 9 / 16;
-const NODE_CONTENT_HEIGHT = NODE_WIDTH * NODE_CONTENT_ASPECT_RATIO;
+const NODE_CONTENT_HEIGHT_DEFAULT = NODE_WIDTH * (9 / 16);
+const NODE_CONTENT_HEIGHT_SQUARE = NODE_WIDTH;
 
 
 export default class EditorTools {
@@ -1992,37 +1980,53 @@ toggleAllNodes() {
     this.selectEntity(newEdge);
   }
   
+  _getEntityBounds(entity) {
+    if (entity.sourceType) { // Is a Node
+        if (entity.isCollapsed) {
+            return { x: entity.x, y: entity.y, width: NODE_WIDTH, height: NODE_HEADER_HEIGHT };
+        }
+        const contentHeight = entity.sourceType === 'audio' ? NODE_CONTENT_HEIGHT_SQUARE : NODE_CONTENT_HEIGHT_DEFAULT;
+        const totalHeight = NODE_HEADER_HEIGHT + contentHeight;
+        return { x: entity.x, y: entity.y - contentHeight, width: NODE_WIDTH, height: totalHeight };
+    } else { // Is a Decoration
+        return { x: entity.x, y: entity.y, width: entity.width, height: entity.height };
+    }
+  }
+
   // REVISED: New intuitive grouping logic
   groupOrUngroupSelection() {
       const groupBtn = document.getElementById('groupSelectionBtn');
       const isUngroupAction = groupBtn.textContent === 'Ungroup';
-      const decorations = this.selectedEntities.filter(e => e.type);
+      const selectedItems = this.selectedEntities.filter(e => e.type || e.sourceType);
 
       if (isUngroupAction) {
-          const container = decorations[0];
+          const container = selectedItems[0];
           if (!container) return;
 
-          const children = this.graphData.decorations.filter(d => d.parentId === container.id);
+          const children = [
+              ...this.graphData.nodes.filter(n => n.parentId === container.id),
+              ...this.graphData.decorations.filter(d => d.parentId === container.id)
+          ];
           children.forEach(child => child.parentId = null);
 
-          // Remove the container itself
           const index = this.graphData.decorations.findIndex(d => d.id === container.id);
-          if(index > -1) this.graphData.decorations.splice(index, 1);
+          if (index > -1) this.graphData.decorations.splice(index, 1);
           
           this.updateSelection(children, 'set');
           console.log(`Ungrouped items. Container ${container.id} removed.`);
 
       } else { // Group action
-          if (decorations.length < 2) {
-              alert('To group, select at least two decorations.');
+          if (selectedItems.length < 1) {
+              alert('To group, select at least one node or decoration.');
               return;
           }
           let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-          decorations.forEach(deco => {
-              minX = Math.min(minX, deco.x);
-              minY = Math.min(minY, deco.y);
-              maxX = Math.max(maxX, deco.x + deco.width);
-              maxY = Math.max(maxY, deco.y + deco.height);
+          selectedItems.forEach(item => {
+              const bounds = this._getEntityBounds(item);
+              minX = Math.min(minX, bounds.x);
+              minY = Math.min(minY, bounds.y);
+              maxX = Math.max(maxX, bounds.x + bounds.width);
+              maxY = Math.max(maxY, bounds.y + bounds.height);
           });
           const padding = 20;
           const container = {
@@ -2031,15 +2035,14 @@ toggleAllNodes() {
               x: minX - padding, y: minY - padding,
               width: (maxX - minX) + padding * 2,
               height: (maxY - minY) + padding * 2,
-              backgroundColor: 'transparent',
-              parentId: null,
-              attachedToNodeId: null,
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              parentId: null, attachedToNodeId: null,
           };
           this.graphData.decorations.push(container);
-          decorations.forEach(deco => deco.parentId = container.id);
+          selectedItems.forEach(item => item.parentId = container.id);
           
           this.updateSelection([container], 'set');
-          console.log(`Grouped ${decorations.length} items into new container ${container.id}`);
+          console.log(`Grouped ${selectedItems.length} items into new container ${container.id}`);
       }
       this.updateUIState();
   }
@@ -2145,7 +2148,10 @@ toggleAllNodes() {
       const decos = this.selectedEntities.filter(e => e.type);
       const nodes = this.selectedEntities.filter(e => e.sourceType);
       
-      const isSingleGroupSelected = decos.length === 1 && this.graphData.decorations.some(d => d.parentId === decos[0].id);
+      const isSingleGroupSelected = this.selectedEntities.length === 1 &&
+          this.selectedEntities[0].type === 'rectangle' &&
+          (this.graphData.nodes.some(n => n.parentId === this.selectedEntities[0].id) ||
+           this.graphData.decorations.some(d => d.parentId === this.selectedEntities[0].id));
 
       if (isSingleGroupSelected) {
           groupBtn.textContent = 'Ungroup';
@@ -2153,8 +2159,8 @@ toggleAllNodes() {
           groupBtn.title = 'Ungroup all items from this container';
       } else {
           groupBtn.textContent = 'Group';
-          groupBtn.disabled = decos.length < 2;
-          groupBtn.title = 'Group selected decorations into a new container';
+          groupBtn.disabled = this.selectedEntities.length === 0;
+          groupBtn.title = 'Group selected items into a new container';
       }
       
       const container = decos.find(e => e.type === 'rectangle' && !e.parentId);
@@ -2196,7 +2202,7 @@ toggleAllNodes() {
     } else if (entity.type === 'rectangle') {
         const isTransparent = entity.backgroundColor === 'transparent';
         title.textContent = 'Rectangle / Group Properties';
-        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label for="tocOrder">TOC Order (Group):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
+        html = `<label for="rectColor">Background Color:</label><input type="color" id="rectColor" value="${isTransparent ? '#2d2d2d' : entity.backgroundColor}"><button id="rectTransparentBtn" class="button-like" style="width:100%; margin-top: 5px; background-color: #555;">Set Transparent</button><label for="rectWidth">Width:</label><input type="number" id="rectWidth" value="${entity.width}" min="10"><label for="rectHeight">Height:</label><input type="number" id="rectHeight" value="${entity.height}" min="10"><hr><label for="groupTitle">Chapter Title:</label><input type="text" id="groupTitle" value="${entity.title || ''}" placeholder="e.g., Chapter 1"><label for="titleFontSize">Title Font Size:</label><input type="number" id="titleFontSize" value="${entity.titleFontSize || 14}" min="1"><label>Title Alignment:</label><div class="toggle-switch" id="titleAlignmentGroup"><button data-align="left" class="${entity.titleAlignment === 'left' ? 'active' : ''}">Left</button><button data-align="center" class="${entity.titleAlignment === 'center' ? 'active' : ''}">Center</button><button data-align="right" class="${entity.titleAlignment === 'right' ? 'active' : ''}">Right</button></div><label for="tocOrder">TOC Order (Group):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1, 2, 3...">`;
     } else if (entity.type === 'markdown') {
         title.textContent = 'Markdown Block Properties';
         html = `
@@ -2242,7 +2248,14 @@ toggleAllNodes() {
       } else if (entity.type === 'rectangle') {
           document.getElementById('rectTransparentBtn').addEventListener('click', () => {
               entity.backgroundColor = 'transparent';
-              this.renderer.render();
+          });
+          document.getElementById('titleAlignmentGroup').addEventListener('click', (e) => {
+              const target = e.target.closest('button');
+              if (!target) return;
+              const newAlign = target.dataset.align;
+              entity.titleAlignment = newAlign;
+              const buttons = document.querySelectorAll('#titleAlignmentGroup button');
+              buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.align === newAlign));
           });
       } else if (entity.type === 'markdown') {
           const textarea = document.getElementById('textContent');
@@ -2415,6 +2428,7 @@ export default class GraphData {
           this.nodes.push({
             id: item['@id'],
             title: item.name || 'Untitled',
+            parentId: item.parentId || null,
             x: item.position?.x || 0,
             y: item.position?.y || 0,
             isCollapsed: item.isCollapsed === true,
@@ -2453,7 +2467,8 @@ export default class GraphData {
             attachOffsetY: item.attachOffsetY,
             title: item.title || '',
             titleFontSize: item.titleFontSize || 14,
-            tocOrder: item.tocOrder, // Can be undefined
+            titleAlignment: item.titleAlignment || 'center', // 'left', 'center', 'right'
+            tocOrder: item.tocOrder, // Can be undefined // Can be undefined
           });
           break;
         case 'TextAnnotation': // Legacy support
@@ -2483,6 +2498,7 @@ export default class GraphData {
         '@type': 'MusicRecording',
         name: n.title,
         position: { x: n.x, y: n.y },
+        ...(n.parentId && { parentId: n.parentId }),
         isCollapsed: n.isCollapsed,
         sourceType: n.sourceType,
         audioUrl: n.audioUrl,
@@ -2517,6 +2533,7 @@ export default class GraphData {
             ...(d.attachOffsetY !== undefined && { attachOffsetY: d.attachOffsetY }),
             ...(d.title && { title: d.title }),
             ...(d.titleFontSize && d.titleFontSize !== 14 && { titleFontSize: d.titleFontSize }),
+            ...(d.titleAlignment && d.titleAlignment !== 'center' && { titleAlignment: d.titleAlignment }),
             ...(typeof d.tocOrder === 'number' && { tocOrder: d.tocOrder }),
           };
         }
@@ -2593,7 +2610,7 @@ export default class Navigation {
     this.graphData.edges.forEach(e => e.highlighted = false);
   }
 
-  startFromNode(nodeId) {
+startFromNode(nodeId) {
     if(this.currentNode?.id === nodeId) return;
     this.renderer.disableLocalInteraction?.(); // Reset mobile interaction mode
 
@@ -2608,28 +2625,8 @@ export default class Navigation {
 
     // THE FIX IS HERE.
     if (this.app.isFollowing) {
-        // If we are starting a new navigation chain (no previous node was active),
-        // we must calculate the follow offset NOW, based on where the user clicked the node.
-        // This "captures" the user's intended viewport for the entire follow session.
-        if (!prevNodeId) {
-            const { offset, scale } = this.renderer.getViewport();
-            
-            // Get the TRUE visual center from the Renderer, which is the single source of truth.
-            const { x: nodeWorldX, y: nodeWorldY } = this.renderer.getNodeVisualCenter(node);
-
-            // Calculate where that true center currently is on the screen.
-            const nodeScreenX = nodeWorldX * scale + offset.x;
-            const nodeScreenY = nodeWorldY * scale + offset.y;
-            
-            // Calculate the difference between the screen center and the node's current position.
-            // This becomes the offset we maintain for all subsequent "follow" movements.
-            this.app.followScreenOffset.x = this.renderer.canvas.width / 2 - nodeScreenX;
-            this.app.followScreenOffset.y = this.renderer.canvas.height / 2 - nodeScreenY;
-            
-            console.log('Follow mode: New chain started, capturing initial screen offset.', this.app.followScreenOffset);
-        }
-        
-        // Now, center on the node using the (potentially just-updated) offset.
+        // The offset is now correctly set in app.js.
+        // We just need to use it.
         this.renderer.centerOnNode(nodeId, this.app.followScale, this.app.followScreenOffset);
     }
     
@@ -2637,7 +2634,6 @@ export default class Navigation {
     this.player.play(node);
     this.app._updateFloatingChapterTitle(); // Update title on new node start
   }
-
   async advance() {
     if (!this.currentNode) return;
     
@@ -3149,8 +3145,6 @@ this.ctx.translate(this.offset.x, this.offset.y);
     const MAP_VIEW_THRESHOLD = 0.4;
     const isMapView = this.scale < MAP_VIEW_THRESHOLD;
 
-    this._drawGroupTitles();
-
     // Always draw chapter containers
     this.graphData.decorations.forEach(deco => {
         if (deco.type === 'rectangle') this.drawRectangle(deco);
@@ -3175,6 +3169,9 @@ this.ctx.translate(this.offset.x, this.offset.y);
         if (this.isCreatingEdge) this.drawTemporaryEdge();
         if (this.isMarqueeSelecting) this.drawMarquee();
         this._drawSnapGuides();
+        
+        // Draw titles last to ensure they are on top of everything.
+        this._drawGroupTitles();
     }
     
     this.ctx.restore();
@@ -3197,17 +3194,31 @@ this.ctx.translate(this.offset.x, this.offset.y);
 
     _drawGroupTitles() {
         const ctx = this.ctx;
+        const padding = 15 / this.scale; // Padding for left/right alignment
+
         this.graphData.decorations.forEach(deco => {
             if (deco.type === 'rectangle' && deco.title) {
-                // Don't draw title for groups that are children of other groups
                 if (deco.parentId) return;
 
                 ctx.font = `${(deco.titleFontSize || 14) / this.scale}px "Segoe UI"`;
                 ctx.fillStyle = 'rgba(240, 240, 240, 0.9)';
-                ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
-                const x = deco.x + deco.width / 2;
+                
+                let x;
                 const y = deco.y - (10 / this.scale);
+                const align = deco.titleAlignment || 'center';
+
+                if (align === 'left') {
+                    ctx.textAlign = 'left';
+                    x = deco.x + padding;
+                } else if (align === 'right') {
+                    ctx.textAlign = 'right';
+                    x = deco.x + deco.width - padding;
+                } else { // center
+                    ctx.textAlign = 'center';
+                    x = deco.x + deco.width / 2;
+                }
+                
                 ctx.fillText(deco.title, x, y);
             }
         });
@@ -3938,6 +3949,10 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
           this.offset.y = startOffsetY + diffY * progress;
           this.scale = startScale + diffScale * progress;
 
+          if (this.onViewChanged) {
+              this.onViewChanged();
+          }
+
           requestAnimationFrame(animate);
       };
       requestAnimationFrame(animate);
@@ -3968,6 +3983,7 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
 
   setupCanvasInteraction(callbacks) {
     const { getIsEditorMode, getIsDecorationsLocked, onClick, onDblClick, onEdgeCreated, onMarqueeSelect, getSelection, onViewChanged } = callbacks;
+    this.onViewChanged = onViewChanged; // Store the callback
     window.addEventListener('resize', () => this.resizeCanvas());
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     
@@ -3988,9 +4004,10 @@ centerOnNode(nodeId, targetScale = null, screenOffset = null) {
                 if (!entity || movedItems.has(entity.id) || (getIsDecorationsLocked() && entity.type)) return;
                 movedItems.add(entity.id); entity.x += dx; entity.y += dy;
                 if (entity.type === 'rectangle' || entity.sourceType) {
-                    this.graphData.decorations.forEach(child => { if (child.parentId === entity.id) move(child); });
-                    if (entity.sourceType) { this.graphData.decorations.forEach(c => { if(c.attachedToNodeId === entity.id && !c.parentId) move(c); }); }
-                }
+                this.graphData.nodes.forEach(child => { if (child.parentId === entity.id) move(child); });
+                this.graphData.decorations.forEach(child => { if (child.parentId === entity.id) move(child); });
+                if (entity.sourceType) { this.graphData.decorations.forEach(c => { if(c.attachedToNodeId === entity.id && !c.parentId) move(c); }); }
+            }
                 if(entity.type === 'rectangle' && entity.attachedToNodeId) { const node = this.graphData.getNodeById(entity.attachedToNodeId); if(node) { entity.attachOffsetX = entity.x - node.x; entity.attachOffsetY = entity.y - node.y; } }
             };
             selection.forEach(move);
