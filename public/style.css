@@ -192,6 +192,26 @@ button#lockDecorationsBtn.active:hover {
   max-width: 500px; /* And constrain it like the progress bar */
 }
 
+/* NEW: Make player buttons grey by default for consistency */
+#playerControls button {
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+}
+#playerControls button:hover {
+    background: #4f4f4f;
+    transform: none; /* Consistent with top toolbar */
+}
+
+/* NEW: Make the primary action button (Play) stand out */
+#playerControls #playBtn {
+    background: var(--primary-color);
+    color: white;
+}
+#playerControls #playBtn:hover {
+    background: var(--primary-hover);
+}
+
+
 #playerControls button {
     display: flex;
     align-items: center;
