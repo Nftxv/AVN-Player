@@ -210,6 +210,11 @@ button#lockDecorationsBtn.active:hover {
     background: var(--primary-hover);
 }
 
+/* Override for the disabled Play button with high specificity */
+#playerControls #playBtn:disabled {
+    background: #555;
+    color: var(--dark-subtle-text);
+}
 
 #playerControls button {
     display: flex;
