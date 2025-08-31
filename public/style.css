@@ -278,7 +278,7 @@ button#lockDecorationsBtn.active:hover {
 #copyright {
   position: fixed;
   bottom: 145px; /* Position it above the player controls */
-  left: 15px;
+  left: 25px;
   transform: rotate(-90deg);
   transform-origin: left bottom;
   font-size: 12px;
