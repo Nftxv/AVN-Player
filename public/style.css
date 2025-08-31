@@ -168,7 +168,7 @@ button#lockDecorationsBtn.active:hover {
   justify-content: center;
   gap: 5px;
   min-width: 0;
-  align-items: center;
+  /* align-items: center;  <-- This line is removed */
 }
 
 #songTitle {
@@ -189,6 +189,7 @@ button#lockDecorationsBtn.active:hover {
   justify-content: center; /* This centers the items inside the flex container */
   width: 100%; /* We need to give it a width to center within */
   max-width: 500px; /* And constrain it like the progress bar */
+  margin: 0 auto; /* NEW: Center the block itself on desktop */
 }
 
 /* NEW: Make player buttons grey by default for consistency */
@@ -231,8 +232,8 @@ button#lockDecorationsBtn.active:hover {
   width: 100%;
   max-width: 500px; /* Same as old player controls */
   gap: 12px;
+  margin: 0 auto; /* NEW: Center the block itself on desktop */
 }
-
 #progress {
   flex-grow: 1;
 }
@@ -272,21 +273,17 @@ button#lockDecorationsBtn.active:hover {
   #player { flex-direction: column; height: auto; padding-bottom: 15px;}
   #songTitle { text-align: center; }
 
-  /* NEW: Add horizontal padding to the main content area on mobile */
   #playerContent {
     padding: 0 15px;
     box-sizing: border-box;
-    align-items: stretch; /* Make children fill the width */
   }
-    
+  
   #playerControls { 
     width: 100%; 
-    /* NEW: Distribute content to the edges and center */
     justify-content: space-between;
     max-width: none; /* Remove the desktop width limit */
   }
 
-  /* NEW: Allow the progress bar container to fill the available width */
   #progressContainer {
     max-width: none; /* Remove the desktop width limit */
   }
