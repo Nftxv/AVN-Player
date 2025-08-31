@@ -185,7 +185,7 @@ button#lockDecorationsBtn.active:hover {
 #playerControls {
   display: flex;
   align-items: center;
-  gap: 24px; /* Increased gap to create space between groups */
+  gap: 36px; /* Increased gap to create space between groups */
   justify-content: center; /* This centers the items inside the flex container */
   width: 100%; /* We need to give it a width to center within */
   max-width: 500px; /* And constrain it like the progress bar */
