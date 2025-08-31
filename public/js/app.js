@@ -454,7 +454,7 @@ handleCanvasClick(event) {
 
     } else { // Player mode
       // Only header clicks are active in player mode
-      if (clicked && clicked.type === 'node' && clicked.part === 'header') {
+      if (clicked && clicked.type === 'node') {
         if (this.navigation.currentNode?.id === clicked.entity.id) {
           this.player.togglePlay();
         } else {
