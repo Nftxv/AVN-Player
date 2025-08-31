@@ -240,7 +240,7 @@ button#lockDecorationsBtn.active:hover {
   display: flex;
   align-items: center;
   gap: 16px; /* Tighter gap for the core control group */
-  margin: 0 72px; /* NEW: Create 36px space on each side */
+  margin: 0 200px; /* NEW: Create 36px space on each side */
 }
 
 .hidden { display: none !important; }
