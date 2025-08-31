@@ -281,7 +281,7 @@ button#lockDecorationsBtn.active:hover {
   left: 10px;
   font-size: 10px;
   color: var(--dark-subtle-text);
-  z-index: 99;
+  z-index: 101; /* Must be higher than the player's z-index (100) */
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   opacity: 0.6;
