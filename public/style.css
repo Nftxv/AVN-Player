@@ -277,16 +277,16 @@ button#lockDecorationsBtn.active:hover {
 
 #copyright {
   position: fixed;
-  bottom: 15px;
-  left: 10px;
-  font-size: 10px;
+  bottom: 95px; /* Position it above the player controls */
+  left: 5px;
+  transform: rotate(-90deg);
+  transform-origin: left bottom;
+  font-size: 11px;
   color: var(--dark-subtle-text);
-  z-index: 101; /* Must be higher than the player's z-index (100) */
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
+  z-index: 101;
   opacity: 0.6;
   transition: opacity 0.2s ease-in-out;
-  transform-origin: bottom left;
+  white-space: nowrap; /* Prevent text from wrapping */
 }
 
 #copyright:hover {
