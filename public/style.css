@@ -168,7 +168,7 @@ button#lockDecorationsBtn.active:hover {
   justify-content: center;
   gap: 5px;
   min-width: 0;
-  /* align-items: center;  <-- This line is removed */
+  align-items: center;
 }
 
 #songTitle {
@@ -185,11 +185,10 @@ button#lockDecorationsBtn.active:hover {
 #playerControls {
   display: flex;
   align-items: center;
-  gap: 36px; /* Increased gap to create space between groups */
+  gap: 24px; /* Increased gap to create space between groups */
   justify-content: center; /* This centers the items inside the flex container */
   width: 100%; /* We need to give it a width to center within */
   max-width: 500px; /* And constrain it like the progress bar */
-  margin: 0 auto; /* NEW: Center the block itself on desktop */
 }
 
 /* NEW: Make player buttons grey by default for consistency */
@@ -225,15 +224,14 @@ button#lockDecorationsBtn.active:hover {
     stroke: currentColor; /* Makes the icon color same as text color */
 }
 
-/* NEW: Style for the progress container */
 #progressContainer {
   display: flex;
   align-items: center;
   width: 100%;
   max-width: 500px; /* Same as old player controls */
   gap: 12px;
-  margin: 0 auto; /* NEW: Center the block itself on desktop */
 }
+
 #progress {
   flex-grow: 1;
 }
@@ -270,10 +268,11 @@ button#lockDecorationsBtn.active:hover {
 }
 
 @media (max-width: 768px) {
-  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
+  #player { flex-direction: column; height: auto; padding-bottom: 15px; align-items: stretch; /* FIX: Allow children to stretch horizontally */}
   #songTitle { text-align: center; }
 
   #playerContent {
+    width: 100%; /* FIX: Ensure content area takes full width */
     padding: 0 15px;
     box-sizing: border-box;
   }
