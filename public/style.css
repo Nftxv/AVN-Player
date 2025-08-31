@@ -289,8 +289,10 @@ button#lockDecorationsBtn.active:hover {
   white-space: nowrap; /* Prevent text from wrapping */
 }
 
-#copyright:hover {
-  opacity: 1;
+@media (hover: hover) {
+  #copyright:hover {
+    opacity: 1;
+  }
 }
 
 #copyright a { color: var(--dark-subtle-text); text-decoration: none; }
