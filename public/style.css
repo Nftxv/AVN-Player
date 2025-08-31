@@ -276,8 +276,9 @@ button#lockDecorationsBtn.active:hover {
   #playerContent {
     padding: 0 15px;
     box-sizing: border-box;
+    align-items: stretch; /* Make children fill the width */
   }
-  
+    
   #playerControls { 
     width: 100%; 
     /* NEW: Distribute content to the edges and center */
