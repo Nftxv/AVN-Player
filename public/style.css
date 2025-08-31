@@ -185,7 +185,7 @@ button#lockDecorationsBtn.active:hover {
 #playerControls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 24px; /* Increased gap to create space between groups */
   justify-content: center; /* This centers the items inside the flex container */
   width: 100%; /* We need to give it a width to center within */
   max-width: 500px; /* And constrain it like the progress bar */
@@ -224,13 +224,6 @@ button#lockDecorationsBtn.active:hover {
     stroke: currentColor; /* Makes the icon color same as text color */
 }
 
-.player-controls-divider {
-    width: 1px;
-    height: 20px;
-    background-color: var(--dark-border);
-    margin: 0 24px;
-}
-
 /* NEW: Style for the progress container */
 #progressContainer {
   display: flex;
@@ -242,6 +235,12 @@ button#lockDecorationsBtn.active:hover {
 
 #progress {
   flex-grow: 1;
+}
+
+.main-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* Tighter gap for the core control group */
 }
 
 .hidden { display: none !important; }
