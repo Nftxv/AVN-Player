@@ -19,19 +19,33 @@
 
   <!-- UNIFIED TOP TOOLBAR -->
   <div id="topToolbar">
-    <!-- Mode Switcher (Always Visible) -->
-    <button id="toggleEditorModeBtn" title="Toggle Player/Editor Mode">🛠️🖥️🖱️</button>
-    <div class="divider"></div>
-
+    
     <!-- Always Visible Buttons -->
-    <button id="toggleAllNodesBtn" title="Collapse All Nodes">➖</button>
-    <button id="followModeBtn" title="Lock current view and follow playback">🎯</button> 
-    <button id="selectGraphBtn" title="Select Story" disabled>📂</button>
-    <button id="tocBtn" title="Table of Contents">📖</button>
+    <button id="toggleAllNodesBtn" title="Collapse All Nodes">
+      <!-- This content will be dynamically replaced by JS -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+    </button>
+    <button id="followModeBtn" title="Lock current view and follow playback">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+    </button> 
+    <button id="selectGraphBtn" title="Select Story" disabled>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+    </button>
     <div class="divider"></div>
 
-    <!-- Player Mode Controls (now empty) -->
+    <!-- Player Mode Controls -->
     <div id="playerModeControls">
+      <div id="playbackModeSwitch" class="toggle-switch" title="Set Playback Mode">
+        <button id="mode-default" class="active" title="Play only default paths">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+        <button id="mode-alternative" title="Play only alternative paths">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" stroke-dasharray="4 4"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+        <button id="mode-random" title="Play any path randomly">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Editor Mode Controls (hidden by default) -->
@@ -68,10 +82,28 @@
   <div id="player">
     <div id="playerContent">
       <div id="songTitle">Select a node to begin...</div>
-      <div id="playerControls">
-        <button id="backBtn" title="Go Back">⏮</button>
-        <button id="playBtn" title="Play/Pause">▶</button>
-        <button id="nextBtn" title="Next">⏭</button>
+<div id="playerControls">
+        <button id="tipJarBtn" title="Cosmic Tip Jar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10v2H7zM8 5h8v2H8z"/><path d="M7 7h10a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9a2 2 0 0 1 2-2z"/></svg>
+        </button>
+
+        <div class="player-controls-divider"></div>
+        
+        <button id="backBtn" title="Go Back">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-skip-back"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+        </button>
+        <button id="playBtn" title="Play/Pause">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-play"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        </button>
+        <button id="nextBtn" title="Next">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-skip-forward"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+        </button>
+
+        <div class="player-controls-divider"></div>
+
+        <button id="tocBtn" title="Table of Contents">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
+        </button>
       </div>
       <!-- NEW: Progress container on its own line -->
       <div id="progressContainer">
@@ -118,7 +150,7 @@
   </div>
 
   <footer id="copyright">
-    AVN Player © 2025 Nftxv — <a href="https://AbyssVoid.com/" target="_blank" rel="noopener nofollow">AbyssVoid.com</a>
+    <a href="https://abyssvoid.com/" target="_blank" rel="noopener noreferrer">AVN Player by Nftxv</a> | <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA</a>
   </footer>
 </body>
 </html>
@@ -127,7 +159,8 @@
 ## ./public/style.css
 
 :root {
-  --player-height: 60px;
+  --player-height: 70px;
+  --copyright-height: 22px; /* New: Define copyright area height */
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
   --dark-bg: #1e1e1e;
@@ -277,6 +310,7 @@ button#lockDecorationsBtn.active:hover {
 
 #player {
   position: fixed;
+  bottom: var(--copyright-height); /* Lift player to make space */
   bottom: 0;
   left: 0;
   right: 0;
@@ -318,6 +352,46 @@ button#lockDecorationsBtn.active:hover {
   justify-content: center; /* This centers the items inside the flex container */
   width: 100%; /* We need to give it a width to center within */
   max-width: 500px; /* And constrain it like the progress bar */
+}
+
+/* NEW: Make player buttons grey by default for consistency */
+#playerControls button {
+    background: #3c3c3c;
+    color: var(--dark-subtle-text);
+}
+#playerControls button:hover {
+    background: #4f4f4f;
+    transform: none; /* Consistent with top toolbar */
+}
+
+/* NEW: Make the primary action button (Play) stand out */
+#playerControls #playBtn {
+    background: var(--primary-color);
+    color: white;
+}
+#playerControls #playBtn:hover {
+    background: var(--primary-hover);
+}
+
+
+#playerControls button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px; /* Adjust padding for icon buttons */
+}
+
+#playerControls button svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor; /* Makes the icon color same as text color */
+}
+
+.player-controls-divider {
+    width: 1px;
+    height: 20px;
+    background-color: var(--dark-border);
+    margin: 0 24px;
 }
 
 /* NEW: Style for the progress container */
@@ -362,16 +436,29 @@ button#lockDecorationsBtn.active:hover {
   #player { flex-direction: column; height: auto; padding-bottom: 15px;}
   #songTitle { text-align: center; }
   #playerControls { width: 100%; }
+
+  #copyright {
+    right: 0;
+    left: 0;
+    justify-content: center; /* Use flexbox for centering */
+    padding: 0 15px;
+    width: 100%;
+    box-sizing: border-box;
+  }
 }
 
 #copyright {
   position: fixed;
-  bottom: 5px;
+  bottom: 0;
   right: 15px;
+  height: var(--copyright-height);
+  display: flex;
+  align-items: center;
   font-size: 12px;
   color: var(--dark-subtle-text);
   z-index: 99;
 }
+
 #copyright a { color: var(--primary-color); text-decoration: none; }
 #copyright a:hover { text-decoration: underline; }
 
@@ -391,26 +478,6 @@ button#lockDecorationsBtn.active:hover {
   flex-wrap: wrap;
 }
 #playerModeControls, #editorModeControls { display: flex; gap: 10px; align-items: center; }
-
-#toggleEditorModeBtn {
-    background: #3c3c3c;
-    color: var(--dark-subtle-text);
-    padding: 6px 10px;
-    font-size: 16px;
-    line-height: 1;
-    font-weight: normal; /* Override default button bold */
-}
-
-#toggleEditorModeBtn:hover {
-    background: #4f4f4f;
-    transform: none; /* Override default button transform */
-}
-
-#toggleEditorModeBtn.active {
-    background: var(--primary-color);
-    color: white;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
-}
 
 .divider { width: 1px; height: 24px; background-color: var(--dark-border); margin: 0 5px; }
 
@@ -461,23 +528,45 @@ button#lockDecorationsBtn.active:hover {
     color: white;
 }
 
-body:not(.editor-mode) #editorModeControls { display: none; }
-body.editor-mode #playerModeControls { display: none; }
-body.editor-mode #player { opacity: 0.5; pointer-events: none; z-index: 0; }
-body.editor-mode #tocBtn { display: none; } /* Hide TOC in editor mode */
-
-#tocBtn {
+/* NEW: Generic style for all top toolbar buttons */
+#topToolbar > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
     background: #3c3c3c;
     color: var(--dark-subtle-text);
-    padding: 6px 10px;
-    font-size: 16px;
-    line-height: 1;
 }
-
-#tocBtn:hover {
+#topToolbar > button:hover {
     background: #4f4f4f;
     transform: none;
 }
+#topToolbar > button:disabled {
+    opacity: 0.5;
+}
+#topToolbar > button svg {
+    width: 20px;
+    height: 20px;
+}
+
+#topToolbar .toggle-switch {
+    margin-top: 0;
+}
+#topToolbar .toggle-switch button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px; /* Make it more square */
+    font-weight: normal;
+}
+
+#topToolbar .toggle-switch button svg {
+    width: 20px;
+    height: 20px;
+}
+
+body:not(.editor-mode) #editorModeControls { display: none; }
+body.editor-mode #playerModeControls { display: none; }
 
 #followModeBtn {
     background: #3c3c3c;
@@ -1083,7 +1172,7 @@ body.editor-mode #tocBtn { display: none; } /* Hide TOC in editor mode */
         "width": 100,
         "height": 70
       },
-      "textContent": "### Global settings 🛠 \n./public/js/modules/Renderer.js\n\n**setupCanvasInteraction**\n\nconst newScale = Math.max(0.05, Math.min(25, this.scale * zoom));\n\n**LOD**\n\nconst DECORATION_LOD_THRESHOLD = 0.1;\n\n./public/js/modules/EditorTools.js\n\n**openInspector**\n\ninput type=\"number\" id=\"fontSize\" value=\"${entity.fontSize || 14}\" min=\"1\">",
+      "textContent": "### Global settings 🛠 \n\n.../index.html?editor=true\nor \n.../index.html?graph=new_story.jsonld&editor=true\n\n./public/js/modules/Renderer.js\n\n**setupCanvasInteraction**\n\nconst newScale = Math.max(0.05, Math.min(25, this.scale * zoom));\n\n**LOD**\n\nconst DECORATION_LOD_THRESHOLD = 0.1;\n\n./public/js/modules/EditorTools.js\n\n**openInspector**\n\ninput type=\"number\" id=\"fontSize\" value=\"${entity.fontSize || 14}\" min=\"1\">",
       "fontSize": 10,
       "backgroundColor": "rgba(45, 45, 45, 0)"
     },
@@ -1415,6 +1504,7 @@ class GraphApp {
     this.isFollowing = false;
     this.followScale = 1.0;
     this.followScreenOffset = { x: 0, y: 0 };
+    this.playbackMode = 'default'; // 'default', 'alternative', 'random'
 
 this.updateUrlDebounceTimer = null; // For debouncing URL updates
   }
@@ -1538,6 +1628,7 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
 
       // Step 2: Determine which graph file to load
       const urlParams = new URLSearchParams(window.location.search);
+      const editorModeFromUrl = urlParams.get('editor') === 'true';
       const requestedFile = urlParams.get('graph');
       const isValidFile = manifest.some(item => item.file === requestedFile);
       const graphFileToLoad = (requestedFile && isValidFile) ? requestedFile : manifest[0].file;
@@ -1580,7 +1671,7 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
 
       this.renderer.render(); // Render initial state
       this.setupEventListeners(manifest); // Pass manifest to setup listeners
-      this.toggleEditorMode(false);
+      this.toggleEditorMode(editorModeFromUrl);
       this.toggleFollowMode(true); // Enable follow mode by default
       console.log(`Application initialized with graph: ${graphFileToLoad}`);
 
@@ -1648,7 +1739,6 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
   toggleEditorMode(isEditor) {
     this.isEditorMode = isEditor;
     document.body.classList.toggle('editor-mode', isEditor);
-    document.getElementById('toggleEditorModeBtn').classList.toggle('active', isEditor);
     this.player.stop();
     this.navigation.reset();
     if (!isEditor) {
@@ -1675,9 +1765,8 @@ this.updateUrlDebounceTimer = null; // For debouncing URL updates
         const option = e.target.closest('.graph-option');
         if (option && option.dataset.file) {
           const file = option.dataset.file;
-          const currentHash = window.location.hash;
           // Reload the page, preserving the current view hash if it exists
-          window.location.href = window.location.pathname + '?graph=' + file + currentHash;
+          window.location.href = window.location.pathname + '?graph=' + file;
         }
       });
     } 
@@ -1719,8 +1808,6 @@ onViewChanged: () => {
             this.renderer.animateToView(view);
         }
     });
-
-    document.getElementById('toggleEditorModeBtn').addEventListener('click', () => this.toggleEditorMode(!this.isEditorMode));
     
     document.getElementById('toggleAllNodesBtn').addEventListener('click', () => this.editorTools.toggleAllNodes());
 
@@ -1746,12 +1833,29 @@ onViewChanged: () => {
     
     document.getElementById('saveNodeBtn').addEventListener('click', () => this.editorTools.saveInspectorChanges());
     document.getElementById('closeInspectorBtn').addEventListener('click', () => this.editorTools.closeInspector());
+
+    document.getElementById('tipJarBtn').addEventListener('click', () => {
+        window.open('https://abyssvoid.com/', '_blank', 'noopener,noreferrer');
+    });
     
     document.getElementById('playBtn').addEventListener('click', () => this.player.togglePlay());
     document.getElementById('backBtn').addEventListener('click', () => this.navigation.goBack());
     document.getElementById('nextBtn').addEventListener('click', () => this.navigation.advance());
     
     document.getElementById('followModeBtn').addEventListener('click', () => this.toggleFollowMode());
+
+    // Playback Mode Switch
+    document.getElementById('playbackModeSwitch').addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        this.playbackMode = target.id.replace('mode-', '');
+        
+        document.querySelectorAll('#playbackModeSwitch button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        target.classList.add('active');
+    });
 
     // TOC Modal Listeners
     const tocModal = document.getElementById('tocModal');
@@ -1893,15 +1997,18 @@ toggleAllNodes() {
     const isAnyNodeExpanded = this.graphData.nodes.some(node => !node.isCollapsed);
     const btn = document.getElementById('toggleAllNodesBtn');
 
+    const expandIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>`;
+    const collapseIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line></svg>`;
+
     if (isAnyNodeExpanded) {
       // If any node is expanded, the action is to collapse all
       this.collapseAllNodes();
-      btn.textContent = '➕';
+      btn.innerHTML = expandIcon;
       btn.title = 'Expand All Nodes';
     } else {
       // Otherwise, all are collapsed, so the action is to expand all
       this.expandAllNodes();
-      btn.textContent = '➖';
+      btn.innerHTML = collapseIcon;
       btn.title = 'Collapse All Nodes';
     }
   }
@@ -2198,7 +2305,7 @@ toggleAllNodes() {
         html = `<label for="nodeTitle">Title:</label><input type="text" id="nodeTitle" value="${entity.title||''}"><label>Source Type:</label><div class="toggle-switch"><button id="type-audio" class="${entity.sourceType==='audio'?'active':''}">Audio File</button><button id="type-iframe" class="${entity.sourceType==='iframe'?'active':''}">YouTube</button></div><div id="audio-fields" class="${entity.sourceType==='audio'?'':'hidden'}"><label for="audioUrl">Audio URL:</label><input type="text" id="audioUrl" value="${entity.audioUrl||''}" placeholder="https://.../track.mp3"><label for="coverUrl">Cover URL (Data only):</label><input type="text" id="coverUrl" value="${entity.coverUrl||''}" placeholder="https://.../cover.jpg"></div><div id="iframe-fields" class="${entity.sourceType==='iframe'?'':'hidden'}"><label for="iframeUrl">YouTube URL or Video ID:</label><input type="text" id="iframeUrlInput" value="${entity.iframeUrl||''}" placeholder="dQw4w9WgXcQ"></div><hr><label for="tocOrder">TOC Order (Node):</label><input type="text" id="tocOrder" value="${entity.tocOrder ?? ''}" placeholder="1.1, 1.2, 2.1...">`;
     } else if (entity.source) { // Edge
         title.textContent = 'Edge Properties';
-        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10">`;
+        html = `<label for="edgeLabel">Label:</label><input type="text" id="edgeLabel" value="${entity.label||''}"><label for="edgeColor">Color:</label><input type="color" id="edgeColor" value="${entity.color||'#888888'}"><label for="edgeWidth">Line Width:</label><input type="number" id="edgeWidth" value="${entity.lineWidth||2}" min="1" max="10"><div style="margin-top: 10px; display: flex; align-items: center;"><input type="checkbox" id="isAlternative" ${entity.isAlternative ? 'checked' : ''} style="width: auto; margin-right: 8px;"><label for="isAlternative">Is Alternative Path</label></div>`;
     } else if (entity.type === 'rectangle') {
         const isTransparent = entity.backgroundColor === 'transparent';
         title.textContent = 'Rectangle / Group Properties';
@@ -2314,6 +2421,7 @@ toggleAllNodes() {
     } else if (entity.source) { // Edge
         entity.label = document.getElementById('edgeLabel').value;
         entity.color = document.getElementById('edgeColor').value;
+        entity.isAlternative = document.getElementById('isAlternative').checked;
         entity.lineWidth = parseInt(document.getElementById('edgeWidth').value, 10);
     } else if (entity.type === 'rectangle') {
         entity.backgroundColor = document.getElementById('rectColor').value;
@@ -2449,6 +2557,7 @@ export default class GraphData {
             label: item.label || '',
             lineWidth: item.lineWidth || 2,
             controlPoints: item.controlPoints || [],
+            isAlternative: item.isAlternative || false,
           });
           break;
         case 'RectangleAnnotation':
@@ -2514,6 +2623,7 @@ export default class GraphData {
         label: e.label,
         lineWidth: e.lineWidth,
         controlPoints: e.controlPoints,
+        ...(e.isAlternative && { isAlternative: true }),
       })),
       ...this.decorations.map(d => {
         const common = { 
@@ -2634,12 +2744,29 @@ startFromNode(nodeId) {
     this.player.play(node);
     this.app._updateFloatingChapterTitle(); // Update title on new node start
   }
+  
   async advance() {
     if (!this.currentNode) return;
     
-    const options = this.graphData.getEdgesFromNode(this.currentNode.id);
-    if (options.length === 0) {
-      console.log("End of path.");
+    const allOptions = this.graphData.getEdgesFromNode(this.currentNode.id);
+    let filteredOptions = [];
+
+    const mode = this.app.playbackMode;
+
+    switch (mode) {
+        case 'default':
+            filteredOptions = allOptions.filter(edge => !edge.isAlternative);
+            break;
+        case 'alternative':
+            filteredOptions = allOptions.filter(edge => edge.isAlternative);
+            break;
+        case 'random':
+            filteredOptions = allOptions;
+            break;
+    }
+
+    if (filteredOptions.length === 0) {
+      console.log("End of path for current mode.");
       this.player.stop();
       this.renderer.highlight(null, this.currentNode.id);
       this.currentNode = null;
@@ -2647,8 +2774,8 @@ startFromNode(nodeId) {
     }
     
     let nextEdge;
-    if (options.length === 1) {
-      nextEdge = options[0];
+    if (filteredOptions.length === 1) {
+      nextEdge = filteredOptions[0];
     } else {
 
       // On mobile, if the screen is off (document hidden) and it's an audio node,
@@ -2656,9 +2783,9 @@ startFromNode(nodeId) {
       const isMobileInBackground = (window.innerWidth < 768 && document.hidden);
       if (isMobileInBackground && this.currentNode.sourceType === 'audio') {
         console.log("Mobile background: auto-selecting next audio node randomly.");
-        nextEdge = options[Math.floor(Math.random() * options.length)];
+        nextEdge = filteredOptions[Math.floor(Math.random() * filteredOptions.length)];
       } else {
-        nextEdge = await this.promptForChoice(options);
+        nextEdge = await this.promptForChoice(filteredOptions);
         if (!nextEdge) return;
       }
     }
@@ -3314,9 +3441,18 @@ drawEdge(edge) {
       if (Math.hypot(adjustedEndPoint.x - pBeforeArrow.x, adjustedEndPoint.y - pBeforeArrow.y) > 1) {
           ctx.lineTo(adjustedEndPoint.x, adjustedEndPoint.y);
       }
+
+      if (edge.isAlternative) {
+          ctx.setLineDash([10 / this.scale, 8 / this.scale]);
+      }
       
       ctx.strokeStyle = color; 
       ctx.stroke();
+
+      // Reset dash for arrows and other elements
+      if (edge.isAlternative) {
+          ctx.setLineDash([]);
+      }
       
       this._drawArrow(pForArrow.x, pForArrow.y, angle, color, arrowSizeInWorld);
 
