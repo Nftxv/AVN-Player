@@ -272,59 +272,34 @@ button#lockDecorationsBtn.active:hover {
 }
 
 @media (max-width: 768px) {
-  #player { flex-direction: column; height: auto; padding: 10px 15px;}
+  #player { flex-direction: column; height: auto; padding-bottom: 15px;}
   #songTitle { text-align: center; }
   #playerControls { width: 100%; }
 
   #copyright {
-    position: static; /* Back in the flex flow on mobile */
+    right: 0;
+    left: 0;
+    justify-content: center; /* Use flexbox for centering */
+    padding: 0 15px;
     width: 100%;
-    padding-top: 8px;
-    justify-content: center; /* Center the icon/text combo */
+    box-sizing: border-box;
   }
 }
 
 #copyright {
-  position: absolute;
+  position: fixed;
+  bottom: 0;
   right: 15px;
-  bottom: 15px;
-  z-index: 101;
+  height: var(--copyright-height);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: 15px;
-  background-color: rgba(45, 45, 45, 0); /* Transparent by default */
-  transition: all 0.3s ease-in-out;
-  cursor: pointer;
-}
-
-#copyright:hover {
-  background-color: rgba(45, 45, 45, 0.9); /* Reveal background on hover */
-}
-
-.copyright-icon {
-  font-size: 16px;
-  color: var(--dark-subtle-text);
-}
-
-.copyright-text {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: all 0.3s ease-in-out;
   font-size: 12px;
   color: var(--dark-subtle-text);
-}
-
-#copyright:hover .copyright-text {
-  max-width: 300px; /* Animate to reveal */
-  opacity: 1;
-  margin-left: 2px;
+  z-index: 99;
 }
 
 #copyright a { color: var(--primary-color); text-decoration: none; }
+#copyright a:hover { text-decoration: underline; }
 
 #topToolbar {
   position: fixed;
