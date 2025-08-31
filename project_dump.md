@@ -1,4 +1,5 @@
 
+
 ## ./public/index.html
 
 <!DOCTYPE html>
@@ -311,7 +312,6 @@ button#lockDecorationsBtn.active:hover {
 #player {
   position: fixed;
   bottom: var(--copyright-height); /* Lift player to make space */
-  bottom: 0;
   left: 0;
   right: 0;
   height: var(--player-height);
@@ -2915,6 +2915,9 @@ goBack() {
  * Manages audio playback and player UI updates.
  */
 
+const PLAY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+const PAUSE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+
 // Media Session constants for lock screen metadata
 const MEDIA_SESSION_ALBUM = 'Abyss Void: the Archive';
 const MEDIA_SESSION_ARTIST = 'Nftxv';
@@ -2967,7 +2970,7 @@ export default class Player {
           document.getElementById('songTitle').textContent = node.title;
           return;
         }
-        playBtn.textContent = '⏸';
+        playBtn.innerHTML = PAUSE_ICON_SVG;
         playBtn.disabled = false;
         progress.disabled = false;
         // If the src is the same, just play. Otherwise, set new src.
@@ -2979,7 +2982,7 @@ export default class Player {
     } else if (node.sourceType === 'iframe') {
         progressContainer.style.visibility = 'hidden';
         playBtn.disabled = false;
-        playBtn.textContent = '⏸';
+        playBtn.innerHTML = PAUSE_ICON_SVG;
         progress.value = 0;
         progress.disabled = true;
         
@@ -3003,10 +3006,10 @@ export default class Player {
     if (this.currentNode.sourceType === 'audio') {
         if (this.audio.paused) {
             this.audio.play();
-            playBtn.textContent = '⏸';
+            playBtn.innerHTML = PAUSE_ICON_SVG;
         } else {
             this.audio.pause();
-            playBtn.textContent = '▶';
+            playBtn.innerHTML = PLAY_ICON_SVG;
         }
     } else if (this.currentNode.sourceType === 'iframe' && this.currentYtPlayer) {
         const state = this.currentYtPlayer.getPlayerState();
@@ -3029,7 +3032,7 @@ export default class Player {
     }
 
     this.currentNode = null;
-    document.getElementById('playBtn').textContent = '▶';
+    document.getElementById('playBtn').innerHTML = PLAY_ICON_SVG;
     document.getElementById('playBtn').disabled = true;
     document.getElementById('progress').disabled = true;
     document.getElementById('songTitle').textContent = 'Select a node to begin...';
@@ -3097,10 +3100,10 @@ export default class Player {
             if (this.navigation) this.navigation.advance();
             break;
         case YT.PlayerState.PLAYING:
-            playBtn.textContent = '⏸';
+            playBtn.innerHTML = PAUSE_ICON_SVG;
             break;
         case YT.PlayerState.PAUSED:
-            playBtn.textContent = '▶';
+            playBtn.innerHTML = PLAY_ICON_SVG;
             break;
     }
   }

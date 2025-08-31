@@ -1,6 +1,5 @@
 :root {
   --player-height: 70px;
-  --copyright-height: 22px; /* New: Define copyright area height */
   --primary-color: #4285f4;
   --primary-hover: #5a95f5;
   --dark-bg: #1e1e1e;
@@ -150,8 +149,7 @@ button#lockDecorationsBtn.active:hover {
 
 #player {
   position: fixed;
-  bottom: var(--copyright-height); /* Lift player to make space */
-  left: 0;
+  bottom: 0; /* Flush with the bottom edge */  left: 0;
   right: 0;
   height: var(--player-height);
   background: rgba(45, 45, 45, 0.9);
@@ -275,27 +273,24 @@ button#lockDecorationsBtn.active:hover {
   #player { flex-direction: column; height: auto; padding-bottom: 15px;}
   #songTitle { text-align: center; }
   #playerControls { width: 100%; }
-
-  #copyright {
-    right: 0;
-    left: 0;
-    justify-content: center; /* Use flexbox for centering */
-    padding: 0 15px;
-    width: 100%;
-    box-sizing: border-box;
-  }
 }
 
 #copyright {
   position: fixed;
-  bottom: 0;
-  right: 15px;
-  height: var(--copyright-height);
-  display: flex;
-  align-items: center;
-  font-size: 12px;
+  bottom: 15px;
+  left: 10px;
+  font-size: 10px;
   color: var(--dark-subtle-text);
   z-index: 99;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  opacity: 0.6;
+  transition: opacity 0.2s ease-in-out;
+  transform-origin: bottom left;
+}
+
+#copyright:hover {
+  opacity: 1;
 }
 
 #copyright a { color: var(--primary-color); text-decoration: none; }
