@@ -271,7 +271,24 @@ button#lockDecorationsBtn.active:hover {
 @media (max-width: 768px) {
   #player { flex-direction: column; height: auto; padding-bottom: 15px;}
   #songTitle { text-align: center; }
-  #playerControls { width: 100%; }
+
+  /* NEW: Add horizontal padding to the main content area on mobile */
+  #playerContent {
+    padding: 0 15px;
+    box-sizing: border-box;
+  }
+  
+  #playerControls { 
+    width: 100%; 
+    /* NEW: Distribute content to the edges and center */
+    justify-content: space-between;
+    max-width: none; /* Remove the desktop width limit */
+  }
+
+  /* NEW: Allow the progress bar container to fill the available width */
+  #progressContainer {
+    max-width: none; /* Remove the desktop width limit */
+  }
 }
 
 #copyright {
